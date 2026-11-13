@@ -230,3 +230,7 @@ Các bước b1–b9 của q1–q4 tự thử lại tối đa hai lần khi bộ
 
 Unittest mô phỏng: 261 PASS; py_compile các module liên quan PASS. Graphify chưa chạy được vì Python dự án không có module graphify.
 
+
+## Bộ cài offline chia sẻ — 14/11/2026
+Thêm packaging/build_bundle.py và install_bundle.py: ZIP Windows x64 kèm CPython 3.12, dependencies/models, Chromium đúng revision Playwright, VC++ runtime và Swarmote 1.2.0 (checksum chính thức). Bản đóng gói đặt đường dẫn browser qua sitecustomize; bản nguồn giữ browser channel hiện có. Có manifest SHA256, kiểm tra import/OCR/browser trước shortcut. Không tự chạy installer hoặc thao tác điện thoại trên máy hiện tại. Xem packaging/README.md. Hai test browser mới và bảy test OTP PASS; toàn suite dừng sau 54 dấu tiến độ, chưa hoàn tất. Graphify query/update/tree thất bại vì Python thiếu module graphify. Chưa thử Windows sạch hoặc luồng thật trên nhiều điện thoại.
+

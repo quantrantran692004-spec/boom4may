@@ -6,6 +6,8 @@ SMS entry screen. URLs and SMS bodies are never included in errors.
 from __future__ import annotations
 
 import re
+import os
+from pathlib import Path
 import threading
 import time
 from urllib.error import HTTPError, URLError
@@ -79,6 +81,13 @@ def read_otp(url: str, *, timeout: float = 5) -> str | None:
     return extract_otp(payload.decode("utf-8", errors="replace"))
 
 
+def browser_launch_options(channel: str) -> dict:
+    bundled = os.environ.get("SWARMOTE_BUNDLED_BROWSER", "")
+    if bundled and Path(bundled).is_file():
+        return {"executable_path": bundled}
+    return {"channel": channel}
+
+
 def _read_otp_in_browser(url: str, previous_code: str | None, *,
                          deadline: float, interval: float,
                          stop: threading.Event, not_before: float = 0) -> str:
@@ -108,7 +117,7 @@ def _read_otp_in_browser(url: str, previous_code: str | None, *,
                 while not stop.is_set() and time.monotonic() < until:
                     try:
                         browser = playwright.chromium.launch(
-                            channel=channel, headless=headless,
+                            **browser_launch_options(channel), headless=headless,
                             timeout=timeout_ms(until))
                     except Error:
                         if not retry_visible or stop.wait(0.5):
