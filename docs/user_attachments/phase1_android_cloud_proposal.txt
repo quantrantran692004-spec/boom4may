@@ -1,0 +1,204 @@
+# GIAI ĐOẠN 1: NÂNG CẤP BỘ ĐIỀU KHIỂN ANDROID CLOUD
+
+## 1. MỤC TIÊU
+
+Dự án hiện tại sử dụng Python, ADB và Swarmote để quản lý 12 điện thoại Android Cloud.
+
+Yêu cầu triển khai bộ điều khiển Android mới bằng **openatx/uiautomator2 kết hợp ADB hiện tại**.
+
+Ưu tiên tuyệt đối:
+1. Thao tác chính xác, đúng thiết bị.
+2. Hoạt động ổn định, không nhầm lẫn giữa các máy.
+3. Đọc và nhận diện phần tử giao diện đáng tin cậy.
+4. Phát hiện lỗi rõ ràng, không tự thao tác khi chưa xác định được trạng thái.
+5. Tốc độ là ưu tiên sau độ chính xác.
+
+Chỉ kiểm nghiệm q1 và q2. Giữ q3–q12 cho giai đoạn mở rộng.
+
+## 2. PHẦN CẦN GIỮ NGUYÊN
+
+- Giao diện CustomTkinter quản lý 12 điện thoại.
+- Hệ thống Profile và kết nối Swarmote.
+- Cách quản lý proxy hiện tại.
+- Các nút Bắt đầu, Dừng, Làm lại.
+- Bộ quản lý thiết bị trong `runner.py`.
+- Dữ liệu và tài liệu quy trình q1/q2.
+- Toàn bộ ảnh tham chiếu trong `flow_images/`.
+
+Không bổ sung SQLite, lưu tiến độ qua phiên hoặc cơ chế resume.
+
+Không sửa trực tiếp bản gốc trước khi có bản sao an toàn.
+
+## 3. CÔNG NGHỆ SỬ DỤNG
+
+- Python hiện tại của dự án.
+- ADB từ Swarmote.
+- `openatx/uiautomator2` làm driver thử nghiệm.
+- `pytest` để kiểm thử.
+- Driver ADB cũ làm phương án dự phòng.
+
+Tài liệu: https://github.com/openatx/uiautomator2
+
+Cài thư viện vào môi trường Python riêng để không ảnh hưởng tool đang chạy. Ghi lại phiên bản đã kiểm nghiệm.
+
+Chưa cài Mobilerun hoặc API AI Vision ở giai đoạn này.
+
+## 4. CÁC BƯỚC TRIỂN KHAI
+
+### BƯỚC 1: SAO LƯU VÀ KIỂM TRA MÃ HIỆN TẠI
+
+Đọc và phân tích:
+
+- `amazon_android/cloud.py`
+- `amazon_android/account_flow.py`
+- `amazon_android/runner.py`
+- `amazon_android/desktop.py`
+- `amazon_android/swarmote_desktop.py`
+
+Xác định luồng kết nối từ Profile Swarmote tới serial ADB và những hàm điều khiển có thể tái sử dụng.
+
+Không viết lại các thành phần đã hoạt động tốt.
+
+### BƯỚC 2: KIỂM TRA TƯƠNG THÍCH UIAUTOMATOR2
+
+Thực hiện trên q1 trước:
+
+1. Lấy đúng serial ADB do Swarmote cung cấp.
+2. Kiểm tra thiết bị đang online.
+3. Kiểm tra khả năng kết nối của UiAutomator2.
+4. Đọc thông tin thiết bị.
+5. Đọc cây giao diện XML.
+6. Chụp ảnh màn hình.
+7. Đọc ứng dụng đang hiển thị.
+8. Kiểm tra khả năng tìm phần tử theo resource-id, text và content-description.
+
+Chỉ thử tác vụ đọc trước. Nếu thư viện cần cài dịch vụ hỗ trợ lên Android, phải kiểm tra khả năng tương thích và thông báo trước khi thực hiện.
+
+Lặp lại với q2.
+
+Nếu UiAutomator2 không tương thích Swarmote, ghi rõ nguyên nhân và giữ driver ADB cũ. Không cố thay thế khi chưa chứng minh được lợi ích.
+
+### BƯỚC 3: XÂY MODULE ĐIỀU KHIỂN RIÊNG
+
+Tạo module dự kiến:
+
+`amazon_android/android_driver.py`
+
+Module cần cung cấp các chức năng:
+
+- Kết nối tới một thiết bị theo serial xác định.
+- Kiểm tra kết nối.
+- Lấy ảnh màn hình.
+- Lấy cây UI XML.
+- Lấy thông tin ứng dụng hiện tại.
+- Tìm phần tử giao diện theo thuộc tính.
+- Kiểm tra phần tử có hiển thị và thao tác được không.
+- Thao tác thử nghiệm an toàn trên giao diện kiểm thử.
+- Chờ phần tử hoặc trạng thái có điều kiện.
+- Phát hiện thiết bị mất kết nối.
+- Hủy tác vụ khi người dùng yêu cầu Dừng.
+- Trả về lỗi có cấu trúc.
+
+Mọi hành động phải gắn với serial riêng. Không được tự chọn thiết bị mặc định.
+
+Module phải có thể sử dụng lại trong giai đoạn 2 mà không cần viết lại.
+
+### BƯỚC 4: XỬ LÝ LỖI VÀ AN TOÀN
+
+Xây các trường hợp xử lý:
+
+- ADB mất kết nối.
+- Thiết bị offline.
+- Không đọc được XML.
+- Ảnh chụp lỗi.
+- Không tìm thấy phần tử.
+- Có nhiều phần tử trùng tên.
+- Phần tử chưa sẵn sàng.
+- Quá thời gian chờ.
+- Người dùng bấm Dừng.
+
+Yêu cầu:
+
+- Không chọn đại phần tử khi kết quả không rõ ràng.
+- Không lặp thao tác có thể gây thay đổi dữ liệu nếu chưa xác minh kết quả trước đó.
+- Không để lỗi q1 ảnh hưởng tới q2.
+- Không để tác vụ treo vô thời hạn.
+- Không ghi mật khẩu, OTP hoặc thông tin nhạy cảm vào log.
+- Không tự xóa dữ liệu, tạo tài khoản hoặc thực hiện thao tác đăng ký thật trong bài thử driver.
+
+### BƯỚC 5: KIỂM THỬ ĐỘ ỔN ĐỊNH
+
+Thực hiện các bài kiểm thử:
+
+**Kiểm thử A: Một thiết bị**
+
+- Kết nối q1.
+- Đọc XML và chụp ảnh nhiều lần.
+- Kiểm tra kết quả trả về có hợp lệ không.
+- Ngắt kết nối thử nghiệm và kiểm tra lỗi được phát hiện đúng.
+
+**Kiểm thử B: Hai thiết bị**
+
+- Kết nối q1 và q2 độc lập.
+- Đọc giao diện hai máy đồng thời.
+- Xác nhận mỗi kết quả đúng với serial tương ứng.
+- Thử dừng một worker và xác nhận worker còn lại không bị ảnh hưởng.
+
+**Kiểm thử C: Driver cũ và mới**
+
+So sánh trên cùng điều kiện:
+
+- Khả năng đọc giao diện.
+- Khả năng nhận diện đúng phần tử.
+- Tính ổn định.
+- Khả năng xử lý lỗi.
+- Thời gian phản hồi tham khảo.
+
+Chỉ thay driver chính nếu phương án mới đạt độ tin cậy ít nhất tương đương và mang lại lợi ích rõ ràng.
+
+## 5. CẤU TRÚC FILE DỰ KIẾN
+
+Giữ nguyên cấu trúc dự án hiện tại.
+
+Chỉ bổ sung những thành phần cần thiết:
+
+- `amazon_android/android_driver.py` – module điều khiển thử nghiệm.
+- `tests/test_android_driver.py` – bài kiểm thử.
+- `STAGE1_RESULT.md` – báo cáo kết quả triển khai.
+
+Không viết lại toàn bộ `desktop.py`, `runner.py`, `account_flow.py` hoặc các luồng q1/q2 ở giai đoạn này.
+
+## 6. TIÊU CHUẨN NGHIỆM THU
+
+Giai đoạn 1 chỉ hoàn thành khi:
+
+- [ ] Kết nối q1 thành công.
+- [ ] Kết nối q2 thành công.
+- [ ] Đọc được XML và ảnh trên cả hai máy.
+- [ ] Xác định đúng serial, không nhầm thiết bị.
+- [ ] Tìm được phần tử giao diện theo thuộc tính khi có dữ liệu UI hỗ trợ.
+- [ ] Xử lý đúng các tình huống mất kết nối và timeout.
+- [ ] Hai thiết bị hoạt động độc lập khi kiểm thử.
+- [ ] Các bài kiểm thử liên quan vượt qua.
+- [ ] Tool gốc vẫn chạy bình thường.
+- [ ] Có kết quả so sánh driver cũ và mới.
+
+Nếu một yêu cầu không đạt, phải ghi rõ lý do thay vì đánh dấu hoàn thành.
+
+## 7. KẾT QUẢ PHẢI BÁO CÁO
+
+Sau khi triển khai, xuất báo cáo gồm:
+
+1. Những file đã tạo hoặc thay đổi.
+2. Phiên bản thư viện đã sử dụng.
+3. Kết quả kết nối q1 và q2.
+4. Bài kiểm thử nào PASS hoặc FAIL.
+5. Vấn đề kỹ thuật đã gặp.
+6. UiAutomator2 có thực sự phù hợp hơn cách dùng ADB cũ không.
+7. Thành phần nào được đề xuất sử dụng cho giai đoạn 2.
+
+**YÊU CẦU CUỐI CÙNG**
+
+Chỉ thực hiện giai đoạn 1. Không tự động chuyển sang State Machine, AI Vision hoặc viết lại giao diện.
+
+Không thay thế tool chính khi chưa có kết quả kiểm thử và xác nhận của người dùng.
