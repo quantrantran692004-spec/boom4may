@@ -1,0 +1,51 @@
+{
+  "serial": "127.0.0.1:57451",
+  "startup_ms": 3487.6,
+  "results": [
+    {
+      "backend": "uiautomator2",
+      "iteration": 1,
+      "ok": true,
+      "nodes": 46,
+      "screen": "UNKNOWN",
+      "scrollables": 0,
+      "elapsed_ms": 502.7
+    },
+    {
+      "backend": "uiautomator2",
+      "iteration": 2,
+      "ok": true,
+      "nodes": 46,
+      "screen": "UNKNOWN",
+      "scrollables": 0,
+      "elapsed_ms": 415.5
+    },
+    {
+      "backend": "uiautomator2",
+      "iteration": 3,
+      "ok": true,
+      "nodes": 46,
+      "screen": "UNKNOWN",
+      "scrollables": 0,
+      "elapsed_ms": 375.2
+    },
+    {
+      "backend": "uiautomator2",
+      "iteration": 4,
+      "ok": true,
+      "nodes": 46,
+      "screen": "UNKNOWN",
+      "scrollables": 0,
+      "elapsed_ms": 370.3
+    },
+    {
+      "backend": "uiautomator2",
+      "iteration": 5,
+      "ok": true,
+      "nodes": 46,
+      "screen": "UNKNOWN",
+      "scrollables": 0,
+      "elapsed_ms": 267.8
+    }
+  ]
+}

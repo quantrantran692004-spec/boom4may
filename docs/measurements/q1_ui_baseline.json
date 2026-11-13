@@ -1,0 +1,59 @@
+{
+  "serial": "127.0.0.1:57451",
+  "results": [
+    {
+      "backend": "adb_dump",
+      "iteration": 1,
+      "ok": true,
+      "nodes": 105,
+      "screen": "MENU",
+      "us_found": false,
+      "elapsed_ms": 2491.8
+    },
+    {
+      "backend": "adb_dump",
+      "iteration": 2,
+      "ok": true,
+      "nodes": 105,
+      "screen": "MENU",
+      "us_found": false,
+      "elapsed_ms": 2409.7
+    },
+    {
+      "backend": "adb_dump",
+      "iteration": 3,
+      "ok": true,
+      "nodes": 105,
+      "screen": "MENU",
+      "us_found": false,
+      "elapsed_ms": 2384.0
+    },
+    {
+      "backend": "adb_screenshot_ocr",
+      "iteration": 1,
+      "ok": true,
+      "nodes": 24,
+      "screen": "MENU",
+      "us_found": false,
+      "elapsed_ms": 8757.1
+    },
+    {
+      "backend": "adb_screenshot_ocr",
+      "iteration": 2,
+      "ok": true,
+      "nodes": 24,
+      "screen": "MENU",
+      "us_found": false,
+      "elapsed_ms": 6882.3
+    },
+    {
+      "backend": "adb_screenshot_ocr",
+      "iteration": 3,
+      "ok": true,
+      "nodes": 24,
+      "screen": "MENU",
+      "us_found": false,
+      "elapsed_ms": 6763.2
+    }
+  ]
+}

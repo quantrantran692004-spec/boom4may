@@ -1,0 +1,44 @@
+[
+  {
+    "depth": 50,
+    "active_only": false,
+    "nodes": 106,
+    "screen": "MENU",
+    "elapsed_ms": 520.1,
+    "fields": 0,
+    "labels": [
+      "Pets",
+      "Shop by category",
+      "Gifting"
+    ],
+    "scrollables": 1
+  },
+  {
+    "depth": 150,
+    "active_only": false,
+    "nodes": 106,
+    "screen": "MENU",
+    "elapsed_ms": 379.6,
+    "fields": 0,
+    "labels": [
+      "Pets",
+      "Shop by category",
+      "Gifting"
+    ],
+    "scrollables": 1
+  },
+  {
+    "depth": 150,
+    "active_only": true,
+    "nodes": 106,
+    "screen": "MENU",
+    "elapsed_ms": 396.1,
+    "fields": 0,
+    "labels": [
+      "Pets",
+      "Shop by category",
+      "Gifting"
+    ],
+    "scrollables": 1
+  }
+]
