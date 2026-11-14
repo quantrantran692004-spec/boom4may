@@ -340,4 +340,8 @@ Máy đang chọn; proxy chuyển xuống dưới. `_select` vẫn gắn từng 
 `values[index]`; test riêng xác nhận Máy 7 không lấy hàng máy khác. Ảnh gốc
 đã lưu tại [ASSET_INDEX.md](ASSET_INDEX.md). Không tự đặt lại phiên tool đang
 mở; phiên cũ chưa nạp bố cục mới.
+Video b6 `cuonus1.mp4` đã đưa vào `flow_images/shared/` để theo mã nguồn
+trên Git. Năm ảnh đính kèm cũ của q3/q4 và b6 được nhắc trong
+`IMAGE_EVIDENCE.md` không còn ở đường dẫn Temp cũ, nên chưa thể sao chép
+chúng từ máy hiện tại; các ảnh khác đang có trong dự án đều được theo dõi.
 

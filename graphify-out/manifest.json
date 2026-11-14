@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1794643525.812383,
-    "seen": 1794643582.337454,
-    "ast_hash": "869a4524c9d196788181f70b9500da02",
+    "mtime": 1794643694.6451414,
+    "seen": 1794643707.6812868,
+    "ast_hash": "40802a9f96ae4713acaa0aa8d6dafea7",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "IMAGE_EVIDENCE.md": {
-    "mtime": 1794637940.9655952,
-    "seen": 1794638104.4485939,
-    "ast_hash": "0734a56d82c9c1203f2378cd2b55e4d5",
+    "mtime": 1794643694.6411529,
+    "seen": 1794643707.6812868,
+    "ast_hash": "f0aaca16fe7e9819954891ba0d55b35b",
     "semantic_hash": ""
   },
   "PROJECT_INDEX.md": {
@@ -1275,6 +1275,12 @@
     "mtime": 1794642605.0514274,
     "seen": 1794643582.337454,
     "ast_hash": "d54202473b05ddb45727bc28784552d1",
+    "semantic_hash": ""
+  },
+  "flow_images/shared/cuonus1.mp4": {
+    "mtime": 1794629871.804749,
+    "seen": 1794643707.6812868,
+    "ast_hash": "3b2078a513e5004b6ac4a6352ab09666",
     "semantic_hash": ""
   }
 }

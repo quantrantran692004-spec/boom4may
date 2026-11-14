@@ -2,7 +2,7 @@
 
 ## Video cuộn tay tới US +1 — 14/11/2026
 
-Video người dùng cung cấp ở `D:\cuonus1.mp4` (giữ ngoài repository vì có SĐT trên màn). Khoảng giây 1 hộp quốc gia ở đầu danh sách; giây 6–8 đã tới các hàng cuối gồm Zimbabwe và Åland Islands; sau một cú vuốt ngược ngắn, United States +1 hiện khoảng giây 9–10; chạm hàng US làm hộp đóng và form hiện US +1 khoảng giây 16. Đây là bằng chứng cho thao tác tay, chưa đo tốc độ hoặc xác nhận hành vi của tool đang chạy. Không ghi lại SĐT trong video.
+Video người dùng cung cấp đã sao chép từ `D:\cuonus1.mp4` vào [cuonus1.mp4](flow_images/shared/cuonus1.mp4) theo yêu cầu lưu toàn bộ minh chứng trên Git. Khoảng giây 1 hộp quốc gia ở đầu danh sách; giây 6–8 đã tới các hàng cuối gồm Zimbabwe và Åland Islands; sau một cú vuốt ngược ngắn, United States +1 hiện khoảng giây 9–10; chạm hàng US làm hộp đóng và form hiện US +1 khoảng giây 16. Đây là bằng chứng cho thao tác tay, chưa đo tốc độ hoặc xác nhận hành vi của tool đang chạy. Không ghi lại SĐT trong tài liệu.
 
 ## q1 b6 — US +1 hiện nhưng chạm không đóng hộp, 14/11/2026
 
