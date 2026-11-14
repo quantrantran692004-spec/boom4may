@@ -22,6 +22,7 @@ from .account_flow import (
     resume_common_index, route_list_menu, verify_menu_open,
 )
 from .random_prefix import build_random_steps
+from .q7_state_machine import build_q7_pilot_steps
 from .windows_identity import set_process_identity, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
@@ -71,6 +72,7 @@ FIELD_KEYS = (
 )
 
 POST_MENU_STEP_FACTORIES = {index: build_random_steps for index in range(12)}
+POST_MENU_STEP_FACTORIES[6] = build_q7_pilot_steps
 
 
 def _automatic_resume_slots(items: list[dict]) -> list[int]:
@@ -1413,7 +1415,8 @@ class Window:
             "after_step": self.phone_stop_after_step.setdefault(job.index, threading.Event())}
         try:
             def route(current, active_job, deadline, active_stop):
-                if context["factories"].get(active_job.index) is build_random_steps:
+                if context["factories"].get(active_job.index) in {
+                        build_random_steps, build_q7_pilot_steps}:
                     return None  # The random prefix also runs on list menus.
                 phone = CloudPhone(context["serials"][active_job.index])
                 return route_list_menu(phone, steps, current, session,

@@ -69,6 +69,7 @@ class RegistrationState:
     create_pressed: bool = False
     prefix_choices: dict[int, tuple[float, float]] = field(default_factory=dict, repr=False)
     prefix_completed: set[int] = field(default_factory=set, repr=False)
+    q7_prefix_started_at: dict[int, float] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -214,7 +215,7 @@ class PostMenuSession:
                     return
                 reason = str(exc) if isinstance(exc, ToolError) else type(exc).__name__
                 retryable = bool(re.fullmatch(r'b[1-9][a-z]?', step.name.split(' ', 1)[0]))
-                if retryable and not stop.is_set():
+                if retryable and not stop.is_set() and not getattr(exc, "terminal", False):
                     recoveries += 1
                     if recoveries == 1 or recoveries % 20 == 0:
                         message = (f"{step.name} · lần xử lý chưa thành công ({reason}); "

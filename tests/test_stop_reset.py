@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from amazon_android.desktop import Window
 from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
+from amazon_android.post_menu import PostMenuSession
 from amazon_android.runner import _prepare_phone, RunJob
 
 
@@ -36,6 +37,17 @@ class StopResetTests(unittest.TestCase):
         self.assertIsNot(w.events,old_events); self.assertIsNot(w.phone_serials,old_serials)
         self.assertTrue(w._previous_work_busy())
         w._set_editing.assert_called_with(True)
+
+    def test_reset_discards_only_ram_state_of_q7_pilot(self):
+        w=self.window()
+        session=PostMenuSession('batch',6,'q7')
+        session.registration.prefix_completed.update({1,2,3})
+        session.registration.q7_prefix_started_at[2]=1.0
+        w.post_menu_sessions[6]=session
+        w.cancel.set(); w._reset()
+        self.assertEqual(w.post_menu_sessions,{})
+        self.assertEqual(w.post_menu_steps,{})
+        self.assertEqual(session.registration.prefix_completed,{1,2,3})
 
     def test_reset_without_stop_does_not_clear_running_job(self):
         w=self.window(); old_jobs=w.jobs

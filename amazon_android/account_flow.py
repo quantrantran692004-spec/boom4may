@@ -442,11 +442,13 @@ def _wait_screen(phone: CloudPhone, expected: set[str],
                  deadline: AttemptDeadline, stop: threading.Event,
                  *, seconds: float = 20) -> list[dict[str, str]]:
     next_notice = time.monotonic() + seconds
+    unknown_since = None
     last_screen = "UNKNOWN"
     last_read_failed = False
     while True:
         if stop.is_set():
             raise ToolError("Đã dừng máy này")
+        deadline.remaining()
         try:
             nodes = _read_nodes(phone, deadline, stop)
         except ToolError as exc:
@@ -458,6 +460,15 @@ def _wait_screen(phone: CloudPhone, expected: set[str],
             last_screen = screen(nodes)
             if last_screen in expected:
                 return nodes
+            if getattr(deadline, "strict_expected", False):
+                if (last_screen != "UNKNOWN" and last_screen not in
+                        getattr(deadline, "pending_screens", frozenset())):
+                    raise ToolError(
+                        f"Màn {last_screen} không thuộc kết quả chờ {sorted(expected)}")
+                if unknown_since is None:
+                    unknown_since = time.monotonic()
+                elif time.monotonic() - unknown_since >= 8:
+                    raise ToolError("Màn UNKNOWN chưa rõ sau 8 giây; giữ nguyên bước")
         if time.monotonic() >= next_notice:
             deadline.recovering(f"Màn đang chuyển chậm ({last_screen}) · tiếp tục đọc, không bấm lặp")
             next_notice = time.monotonic() + max(3, seconds)

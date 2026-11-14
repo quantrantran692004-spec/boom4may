@@ -1,5 +1,13 @@
 # Danh mục từng bước đã biết — 13/11/2026
 
+## Bản thử q7 State Machine — 14/11/2026
+
+Q7 dùng bản thử nhận diện, kiểm tra và xác minh màn trước/sau b4–b11. B1–b3
+của riêng q7 thêm tổng 30 giây và phải bấm được một mục con có nhãn/vùng
+hợp lệ mỗi lượt mới đánh dấu xong. Sau Create, q7 dừng vì chưa có màn kết quả
+đã được hướng dẫn. Các máy khác vẫn dùng b1–b3 hiện hành.
+Xem [Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md).
+
 ## B1–B3 hiện hành — Ba lượt ngẫu nhiên q1–q12
 
 B1–b3 hiện chỉ xem/bấm ngẫu nhiên các vùng danh mục theo kích thước Android của đúng máy, không cần OCR hay xác nhận màn đã đổi. Mỗi máy nhận điểm b1 riêng trong 12 điểm của mẻ, nên chuỗi ba bước không trùng giữa 12 máy; mẻ mới xáo lại. Lệnh bấm ADB lỗi thì thử điểm khác, vuốt rồi tự thử lại cùng bước; không có cú bấm nào thành công thì không chuyển b4. Trước b4 chạm menu ba gạch; b4–b11 giữ quy tắc nhận diện cũ. Các mốc q1–q6 cố định bên dưới là lịch sử. Ảnh tham chiếu ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); chưa thử trên 12 máy thật.

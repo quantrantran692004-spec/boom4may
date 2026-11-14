@@ -1,5 +1,12 @@
 # Tiến độ hướng dẫn bằng ảnh — cập nhật 13/11/2026
 
+**Bản thử nhánh `codex/q7-stage2` 14/11/2026:** b1–b3 của riêng q7 thử mở mục con trong menu và xem
+thêm tổng 30 giây. Riêng q7 dùng State Machine thử nghiệm quanh b4–b11 với
+kiểm tra màn trước/sau và dừng ở màn chưa biết; chưa thử q7 thật. Xem
+[Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md). Các đoạn lịch sử bên
+dưới mô tả bản trước; các máy khác không đổi b1–b3. Tiến trình đang mở chưa
+được xác nhận đã nạp mã mới.
+
 **Luồng đang chạy từ 14/11/2026:** b1–b3 của q1–q12 bấm/vuốt ngẫu nhiên trong vùng danh mục dựa trên kích thước từng Android, không dùng OCR. Mỗi máy có điểm b1 riêng trong mẻ; mẻ mới xáo lại. Lệnh ADB lỗi thì thử điểm khác, không nhảy b4 trước khi có ba cú bấm được gửi thành công. Trước b4 chạm menu ba gạch; b4–b11 giữ nguyên cách nhận diện. Các chuỗi cố định q1–q6 bên dưới là lịch sử. 14 ảnh menu tại `flow_images/shared/random_prefix_reference/`; chưa thử 12 máy thật.
 
 **Chưa có toàn bộ quy trình.** Những ảnh đã gửi chỉ mô tả các mốc dưới đây. Mỗi ảnh tiếp theo của người dùng có thể bổ sung hoặc sửa một mốc; phải cập nhật file này, tài liệu máy tương ứng và mã trước khi nói máy đó đã hoàn tất. Không suy diễn màn sau ảnh cuối.

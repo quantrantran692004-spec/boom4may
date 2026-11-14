@@ -1,3 +1,25 @@
+## Bản thử State Machine q7 và b1–b3 mở mục con — 14/11/2026
+
+Trên nhánh `codex/q7-stage2`, chỉ b1–b3 của q7 thử bấm mục con có nhãn trong 14 ảnh tham
+chiếu sau khi bấm thẻ, rồi xem thêm 10 giây mỗi bước (thêm tổng 30 giây). Nếu
+không đọc được mục con hợp lệ từ cây Android hoặc cú bấm lỗi thì thử thẻ khác;
+không đánh dấu hoàn tất chỉ vì bấm thẻ ngoài. Trước b4 quay về Browse menu.
+Các máy khác giữ nguyên `random_prefix.py` và ba lượt hiện hành.
+
+Q7 là máy duy nhất nối bản thử State Machine giai đoạn 2 quanh b4–b11. Module
+`q7_state_machine.py` kiểm tra màn trước, dùng hành động chung hiện có, đọc
+lại màn sau, giới hạn thời gian theo trạng thái và dừng khi màn lạ/sai. Sau
+Create luôn dừng báo chưa có màn kết quả được hướng dẫn, không báo tài khoản
+thành công. q1–q6 và q8–q12 không đổi đường b4–b11. Đã qua unittest mô phỏng;
+chưa thử q7 thật. Người dùng sẽ tự thử q7; không tự đóng phiên tool đang mở vì
+dữ liệu mẻ chỉ ở RAM. Xem [Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md).
+Kết quả test ở cuối [Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md);
+chỉ mô phỏng, chưa nghiệm thu q7 thật.
+Trên nhánh này `_wait_screen()` chỉ đổi cách xử lý khi nhận `StateDeadline`
+của q7: màn cũ hợp lệ được chờ có hạn, màn sai nhánh dừng, `UNKNOWN` không
+chờ vô hạn. Các máy khác vẫn dùng `AttemptDeadline` cũ. Q7 b1–b3 có hạn
+90 giây mỗi lượt. 334/334 unittest PASS; chưa chạy đăng ký thật.
+
 ## Thẻ tùy chọn khi dán nhiều hàng Amazon — 14/11/2026
 
 Trong ô **Thông tin Amazon**, hàng `SĐT | Mật khẩu | Tên | URL OTP` hoặc hàng có cột thẻ trống đều hợp lệ; có thể trộn cùng hàng có thẻ trong một lần dán. Parser đã cho phép thẻ rỗng nhưng `Window._input_issue` trước đây vẫn bắt buộc trường thẻ cho mọi máy. Nay bộ kiểm tra chỉ yêu cầu SĐT, mật khẩu, tên và URL OTP; nếu thẻ có giá trị thì vẫn kiểm tra định dạng như cũ. Placeholder ghi thẻ tùy chọn. Kiểm thử dùng dữ liệu giả, không thao tác máy thật.
