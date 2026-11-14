@@ -74,7 +74,12 @@ for _slot in range(2):
 def _engine(slot=0):
     from rapidocr import RapidOCR
 
-    return RapidOCR()
+    # Each phone reader is a separate process. Without this limit, every
+    # ONNX session can create a full CPU thread pool and later phones starve.
+    return RapidOCR(params={
+        "EngineConfig.onnxruntime.intra_op_num_threads": 1,
+        "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+    })
 
 
 def _recognize(raw, *, stop=None, remaining=None):

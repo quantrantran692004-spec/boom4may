@@ -250,3 +250,7 @@ Người dùng chốt q5 bấm Toys, Kids and Baby → Office & Professional →
 
 Người dùng chốt q6: b1 Trang chủ xem 2 giây, b2 Giỏ hàng xem 2 giây, b3 về menu, b3a bấm một thẻ rồi chuyển b4. Chọn Devices and Electronics từ menu thẻ, Electronics ở menu danh sách; b3a là phần con của bước thứ ba để giữ b4 chung ở index 3. Nếu thẻ mở trang khác, b4 `_ensure_menu` tự về menu để tìm Sign In. q6 không đi theo nhánh menu danh sách vốn bỏ qua b1–b3 của máy khác. Chưa thử q6 trên máy thật. q7–q12 chưa có hướng dẫn riêng.
 
+## Điều tra q1/q2 mượt, q3+ lỗi thất thường khi chạy song song — 14/11/2026
+
+Chưa có lỗi/màn hiện hành của q3+ để quy kết từng lần dừng. Kiểm tra mã thấy hai điểm có thể làm lỗi thay đổi theo thời điểm: (1) sau thẻ danh mục, `_ensure_menu` trước đây chỉ phát một lần Back hoặc Browse rồi chờ MENU mãi; một lần Back có thể tới Home, nhất là ở q3–q6 có bước riêng khác q1/q2. Nay nhánh chưa ở MENU đọc lại sau mỗi thao tác và đi tiếp tối đa bốn chặng đã xác nhận; nhánh đã ở MENU không chạm. (2) mỗi máy dùng process OCR riêng, RapidOCR/ONNX mặc định `intra_op_num_threads=-1`, `inter_op_num_threads=-1`, có thể tạo nhiều luồng CPU trên mỗi process. Nay mỗi engine đặt 1/1; đã khởi tạo RapidOCR thật và xác nhận cấu hình. Khi kiểm tra, Windows 8 luồng CPU/7,92 GB RAM, còn 1,36 GB RAM trống và ADB thấy 2 cloud phone; đây không phải đo tại lượt nhiều máy bị lỗi. Chưa khẳng định hai sửa này giải quyết mọi lỗi; cần chạy q3/q4 thật để đối chiếu.
+

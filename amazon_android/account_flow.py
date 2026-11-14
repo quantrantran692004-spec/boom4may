@@ -673,20 +673,39 @@ def _country_full_row(phone: CloudPhone, row: dict[str, str],
 
 def _ensure_menu(phone: CloudPhone, deadline: AttemptDeadline,
                  stop: threading.Event) -> list[dict[str, str]]:
-    nodes = _read_nodes(phone, deadline, stop)
-    if screen(nodes) == "MENU":
-        return nodes
-    browse = [node for node in nodes if node.get("content-desc", "").startswith(
-        "Browse menu Tab")]
-    if len(browse) == 1:
-        _tap(phone, browse[0], deadline)
-    elif not browse:
-        # A category card may have opened a page. Return once, then recheck.
-        cloud_adb(phone, "shell", "input", "keyevent", "4",
-                  timeout=max(1, math.ceil(min(6, deadline.remaining()))))
-    else:
-        raise ToolError("Có nhiều nút Browse menu; dừng máy này để kiểm tra")
-    return _wait_screen(phone, {"MENU"}, deadline, stop, seconds=6)
+    for attempt in range(4):
+        nodes = _read_nodes(phone, deadline, stop)
+        if screen(nodes) == "MENU":
+            return nodes
+        if _at_or_after(nodes, "IDENTIFIER"):
+            raise RecoverableStepError("Amazon đã chuyển sang form; đang đối chiếu lại bước")
+        if not nodes:
+            if stop.wait(deadline.allowance(0.4)):
+                raise ToolError("Đã dừng máy này")
+            continue
+        browse = [node for node in nodes if _visible(node) and
+                  node.get("content-desc", "").startswith("Browse menu Tab")]
+        if browse:
+            target = _unique(browse, "Browse menu Tab", starts=True)
+            _tap_for_transition(phone, target, deadline)
+        else:
+            # A category page may have no bottom tabs. One Back can land on
+            # Home instead of Menu, so observe and navigate again if needed.
+            try:
+                cloud_adb(phone, "shell", "input", "keyevent", "4",
+                          timeout=max(1, math.ceil(min(6, deadline.remaining()))))
+            except ToolError:
+                deadline.recovering("ADB chưa xác nhận Back · đang đọc lại màn hình")
+        for delay in (0.2, 0.4, 0.6):
+            if stop.wait(deadline.allowance(delay)):
+                raise ToolError("Đã dừng máy này")
+            nodes = _read_nodes(phone, deadline, stop)
+            if screen(nodes) == "MENU":
+                return nodes
+            if _at_or_after(nodes, "IDENTIFIER"):
+                raise RecoverableStepError("Amazon đã chuyển sang form; đang đối chiếu lại bước")
+        deadline.recovering(f"Chưa về menu sau thao tác {attempt + 1} · đọc lại rồi thử chặng kế")
+    raise RecoverableStepError("Chưa về được menu ba gạch sau bốn chặng đã kiểm tra")
 
 
 def _visible_edit_fields(nodes: list[dict[str, str]]) -> list[dict[str, str]]:

@@ -72,6 +72,8 @@ Tìm Pets trên menu hiện tại, cuộn khi cần và bấm. Bước chung b4 
 
 ## Chung b4 — Sign In từ menu
 
+Nếu b3/b3a của máy mở trang khác, b4 kiểm tra màn hiện tại, dùng tab Browse menu hoặc Back theo từng chặng rồi đọc lại đến khi MENU hiện; không chỉ Back một lần rồi chờ vô hạn. Khi đã ở MENU, không phát thao tác quay lại. Cơ chế này dùng chung nhưng đặc biệt quan trọng cho q3–q6 có bước cuối ở trang danh mục/Giỏ hàng. Chưa xác minh trên lượt chạy nhiều máy thật.
+
 Tìm hàng Sign In ở cuối menu bằng chữ trong UI, cuộn khi cần, bấm và xác nhận form `Sign in or create account`. **Chạm vào ô SĐT để lấy focus** trước b5; nếu đã ở form này khi bấm Tiếp tục thì vẫn chạm vào ô. **Đã sửa mã chung cho q1/q2 sau ảnh q1 ở form SĐT; chưa xác minh lại trên máy thật.**
 
 Ảnh q1 mới cho thấy b4 dừng vì cây UI có nhiều nhãn `Sign In` dù hàng Sign In hiện trong menu danh sách dưới Customer Service. Bộ chọn chung giờ ưu tiên node có thể bấm; khi nhãn vẫn lặp, dùng Customer Service đang hiện làm mốc và chỉ chọn một Sign In dưới mốc. Nếu vẫn nhiều ứng viên thì dừng để người dùng sửa và bấm Tiếp tục. Trong phiên tool cũ, có thể bấm Sign In thủ công rồi Tiếp tục từ form SĐT. **131 test mô phỏng đạt; chưa xác minh trên q1 thật.**
