@@ -1122,6 +1122,10 @@ class Window:
         dialog.title("Settings · Swarmote")
         dialog.geometry("480x450+120+100")
         dialog.resizable(False, False)
+        # Map the window before building its controls so the click gets
+        # immediate visual feedback even on a busy Tk event loop.
+        dialog.lift()
+        dialog.update_idletasks()
         card = ctk.CTkFrame(dialog, fg_color=SURFACE, corner_radius=10,
                             border_width=1, border_color=BORDER)
         card.pack(fill="both", expand=True, padx=16, pady=16)

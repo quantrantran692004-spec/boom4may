@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "amazon_android/desktop.py": {
-    "mtime": 1794624567.5247564,
-    "seen": 1794624717.549806,
-    "ast_hash": "131c81236bd2765d485428ee248215d6",
+    "mtime": 1794626642.4011092,
+    "seen": 1794626656.0396574,
+    "ast_hash": "6afa1cedc182cd7040973176aaa7c0d0",
     "semantic_hash": ""
   },
   "amazon_android/home_menu.py": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1794625674.3889878,
-    "seen": 1794625696.745275,
-    "ast_hash": "6ced72758023a3c55ff0c7a832e83c4e",
+    "mtime": 1794626647.5803957,
+    "seen": 1794626656.0396574,
+    "ast_hash": "a6e711cc289e6a4069397742af4be250",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {

@@ -260,3 +260,7 @@ Người dùng xác nhận Settings đang đặt tối đa 2 Running, đã tạo
 
 `ProfileStartNotSubmitted` nay phân biệt lỗi trước khi gọi nút Start. Runner giữ máy đó trong hàng đợi và tự thử lại tối đa 60 giây, báo rõ trạng thái chờ; sau thời hạn vẫn dừng để người dùng sửa. Nếu lời gọi Start đã bắt đầu mà kết quả chưa rõ, runner chỉ đọc lại trạng thái, không tự gửi lặp. Không thay số slot, thứ tự hàng đợi, luồng Amazon hoặc trạng thái riêng từng máy. Test mô phỏng 4 máy/2 slot kiểm tra q3/q4 tự Start sau khi q1/q2 Offline, và nút Start chưa sẵn sàng một lượt vẫn tự phục hồi. 27 test runner/Start PASS. Chưa tắt/mở các máy thật vì phiên người dùng đang chạy; code mới chưa tự nạp vào tool đang mở. Cần giữ dữ liệu phiên trước khi mở lại.
 
+## Settings hiện chậm — 14/11/2026
+
+Theo yêu cầu tách riêng phần giao diện, `_open_settings` nay đưa cửa sổ Settings lên trước và xử lý các tác vụ vẽ đang chờ ngay sau khi tạo Toplevel, rồi mới dựng các điều khiển bên trong. Mục tiêu là có phản hồi nhìn thấy ngay khi bấm Settings. Không đổi giá trị Settings, giới hạn Running hoặc luồng máy. Chưa đo thời gian hiển thị trên phiên GUI thật; phiên đang mở không tự nạp mã mới.
+
