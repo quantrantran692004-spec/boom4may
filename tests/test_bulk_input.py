@@ -52,6 +52,28 @@ class BulkInputTests(unittest.TestCase):
                                       "three.example", "four.example")):
             window.values[index]["host"].set.assert_called_with(host)
 
+    def test_selected_machine_binds_its_own_amazon_fields(self):
+        window = Window.__new__(Window)
+        window.count = Mock()
+        window.count.get.return_value = "12"
+        window.draft = BatchDraft()
+        window.draft.locked = True
+        keys = ("full_name", "phone", "amazon_password", "card", "otp_url")
+        window.values = [{key: object() for key in keys} for _ in range(12)]
+        window.detail_entries = {key: Mock() for key in keys}
+        window.detail_title = Mock()
+        window.account_detail_heading = Mock()
+        window.detail_status = Mock()
+        window.status = [("Chưa chạy", "idle") for _ in range(12)]
+        window._refresh_otp_detail = Mock()
+        window._refresh_devices = Mock()
+        window._select(6)
+        for key in keys:
+            window.detail_entries[key].configure.assert_called_with(
+                textvariable=window.values[6][key])
+        window.account_detail_heading.configure.assert_called_with(
+            text="Thông tin Amazon riêng · Máy 7")
+
     def test_internal_blank_line_rejected_to_preserve_alignment(self):
         with self.assertRaises(ToolError):
             parse_column("name", "First\n\nThird")

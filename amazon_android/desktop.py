@@ -385,40 +385,46 @@ class Window:
         self.detail_status.grid(row=2, column=0, columnspan=2,
                                 sticky="w", padx=20, pady=(0, 14))
 
+        self.account_detail_heading = self._label(
+            detail_card, "Thông tin Amazon riêng · Máy 1", 14,
+            color=INK, weight="bold")
+        self.account_detail_heading.grid(
+            row=3, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 8))
+
         self._label(detail_card, "Dán 1–12 proxy để tự điền", 13,
                     color=INK, weight="bold").grid(
-                        row=3, column=0, columnspan=2, sticky="w", padx=20)
+                         row=8, column=0, columnspan=2, sticky="w", padx=20)
         self.proxy_line = ctk.CTkEntry(
             detail_card, placeholder_text="host:port:user:password",
             height=44, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
             font=ctk.CTkFont("Segoe UI Variable", 13),
         )
-        self.proxy_line.grid(row=4, column=0, columnspan=2,
+        self.proxy_line.grid(row=9, column=0, columnspan=2,
                              sticky="ew", padx=20, pady=(5, 6))
         self.proxy_line.bind("<Control-v>", self._paste_single_proxy, add="+")
         self.proxy_line.bind("<Return>", lambda _: self._split_single_proxy())
         self._label(detail_card, "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
-                    11, wraplength=305, justify="left").grid(row=5, column=0, columnspan=2, sticky="w",
+                     11, wraplength=305, justify="left").grid(row=10, column=0, columnspan=2, sticky="w",
                              padx=20, pady=(0, 12))
 
         fields = [
-            ("Host", "host", 6, 0, False),
-            ("Port", "port", 6, 1, False),
-            ("User proxy", "username", 7, 0, False),
-            ("Pass proxy", "proxy_password", 7, 1, True),
-            ("Tên Amazon", "full_name", 8, 0, False),
-            ("Số điện thoại", "phone", 8, 1, False),
-            ("Mật khẩu Amazon", "amazon_password", 9, 0, True),
-            ("Tên Profile (dự kiến, tự cấp)", "profile_name", 9, 1, False),
-            ("Thẻ của số điện thoại này", "card", 10, 0, True),
-            ("URL OTP của số điện thoại này", "otp_url", 11, 0, False),
+            ("Tên Amazon", "full_name", 4, 0, False),
+            ("Số điện thoại", "phone", 4, 1, False),
+            ("Mật khẩu Amazon", "amazon_password", 5, 0, True),
+            ("Thẻ của số điện thoại này", "card", 6, 0, True),
+            ("URL OTP của số điện thoại này", "otp_url", 7, 0, False),
+            ("Host", "host", 11, 0, False),
+            ("Port", "port", 11, 1, False),
+            ("User proxy", "username", 12, 0, False),
+            ("Pass proxy", "proxy_password", 12, 1, True),
+            ("Tên Profile (dự kiến, tự cấp)", "profile_name", 13, 0, False),
         ]
         for label, key, row, col, _secret in fields:
             cell = ctk.CTkFrame(detail_card, fg_color="transparent")
             cell.grid(row=row, column=col,
-                      columnspan=2 if key in {"card", "otp_url"} else 1, sticky="ew",
-                      padx=(20, 20) if key in {"card", "otp_url"} else
+                       columnspan=2 if key in {"card", "otp_url", "profile_name"} else 1, sticky="ew",
+                       padx=(20, 20) if key in {"card", "otp_url", "profile_name"} else
                            (20 if col == 0 else 8, 20 if col == 1 else 8),
                       pady=(0, 13))
             self._label(cell, label, 13, color=INK,
@@ -448,10 +454,10 @@ class Window:
             detail_card,
             "Điểm dừng: menu ba gạch. Thông tin Amazon chỉ được phân bổ, chưa nhập vào app.",
             12, color=MUTED,
-        ).grid(row=12, column=0, columnspan=2, sticky="w",
+        ).grid(row=14, column=0, columnspan=2, sticky="w",
                padx=20, pady=(0, 10))
         otp_row = ctk.CTkFrame(detail_card, fg_color=SECONDARY, corner_radius=8)
-        otp_row.grid(row=13, column=0, columnspan=2, sticky="ew",
+        otp_row.grid(row=15, column=0, columnspan=2, sticky="ew",
                      padx=20, pady=(0, 17))
         otp_row.grid_columnconfigure(0, weight=1)
         self.otp_detail_status = self._label(
@@ -474,7 +480,7 @@ class Window:
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
             command=self._attach_from_menu,
         )
-        self.attach_profile_button.grid(row=14, column=0, columnspan=2,
+        self.attach_profile_button.grid(row=16, column=0, columnspan=2,
                                    sticky="ew", padx=20, pady=(0, 17))
         self.stop_selected_button = ctk.CTkButton(
             detail_card, text="Dừng Máy 1 sau bước hiện tại", height=40,
@@ -482,7 +488,7 @@ class Window:
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
             state="disabled", command=self._request_stop_selected,
         )
-        self.stop_selected_button.grid(row=15, column=0, columnspan=2,
+        self.stop_selected_button.grid(row=17, column=0, columnspan=2,
                                        sticky="ew", padx=20, pady=(0, 17))
 
     def _build_actions(self, parent) -> None:
@@ -1052,6 +1058,8 @@ class Window:
         for key, entry in self.detail_entries.items():
             entry.configure(textvariable=self.values[index][key])
         self.detail_title.configure(text=f"Máy {index + 1}")
+        self.account_detail_heading.configure(
+            text=f"Thông tin Amazon riêng · Máy {index + 1}")
         self.detail_status.configure(text=self.status[index][0])
         self._refresh_otp_detail()
         self._refresh_devices()

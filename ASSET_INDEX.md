@@ -26,4 +26,10 @@ Graphify hiện không trích xuất nội dung pixel của PNG do thiếu backe
 
 1725 × 1000 px. Ảnh PNG ở gốc dự án; nội dung chưa được trích xuất vào graph.
 
+## assets/ui_history/machine7_input_before.png
+
+Ảnh người dùng gửi ngày 14/11/2026: Máy 7 được chọn nhưng phần đầu khung chi tiết
+chỉ hiện ô proxy; các ô Amazon riêng nằm dưới vùng cuộn. Dùng để đối chiếu thứ tự
+trình bày trước khi đưa thông tin Amazon lên đầu khung chi tiết.
+
 Ảnh q1/q2, menu chung và 14 ảnh menu ngẫu nhiên mới nằm trong `flow_images/` và được lập danh mục trong [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md). Các bước cũng được chép thành văn bản trong `STEP_INVENTORY.md`, `MENU_ROUTING.md`, `Q1_FLOW.md`, `Q2_FLOW.md`; Graphify chưa đọc nội dung pixel của ảnh.

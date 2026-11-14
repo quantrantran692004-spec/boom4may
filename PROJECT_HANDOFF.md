@@ -330,3 +330,14 @@ Nút **Dừng Máy N sau bước hiện tại** ở khung chi tiết đặt `pho
 
 `python -m unittest discover -s tests -q`: 305/305 PASS.
 
+## Ô Amazon riêng Máy 1–12 dễ thấy hơn — 14/11/2026
+
+Ảnh người dùng gửi cho thấy Máy 7 đã được chọn nhưng màn đầu khung chi tiết
+chỉ hiện proxy. Mã vốn giữ `values[index]` riêng từng máy và có đầy đủ Tên,
+SĐT, mật khẩu, thẻ tùy chọn và URL OTP, nhưng các ô này ở dưới vùng cuộn.
+`desktop._build_main` nay đặt nhóm Amazon lên đầu khung chi tiết và ghi rõ
+Máy đang chọn; proxy chuyển xuống dưới. `_select` vẫn gắn từng ô với đúng
+`values[index]`; test riêng xác nhận Máy 7 không lấy hàng máy khác. Ảnh gốc
+đã lưu tại [ASSET_INDEX.md](ASSET_INDEX.md). Không tự đặt lại phiên tool đang
+mở; phiên cũ chưa nạp bố cục mới.
+
