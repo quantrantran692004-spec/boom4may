@@ -234,3 +234,7 @@ Unittest mô phỏng: 261 PASS; py_compile các module liên quan PASS. Graphify
 ## Bộ cài offline chia sẻ — 14/11/2026
 Thêm packaging/build_bundle.py và install_bundle.py: ZIP Windows x64 kèm CPython 3.12, dependencies/models, Chromium đúng revision Playwright, VC++ runtime và Swarmote 1.2.0 (checksum chính thức). Bản đóng gói đặt đường dẫn browser qua sitecustomize; bản nguồn giữ browser channel hiện có. Có manifest SHA256, kiểm tra import/OCR/browser trước shortcut. Không tự chạy installer hoặc thao tác điện thoại trên máy hiện tại. Xem packaging/README.md. Hai test browser mới và bảy test OTP PASS; toàn suite dừng sau 54 dấu tiến độ, chưa hoàn tất. Graphify query/update/tree thất bại vì Python thiếu module graphify. Chưa thử Windows sạch hoặc luồng thật trên nhiều điện thoại.
 
+## Bản chính boom4may và bản dự phòng — 14/11/2026
+
+`D:\boom4may` là checkout riêng của `quantrantran692004-spec/boom4may`; `D:\sinhvien` giữ nguyên làm bản dự phòng của `sinhvientudonghoa`. Không trộn mã, môi trường `.venv`, dữ liệu mẻ hoặc Git history giữa hai thư mục. Boom4may có `Q1_FLOW.md`–`Q4_FLOW.md`, 26 ảnh trong `flow_images/` và 42 ảnh trong `docs/user_screenshots/`; q5–q12 vẫn chờ hướng dẫn b1–b3. Cây Graphify phải được cập nhật từ chính thư mục này sau thay đổi, không dùng cây của bản dự phòng. Tool đang mở không tự nạp mã sau khi cập nhật tài liệu hoặc cây.
+
