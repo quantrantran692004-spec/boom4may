@@ -4,7 +4,7 @@
 
 ## Phần dùng chung đã được hướng dẫn
 
-Menu ba gạch có hai bố cục đã biết. Với menu dạng thẻ, q1–q4 chạy b1–b3 riêng. Với menu dạng danh sách, sau khi nhận diện qua cây UI Android, tool bấm Home, chỉ xem 2–5 giây, trở lại menu và tiếp tục b4 Sign In; quy tắc này dùng cho mọi máy đã được nối sau menu. Xem [MENU_ROUTING.md](MENU_ROUTING.md). Chưa thử nhánh mới trên máy thật.
+Menu ba gạch có hai bố cục đã biết. Với menu dạng thẻ, q1–q5 chạy b1–b3 riêng. Với menu dạng danh sách, sau khi nhận diện qua cây UI Android, tool bấm Home, chỉ xem 2–5 giây, trở lại menu và tiếp tục b4 Sign In; quy tắc này dùng cho mọi máy đã được nối sau menu. Xem [MENU_ROUTING.md](MENU_ROUTING.md). Chưa thử nhánh mới trên máy thật.
 
 Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `United States +1`, Continue, xác nhận tài khoản mới, nhập tên, chọn **Send code by SMS** thay WhatsApp, lấy OTP mới từ URL riêng của hàng, gõ từng số vào form SMS rồi bấm **Create your Amazon account**. Ảnh cuối dừng ở màn nhập OTP SMS và nút Create; **chưa có ảnh màn sau khi bấm Create**, chưa biết điều kiện xác nhận tài khoản đã tạo thành công. Mật khẩu và thẻ có trong hàng dữ liệu nhưng ảnh hiện tại chưa có màn cần nhập chúng. Luồng chung được mã hóa tại `build_common_steps` trong `amazon_android/account_flow.py` và được gọi riêng cho từng máy.
 
@@ -16,7 +16,8 @@ Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `
 | q2 | Hai ảnh: b1 bấm tab nhà và xem 2–5 giây; b2 bấm menu ba gạch; b3 bấm Pets. | Có: `build_q2_steps` + luồng chung; đã sửa nhánh nối lại ADB từ menu lưu trước. | Người dùng thấy q2 tới menu rồi đứng, tool chỉ ghi đã tới menu. Sửa mới chưa thử lại thật. | Xác minh q2 tự bấm Home sau menu, locator/UI thực tế và màn sau Create. |
 | q3 | Groceries and Drinks → Home and DIY → Books and Reading. | Có: build_q3_steps + luồng chung. | Chưa chạy thật; unittest và OCR ảnh tĩnh đạt. | Thử q3 thật. |
 | q4 | Giỏ hàng → Pets → Home and DIY. | Có: build_q4_steps + luồng chung. | Chưa chạy thật; unittest và OCR ảnh tĩnh đạt. | Thử q4 thật và chạy đồng thời q1–q4. |
-| q5–q12 | Chưa nhận ảnh b1–b3 riêng. | Chưa bật sau menu. | Chưa. | Hướng dẫn b1–b3 từng máy. |
+| q5 | Hướng dẫn bằng chữ: Toys, Kids and Baby → Office & Professional → Sports & Outdoors; tự quay về menu nếu thẻ mở trang khác. | Có: `build_q5_steps` + luồng chung. | Chưa. | Thử q5 thật; chưa có ảnh q5. |
+| q6–q12 | Chưa nhận ảnh hoặc hướng dẫn b1–b3 riêng. | Chưa bật sau menu. | Chưa. | Hướng dẫn b1–b3 từng máy. |
 
 ## Cách xử lý ảnh tiếp theo
 
@@ -36,3 +37,4 @@ Người dùng gửi thêm sáu ảnh q1: dropdown quốc gia ở đầu chữ A
 Nếu một lượt đọc OTP 30 giây hết mà chưa có mã mới, b11 tự chạy lượt đọc kế tiếp (mở lại Chrome theo chuỗi dự phòng) và nhập ngay khi có mã. Phiên sau menu không còn thời hạn tổng 3/4/5 phút; người dùng vẫn có thể bấm Dừng, URL lỗi thật vẫn được báo. Chưa xác minh trên URL thật.
 
 Ảnh q1 mới cho thấy b4 trên menu danh sách dừng vì nhiều nhãn Sign In trong cây UI. Đã sửa bộ chọn chung để ưu tiên node có thể bấm, rồi dùng Customer Service làm mốc khi cần; giữ dừng an toàn nếu vẫn không phân biệt được. Chưa có lượt chạy thật sau sửa.
+

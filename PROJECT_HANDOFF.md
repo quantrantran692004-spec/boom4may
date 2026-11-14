@@ -242,3 +242,7 @@ Thêm packaging/build_bundle.py và install_bundle.py: ZIP Windows x64 kèm CPyt
 
 Thêm bước chung trong `_prepare_phone`: sau `open_amazon`, trước `open_home_menu`, kiểm tra panel App Store của đúng cửa sổ Swarmote. Nếu còn hiện, Invoke nút Apps một lần và xác nhận panel ẩn; nếu đã ẩn thì đi tiếp. Không đổi b1–b11 hay luồng riêng q1–q4. Ảnh gốc lưu ở `flow_images/shared/02_apps_panel_open.png`. Chưa thử trên máy thật sau sửa; tool đang mở chưa tự nạp mã mới.
 
+## q5 b1–b3 riêng, b4–b11 chung — 14/11/2026
+
+Người dùng chốt q5 bấm Toys, Kids and Baby → Office & Professional → Sports & Outdoors. Chỉ bấm từng thẻ; nếu thẻ mở trang riêng, tự quay về menu để tìm thẻ tiếp, nếu menu vẫn hiện thì bấm ngay. Đã nối `q5_flow.py` vào factory Máy 5, dùng nguyên `build_common_steps` từ b4; không sửa luồng q1–q4. Chưa có ảnh hoặc lượt chạy q5 thật. q6–q12 còn chờ b1–b3 riêng.
+

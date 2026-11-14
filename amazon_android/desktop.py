@@ -25,6 +25,7 @@ from .q1_flow import build_q1_steps
 from .q2_flow import build_q2_steps
 from .q3_flow import build_q3_steps
 from .q4_flow import build_q4_steps
+from .q5_flow import build_q5_steps
 from .windows_identity import set_process_identity, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
@@ -74,7 +75,8 @@ FIELD_KEYS = (
 )
 
 POST_MENU_STEP_FACTORIES = {0: build_q1_steps, 1: build_q2_steps,
-                            2: build_q3_steps, 3: build_q4_steps}
+                            2: build_q3_steps, 3: build_q4_steps,
+                            4: build_q5_steps}
 
 
 def _automatic_resume_slots(items: list[dict]) -> list[int]:

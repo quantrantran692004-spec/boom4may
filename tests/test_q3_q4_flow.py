@@ -33,7 +33,7 @@ class Q3Q4FlowTests(unittest.TestCase):
             steps = factory(self.phone, lambda _: None)
             self.assertEqual([s.name for s in steps[:3]], prefix)
             self.assertEqual([s.name for s in steps[3:]], common)
-        self.assertEqual(set(POST_MENU_STEP_FACTORIES), {0, 1, 2, 3})
+        self.assertEqual(set(POST_MENU_STEP_FACTORIES), {0, 1, 2, 3, 4})
 
     def test_common_b4_to_b11_can_bind_twelve_distinct_serials_and_states(self):
         states = [RegistrationState() for _ in range(12)]

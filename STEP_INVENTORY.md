@@ -136,9 +136,13 @@ Mỗi máy có bước hiện tại và lỗi riêng, không còn đồng hồ t
 
 Chưa có ảnh hay tiêu chí xác nhận kết quả sau nút Create. Tool chỉ báo đã xong các bước được hướng dẫn, không báo tài khoản thành công.
 
-## U02 — q5–q12 chưa có b1–b3
+## q5 b1–b3 — Ba thẻ riêng
 
-Người dùng chưa gửi ảnh và hướng dẫn riêng cho b1–b3 của từng máy q5–q12. Các máy này vẫn dừng ở menu ba gạch. Không sao chép b1–b3 của q1 hoặc q2 sang chúng.
+b1 Toys, Kids and Baby; b2 Office & Professional; b3 Sports & Outdoors. Bấm theo chữ giao diện thật trên đúng serial q5. Nếu sau cú bấm menu vẫn hiện thì tiếp bước kế ngay; nếu mở trang khác thì tự quay về menu trước cú bấm kế. Sau b3 nối b4–b11 chung. Chưa có ảnh q5 hay xác minh trên máy thật.
+
+## U02 — q6–q12 chưa có b1–b3
+
+q5 đã có hướng dẫn bằng chữ và được nối riêng; xem [Q5_FLOW.md](Q5_FLOW.md). Người dùng chưa gửi ảnh và hướng dẫn riêng cho b1–b3 của q6–q12. Các máy này vẫn dừng ở menu ba gạch. Không sao chép b1–b3 của máy khác sang chúng.
 
 ## U03 — Ảnh tiếp theo có thể bổ sung hoặc sửa quy trình
 
