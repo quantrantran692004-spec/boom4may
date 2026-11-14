@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from amazon_android.swarmote_desktop import install_amazon, show_apps
+from amazon_android.swarmote_desktop import install_amazon, show_apps, collapse_apps_panel
 
 
 class FakeControl:
@@ -24,6 +24,20 @@ class FakeControl:
 
 
 class InstallTests(unittest.TestCase):
+    def test_collapse_apps_only_when_app_store_is_open(self):
+        window = object()
+        events = []
+        app_store = FakeControl("App Store", "TabItem")
+        apps = FakeControl("Apps", "Text")
+        apps.parent = lambda: FakeControl("", "Group", invoke=lambda: events.append("collapse"))
+        def descendants(_window):
+            return [apps, app_store] if not events else [apps]
+        with patch("amazon_android.swarmote_desktop._phone_window", return_value=window), \
+             patch("amazon_android.swarmote_desktop._descendants", side_effect=descendants):
+            self.assertTrue(collapse_apps_panel("q1", "ACN1"))
+            self.assertFalse(collapse_apps_panel("q1", "ACN1"))
+        self.assertEqual(events, ["collapse"])
+
     def test_apps_waits_for_phone_ui_without_using_screen_coordinates(self):
         events = []
         window = object()

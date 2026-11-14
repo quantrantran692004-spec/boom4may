@@ -18,7 +18,8 @@ from .swarmote_desktop import (
     ProfileCreateNotSubmitted, ProfileManagerWindowError, ProfileNotFound,
     ProxyTestFailed,
     ProxyConfig, create_profile, install_amazon, ensure_manager_ready,
-    open_adb_shell, profile_status, show_apps, start_profile, visible_profile_names,
+    open_adb_shell, profile_status, show_apps, collapse_apps_panel,
+    start_profile, visible_profile_names,
 )
 
 
@@ -109,6 +110,7 @@ def _prepare_phone(job: RunJob, name: str, device_id: str,
         open_amazon(phone)
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
+        collapse_apps_panel(name, device_id, stop=stop)
         menu = open_home_menu(phone, stop=stop)
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")

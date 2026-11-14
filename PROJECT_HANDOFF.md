@@ -238,3 +238,7 @@ Thêm packaging/build_bundle.py và install_bundle.py: ZIP Windows x64 kèm CPyt
 
 `D:\boom4may` là checkout riêng của `quantrantran692004-spec/boom4may`; `D:\sinhvien` giữ nguyên làm bản dự phòng của `sinhvientudonghoa`. Không trộn mã, môi trường `.venv`, dữ liệu mẻ hoặc Git history giữa hai thư mục. Boom4may có `Q1_FLOW.md`–`Q4_FLOW.md`, 26 ảnh trong `flow_images/` và 42 ảnh trong `docs/user_screenshots/`; q5–q12 vẫn chờ hướng dẫn b1–b3. Cây Graphify phải được cập nhật từ chính thư mục này sau thay đổi, không dùng cây của bản dự phòng. Tool đang mở không tự nạp mã sau khi cập nhật tài liệu hoặc cây.
 
+## Thu panel Apps sau khi mở Amazon — 14/11/2026
+
+Thêm bước chung trong `_prepare_phone`: sau `open_amazon`, trước `open_home_menu`, kiểm tra panel App Store của đúng cửa sổ Swarmote. Nếu còn hiện, Invoke nút Apps một lần và xác nhận panel ẩn; nếu đã ẩn thì đi tiếp. Không đổi b1–b11 hay luồng riêng q1–q4. Ảnh gốc lưu ở `flow_images/shared/02_apps_panel_open.png`. Chưa thử trên máy thật sau sửa; tool đang mở chưa tự nạp mã mới.
+

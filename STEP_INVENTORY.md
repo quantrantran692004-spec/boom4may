@@ -32,6 +32,8 @@ Trên đúng cửa sổ máy, mở Apps/App Store, tìm `z`, cài Amazon Shoppin
 
 ## P08 — Mở Amazon tới menu ba gạch
 
+Ngay sau khi Amazon mở, nếu App Store còn hiện bên phải cửa sổ máy, bấm Apps đúng một lần để thu panel rồi xác nhận nó đã ẩn. Đây là bước chung cho mọi máy trước khi mở menu; không bấm khi panel đã thu.
+
 Mở Amazon, xử lý màn trước đăng nhập nếu có, bấm Browse menu Tab và xác nhận `Shop by category`/menu. Đây là điểm nối luồng riêng từng máy. Nếu registry đã ghi `MENU_OPEN` từ lượt trước, phải nối lại ADB serial của đúng máy trước khi phát sự kiện để chạy b1. Nếu thiếu hàng Amazon hoặc serial, báo rõ ở hàng máy; nếu Offline, nhắc Start rồi Tiếp tục. **Đã sửa mã và test mô phỏng cho q1/q2; q2 chưa xác minh lại thật sau báo cáo đứng ở menu.**
 
 ## P08a — Nhận diện biến thể menu dạng danh sách

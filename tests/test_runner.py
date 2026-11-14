@@ -77,6 +77,7 @@ class RunnerTests(unittest.TestCase):
              patch("amazon_android.runner.open_adb_shell", side_effect=shell), \
              patch("amazon_android.runner.show_apps"), \
              patch("amazon_android.runner.open_amazon"), \
+             patch("amazon_android.runner.collapse_apps_panel"), \
              patch("amazon_android.runner.open_home_menu", side_effect=menu):
             result = run_batch(jobs or self.jobs, self.registry,
                                lambda *event: events.append(event), self.stop,

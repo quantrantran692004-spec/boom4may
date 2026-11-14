@@ -21,6 +21,26 @@ def apartment_type():
 
 
 class PreparationThreadsTests(unittest.TestCase):
+    def test_app_store_panel_closes_after_amazon_opens_before_menu(self):
+        from worker_helpers import on_worker
+        actions = []
+        registry = SimpleNamespace(get=lambda *a: {'stage': 'APP_INSTALLED'},
+                                   mark=lambda *a, **k: None)
+        with patch('amazon_android.runner.open_adb_shell',
+                   return_value={'serial': '127.0.0.1:5001'}), \
+             patch('amazon_android.runner.show_apps'), \
+             patch('amazon_android.runner.open_amazon',
+                   side_effect=lambda _phone: actions.append('amazon')), \
+             patch('amazon_android.runner.collapse_apps_panel',
+                   side_effect=lambda *_a, **_k: actions.append('collapse')), \
+             patch('amazon_android.runner.open_home_menu',
+                   side_effect=lambda *_a, **_k: actions.append('menu') or
+                   {'stage': 'HOME_MENU_OPEN'}):
+            result = on_worker(_prepare_phone, RunJob(0, 'test', None), 'q1',
+                               'ACN1', registry, lambda *_e: None, threading.Event())
+        self.assertEqual(result, 'done')
+        self.assertEqual(actions, ['amazon', 'collapse', 'menu'])
+
     def test_com_initialization_failure_marks_the_row_instead_of_leaving_running(self):
         from worker_helpers import on_worker
         registry = SimpleNamespace(mark=lambda *a, **kw: None)
@@ -48,6 +68,7 @@ class PreparationThreadsTests(unittest.TestCase):
                    {'serial': f'127.0.0.1:{5000 + int(name[1:])}'}), \
              patch('amazon_android.runner.show_apps'), \
              patch('amazon_android.runner.open_amazon'), \
+             patch('amazon_android.runner.collapse_apps_panel'), \
              patch('amazon_android.runner.open_home_menu', return_value={'stage': 'HOME_MENU_OPEN'}):
             with ThreadPoolExecutor(max_workers=12) as pool:
                 futures = [pool.submit(_prepare_phone, RunJob(i, 'test', None),

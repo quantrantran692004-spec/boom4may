@@ -794,6 +794,35 @@ def show_apps(name: str, device_id: str | None = None, *, stop=None, progress=No
     raise ToolError(f"{name}: Apps chưa sẵn sàng sau 120 giây ({last_seen})")
 
 
+def collapse_apps_panel(name: str, device_id: str, *, stop=None) -> bool:
+    """Close the App Store side panel once after Amazon opens; leave a closed panel alone."""
+    _check_stop(stop)
+    window = _phone_window(name, device_id, seconds=10, stop=stop)
+    controls = _descendants(window)
+    if not any(item.element_info.name == "App Store" and
+               item.element_info.control_type == "TabItem" and item.is_visible()
+               for item in controls):
+        return False
+    apps = [item for item in controls if item.element_info.name == "Apps" and
+            item.element_info.control_type == "Text" and item.is_visible()]
+    if len(apps) != 1:
+        raise ToolError(f"{name}: không xác định được duy nhất nút Apps để thu panel")
+    _check_stop(stop)
+    try:
+        apps[0].parent().invoke()
+    except Exception as exc:
+        raise ToolError(f"{name}: chưa thu được panel Apps") from exc
+    until = time.monotonic() + 3
+    while time.monotonic() < until:
+        _check_stop(stop)
+        if not any(item.element_info.name == "App Store" and
+                   item.element_info.control_type == "TabItem" and item.is_visible()
+                   for item in _descendants(window)):
+            return True
+        _pause(0.2, stop)
+    raise ToolError(f"{name}: đã bấm Apps nhưng panel App Store vẫn hiện")
+
+
 def install_amazon(name: str, timeout: int = 180,
                    device_id: str | None = None, stop=None, progress=None) -> dict:
     """Open Apps immediately, search z, install Amazon, then verify over ADB."""

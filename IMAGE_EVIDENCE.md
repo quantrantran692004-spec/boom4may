@@ -87,6 +87,10 @@ Các ảnh người dùng gửi đã được sao chép vào `flow_images/` đ�
 
 [01_list_menu.png](flow_images/shared/01_list_menu.png): biến thể menu ba gạch gồm `Shop by Category`, các hàng danh mục và `Sign In`. Người dùng yêu cầu bấm Home, chỉ xem 2–5 giây, quay về menu rồi làm b4 Sign In. Bộ phân loại xử lý theo cây UI đang hiển thị, không phụ thuộc ảnh này; xem [MENU_ROUTING.md](MENU_ROUTING.md).
 
+## Menu chung ảnh 02 — App Store bên phải sau khi Amazon mở
+
+[02_apps_panel_open.png](flow_images/shared/02_apps_panel_open.png): panel App Store vẫn mở ở bên phải trong khi Amazon đã hiện ở điện thoại. Bấm lại nút Apps đang được chọn để thu panel, rồi mới tiếp tục mở menu. Áp dụng chung cho tất cả máy; chỉ bấm khi panel còn hiện.
+
 ## q1 ảnh lỗi mới 01–06 — b6, b9, b10
 
 - [01_b6_error.png](flow_images/q1/latest_errors/01_b6_error.png): lỗi vùng bấm ở b6.
