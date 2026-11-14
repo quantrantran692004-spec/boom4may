@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
-from amazon_android.bulk_input import parse_column, parse_records
+from amazon_android.bulk_input import parse_column, parse_records, validate_card
 from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
 from amazon_android.desktop import Window
@@ -156,6 +156,61 @@ class BulkInputTests(unittest.TestCase):
                 f"| 12025550123 | Example456! | Name | {url} | {url} |",
                 account_table=True,
             )
+
+    def test_tab_rows_accept_live_card_note_and_escaped_otp_url(self):
+        rows = []
+        for index in range(3):
+            phone = f"12025550{index:03d}"
+            card = f"400000000000{index:04d}|12|2030|live=>√【example.test】"
+            url = f"https\\://apifc.net/smsrecord?token=synthetic{index}\\"
+            rows.append(f"{phone}\tExample456!\tName {index}\t\t\t\t"
+                        f"\t\t\t{card}\t{url}")
+        parsed = parse_records("\n".join(rows), account_table=True)
+        self.assertEqual([item.phone for item in parsed],
+                         [f"12025550{index:03d}" for index in range(3)])
+        self.assertEqual([item.card for item in parsed],
+                         [f"400000000000{index:04d}|12|2030" for index in range(3)])
+        self.assertEqual([item.otp_url for item in parsed],
+                         [f"https://apifc.net/smsrecord?token=synthetic{index}"
+                          for index in range(3)])
+        self.assertNotIn("example.test", repr(parsed[0]))
+
+    def test_card_annotation_is_limited_to_supported_live_format(self):
+        self.assertEqual(
+            validate_card("4000000000000001|12|2030|live=>√【example.test】"),
+            "4000000000000001|12|2030")
+        with self.assertRaises(ToolError):
+            validate_card("4000000000000001|12|2030|other")
+
+    def test_bulk_account_rows_accept_missing_cards_and_mixed_rows(self):
+        url1 = "https://apifc.net/smsrecord?token=synthetic-one"
+        url2 = "https://apifc.net/smsrecord?token=synthetic-two"
+        rows = parse_records(
+            f"12025550123\tExample456!\tFirst\t{url1}\n"
+            f"12025550124\tExample789!\tSecond\t\t\t"
+            f"4000000000000001|12|2030\t{url2}",
+            account_table=True,
+        )
+        self.assertEqual([row.card for row in rows], ["", "4000000000000001|12|2030"])
+        self.assertEqual([row.otp_url for row in rows], [url1, url2])
+
+    def test_desktop_validation_does_not_require_card_after_bulk_paste(self):
+        from types import SimpleNamespace
+        window = Window.__new__(Window)
+        window.registry = object()
+        window.registry_error = ""
+        window.draft = BatchDraft(proxy_count=1, account_count=1)
+        window.jobs = {}
+        window.count = SimpleNamespace(get=lambda: "1")
+        values = {
+            "host": "proxy.example", "port": "1001", "username": "user",
+            "proxy_password": "secret", "phone": "12025550123",
+            "amazon_password": "Example456!", "full_name": "First",
+            "card": "", "otp_url": "https://apifc.net/smsrecord?token=synthetic",
+        }
+        window.values = [{key: SimpleNamespace(get=lambda value=value: value)
+                          for key, value in values.items()}]
+        self.assertEqual(window._input_issue(), "")
 
 
 if __name__ == "__main__":

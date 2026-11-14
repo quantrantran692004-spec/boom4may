@@ -1,3 +1,13 @@
+## b1–b3 ngẫu nhiên trên 12 máy, không dùng OCR — 14/11/2026
+
+Theo yêu cầu mới, ba lượt chỉ bấm/vuốt trong vùng danh mục theo kích thước Android của từng serial. Mẻ mới xáo 12 điểm đầu và gán duy nhất cho từng máy; test hai batch xác nhận không trùng điểm b1 giữa 12 máy. Lỗi lệnh chạm thử các điểm khác và vuốt; b4 vẫn dùng bộ nhận diện cũ. `python -m unittest discover -s tests -q`: **307/307 PASS**. Bản ONNX Runtime 1.32 trong `.venv` hiện crash khi import; bản 1.20.1 thử riêng đọc được cả 14 ảnh, nhưng chưa thay `.venv` của tool đang chạy. Chưa chạy 12 máy thật.
+
+## b1–b3 bắt buộc có ba cú bấm — 14/11/2026
+
+Đối chiếu 14 ảnh menu mới đã lưu: thẻ danh mục mở mục con trong cùng menu; Sign In nằm ở cuối; khi cuộn thấp tiêu đề menu có thể biến mất. Kiểm thử mô phỏng xác nhận đủ ba bước trước b4, chặn b4 nếu thiếu một cú bấm, lỗi ADB không đánh dấu hoàn tất, thử mục con sau lỗi thẻ, mục lạ trong thân menu làm dự phòng, menu cuộn vẫn được nhận diện và nhãn thẻ xuống hai dòng được ghép. Không chạy ADB/tạo tài khoản trên máy thật.
+
+`python -m unittest discover -s tests -q`: **311/311 PASS**.
+
 ## Nhiều proxy trên một dòng — 14/11/2026
 
 `python -m unittest discover -s tests -q`: **300/300 PASS**. Parser và ô proxy máy đang chọn nhận bốn proxy giả lập cách nhau bằng dấu cách, giữ thứ tự Máy 1–4; mật khẩu của một proxy có dấu cách vẫn giữ nguyên nếu không có tiền tố proxy tiếp theo; giới hạn 100 mục vẫn được áp dụng sau tách. Không dùng proxy thật, không kiểm tra mạng hay tạo Profile Swarmote.

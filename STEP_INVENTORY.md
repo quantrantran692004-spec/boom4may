@@ -2,7 +2,7 @@
 
 ## B1–B3 hiện hành — Ba lượt ngẫu nhiên q1–q12
 
-Mỗi mẻ tạo mới, từng máy đọc menu thật và chọn ba mục bấm ngẫu nhiên có vùng hợp lệ, ưu tiên không lặp trong ba bước. Khi Tiếp tục giữ lựa chọn đã bốc của máy đó. Không có mục phù hợp thì báo và đi tiếp tới b4; b4 vẫn xác nhận menu/form. Các mốc q1–q6 cố định bên dưới là lịch sử hướng dẫn, không phải factory đang chạy. Chưa thử trên máy thật.
+B1–b3 hiện chỉ xem/bấm ngẫu nhiên các vùng danh mục theo kích thước Android của đúng máy, không cần OCR hay xác nhận màn đã đổi. Mỗi máy nhận điểm b1 riêng trong 12 điểm của mẻ, nên chuỗi ba bước không trùng giữa 12 máy; mẻ mới xáo lại. Lệnh bấm ADB lỗi thì thử điểm khác, vuốt rồi tự thử lại cùng bước; không có cú bấm nào thành công thì không chuyển b4. Trước b4 chạm menu ba gạch; b4–b11 giữ quy tắc nhận diện cũ. Các mốc q1–q6 cố định bên dưới là lịch sử. Ảnh tham chiếu ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); chưa thử trên 12 máy thật.
 
 Tài liệu này là bản đồ từng mốc để phiên sau không coi ảnh chưa gửi là bước đã hoàn thành. Ảnh gốc q1/q2 đã lưu và ánh xạ tại [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); mở ảnh đó khi cần xem UI. `Đã nối mã` khác với `đã chạy thật`. Các bước được ghi từ hướng dẫn người dùng và mã hiện tại; không suy ra màn chưa có ảnh. Dữ liệu nhạy cảm không ghi vào file này.
 
@@ -42,7 +42,7 @@ Mở Amazon, xử lý màn trước đăng nhập nếu có, bấm Browse menu T
 
 ## P08a — Nhận diện biến thể menu dạng danh sách
 
-Sau P08, đọc menu Android trực tiếp của đúng máy. Cả menu dạng thẻ và danh sách chữ đều chạy ba lượt bấm ngẫu nhiên trên mục đang hiện có vùng hợp lệ rồi nối b4 Sign In; không dùng tọa độ ảnh. Lượt đọc b1–b3 có hạn 15 giây và có thể bỏ qua một lượt khi menu tạm không rõ; b4 vẫn xác nhận màn trước khi thao tác. **Đã nối mã và test mô phỏng; chưa thử máy thật.** Xem [MENU_ROUTING.md](MENU_ROUTING.md).
+Sau P08, đọc menu Android trực tiếp của đúng máy. Cả menu dạng thẻ và danh sách chữ đều chạy đủ ba lượt bấm ngẫu nhiên trên thẻ hoặc mục con đang hiện có vùng hợp lệ rồi nối b4 Sign In; không dùng tọa độ ảnh. Mỗi lượt đọc có hạn 15 giây; menu tạm chưa rõ thì thử lại cùng bước, không bỏ lượt. B4 kiểm tra dấu hoàn tất b1–b3 trước khi thao tác. **Đã nối mã và test mô phỏng; chưa thử máy thật.** Xem [MENU_ROUTING.md](MENU_ROUTING.md).
 
 ## Q1 b1 — Bấm Gifting
 

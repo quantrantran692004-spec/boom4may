@@ -62,7 +62,7 @@ HERO_ACCENT = "#A8EBE7"
 
 BULK = (
     ("proxy", "Proxy", "host:port:user:password", "Proxy dư tự dùng thay proxy lỗi"),
-    ("account", "Thông tin Amazon", "SĐT | Mật khẩu | Tên | Thẻ | URL OTP", "Dán 1 lần: tối đa 12 hàng"),
+    ("account", "Thông tin Amazon", "SĐT | Mật khẩu | Tên | URL OTP (thẻ tùy chọn)", "Dán 1 lần: tối đa 12 hàng"),
 )
 
 FIELD_KEYS = (
@@ -959,11 +959,12 @@ class Window:
                             row["proxy_password"].get())
             except (ToolError, ValueError) as exc:
                 return f"Máy {index + 1}: {exc}"
-        account_keys = ("phone", "amazon_password", "full_name", "card", "otp_url")
-        account_rows = [any(self.values[i][key].get() for key in account_keys)
+        required_account_keys = ("phone", "amazon_password", "full_name", "otp_url")
+        account_rows = [any(self.values[i][key].get() for key in
+                            (*required_account_keys, "card"))
                         for i in range(active)]
         if any(account_rows) and not all(
-            all(self.values[i][key].get() for key in account_keys)
+            all(self.values[i][key].get() for key in required_account_keys)
             for i in range(active)
         ):
             return "Thông tin Amazon chưa đủ cho mọi máy trong mẻ"

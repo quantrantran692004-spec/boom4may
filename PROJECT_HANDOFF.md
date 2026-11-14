@@ -1,10 +1,30 @@
+## Thẻ tùy chọn khi dán nhiều hàng Amazon — 14/11/2026
+
+Trong ô **Thông tin Amazon**, hàng `SĐT | Mật khẩu | Tên | URL OTP` hoặc hàng có cột thẻ trống đều hợp lệ; có thể trộn cùng hàng có thẻ trong một lần dán. Parser đã cho phép thẻ rỗng nhưng `Window._input_issue` trước đây vẫn bắt buộc trường thẻ cho mọi máy. Nay bộ kiểm tra chỉ yêu cầu SĐT, mật khẩu, tên và URL OTP; nếu thẻ có giá trị thì vẫn kiểm tra định dạng như cũ. Placeholder ghi thẻ tùy chọn. Kiểm thử dùng dữ liệu giả, không thao tác máy thật.
+
+## B1–b3 xem menu ngẫu nhiên cho 12 máy — 14/11/2026
+
+Theo chỉ dẫn mới nhất, b1–b3 chỉ cần xem/bấm các vùng thẻ và mục con được đánh đỏ trong 14 ảnh tham chiếu, không yêu cầu OCR hoặc xác nhận thẻ đã mở. `random_prefix.py` lấy kích thước Android thật theo serial của từng máy, chọn các điểm tỷ lệ trong vùng danh mục, giữ 1 giây sau cú bấm, thử tối đa bốn điểm và vuốt khi lệnh ADB lỗi. Trước b2/b3 và b4, tool chạm nút menu ba gạch theo kích thước máy; b4–b11 vẫn dùng bộ nhận diện hiện hành. Một mẻ mới dùng batch_id để xáo 12 điểm đầu: b1 của 12 máy khác nhau, nên cả chuỗi b1–b3 không trùng trong mẻ. Nếu không có lệnh bấm nào được ADB xác nhận, giữ đúng bước và tự thử lại; không chuyển thẳng b4. 307 unittest PASS, chưa thử 12 máy thật. `.venv` đang chạy có ONNX Runtime 1.32 bị crash khi import; bản 1.20.1 trong thư mục thử nghiệm chạy OCR được trên 14 ảnh, nhưng chưa thay `.venv` vì phiên tool đang mở dùng nó. Cần xử lý phiên chạy và kiểm thử b4 riêng sau khi dữ liệu mẻ được giữ an toàn.
+
+## Dán bảng Amazon có ghi chú thẻ live và URL OTP escaped — 14/11/2026
+
+`bulk_input.parse_records(account_table=True)` nhận hàng tab nhiều cột trống với thẻ dạng `số|tháng|năm|live=>√【nguồn】` và URL OTP dán dạng `https\://...\`. Parser chỉ giữ ba thành phần thẻ, bỏ ghi chú nguồn, bỏ ký tự escape của URL rồi áp dụng kiểm tra URL/token cũ; ánh xạ cùng hàng SĐT, mật khẩu, tên, thẻ, URL giữ nguyên. Dùng dữ liệu giả trong test, không ghi giá trị thật người dùng gửi vào mã hoặc tài liệu. Không đổi giao diện hay phần xử lý khác.
+
+## Không bỏ qua b1–b3 ngẫu nhiên; 14 ảnh menu mới — 14/11/2026
+
+Người dùng báo tool đi thẳng b4 dù yêu cầu phải xem/bấm b1, b2, b3 trên cả 12 máy. Nguyên nhân trong `random_prefix.py` là ba nhánh trả về thành công khi đọc menu lỗi, không có mục phù hợp hoặc màn đã ở form; `_tap_for_transition` còn nuốt lỗi lệnh chạm. `PostMenuSession` vì vậy tăng `next_step` như thể cú bấm đã xảy ra. Nay mỗi bước chỉ ghi `registration.prefix_completed` sau khi `_tap` ADB trả thành công; lỗi vẫn ở đúng bước để tự đọc lại. Sau lỗi chạm, tool đọc menu mới và thử mục khác, gồm các hàng con trong ảnh. B4 có chốt yêu cầu đủ ba dấu hoàn tất rồi tự về Browse menu trước Sign In. Không dùng tọa độ cố định từ ảnh, không chọn Sign In/Settings ở b1–b3.
+
+14 ảnh người dùng gửi đã sao chép nguyên bản vào `flow_images/shared/random_prefix_reference/` và giải thích từng ảnh tại [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md). Ảnh cho thấy 15 thẻ danh mục, mục con mở rộng trong cùng menu và Sign In ở cuối; tiêu đề menu có thể cuộn khỏi màn. Mã nhận menu bằng ba thẻ đang hiện và ghép nhãn OCR xuống dòng. Đã test mô phỏng; chưa chạy trên Swarmote thật. Tool đang mở không tự nạp thay đổi và không được reset vì dữ liệu mẻ chỉ ở RAM.
+
+`python -m unittest discover -s tests -q`: 311/311 PASS.
+
 ## Dán nhiều proxy cách nhau bằng dấu cách — 14/11/2026
 
 Người dùng dán nhiều proxy dạng `host:port:username:password` trên cùng một dòng, ngăn bằng dấu cách; trước đây `bulk_input.lines` chỉ tách theo xuống dòng nên toàn bộ bị coi là một proxy và phần còn lại nhập nhầm vào mật khẩu. `parse_column("proxy")` nay tách trước mỗi tiền tố proxy tiếp theo theo khoảng trắng, vẫn giữ trường hợp một mật khẩu đơn có dấu cách như trước, giới hạn 100 mục sau khi tách và báo lỗi theo thứ tự mục. Cả ô Proxy dán nhanh lẫn ô proxy máy đang chọn dùng cùng parser; nhiều mục được gán Máy 1–12 theo thứ tự và phần dư là proxy dự phòng như trước. Không lưu hoặc ghi giá trị proxy thật của người dùng. Chuỗi bốn trường hiện không mang thông tin giao thức; `parse_proxy_line` và đường tạo Profile vẫn dùng SOCKS5, chưa suy đoán HTTP/HTTPS theo tên nhà cung cấp. **300 unittest PASS**, gồm kiểm thử bốn proxy trên một dòng và đường phân bổ từ ô proxy đơn. Không thử proxy thật hoặc tạo Profile, không đóng phiên tool đang mở.
 
 ## b1–b3 ngẫu nhiên cho q1–q12 — 14/11/2026
 
-Người dùng đổi yêu cầu: ba thao tác đầu chỉ cần bấm ngẫu nhiên, chọn nhầm mục không quan trọng; mỗi mẻ tạo mới phải bốc lại, không giữ chuỗi cố định q1–q6. `desktop.POST_MENU_STEP_FACTORIES` hiện nối cả 12 slot tới `random_prefix.build_random_steps`. Mỗi bước đọc menu thật trên đúng serial với hạn 15 giây, chọn ngẫu nhiên một mục có vùng bấm hợp lệ (ưu tiên mục chưa dùng trong ba bước), giữ nhãn đã chọn trong `PostMenuSession.registration.prefix_choices` để Tiếp tục không bốc lại. Nếu không tìm được mục bấm hoặc chưa quay về menu, bước đầu báo trạng thái và chuyển tiếp; b4 vẫn kiểm tra menu và form trước khi thao tác. Nhánh menu danh sách không còn bỏ qua ba bước ngẫu nhiên. Các file `q1_flow.py`–`q6_flow.py` còn lại làm tham chiếu cho luồng cố định cũ; b4–b11 không đổi. **296 unittest PASS**; chưa xác minh trên 12 máy thật, không thể cam kết lỗi ADB/màn lạ sẽ không dừng ở b4 hoặc sau đó. Không đóng phiên đang mở vì dữ liệu mẻ nằm trong RAM; tiến trình đó chưa tự nạp mã mới.
+Người dùng đổi yêu cầu: ba thao tác đầu chỉ cần bấm ngẫu nhiên, chọn nhầm mục không quan trọng; mỗi mẻ tạo mới phải bốc lại, không giữ chuỗi cố định q1–q6. `desktop.POST_MENU_STEP_FACTORIES` nối cả 12 slot tới `random_prefix.build_random_steps`. Bản đầu chọn mục từ menu thật nhưng cho phép đi tiếp khi chưa bấm được; lỗi này đã sửa ở mục bàn giao mới phía trên. Nhánh menu danh sách cũng không bỏ qua ba bước. Các file `q1_flow.py`–`q6_flow.py` còn lại làm tham chiếu cho luồng cố định cũ; b4–b11 không đổi. Chưa xác minh trên 12 máy thật. Không đóng phiên đang mở vì dữ liệu mẻ nằm trong RAM; tiến trình đó chưa tự nạp mã mới.
 
 ## b6 cuộn chạm đáy rồi vuốt ngược khoảng bốn quốc gia — 14/11/2026
 

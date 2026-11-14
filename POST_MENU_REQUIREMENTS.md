@@ -4,11 +4,11 @@ Phạm vi mới bắt đầu **sau** khi từng máy đã xác nhận `MENU_OPEN
 
 Người dùng đã thay yêu cầu b1–b3: cả q1–q12 chọn ba mục bấm ngẫu nhiên trên menu thật ở mỗi mẻ, không còn chuỗi cố định theo máy. Các ảnh và file q1–q6 ghi lại lịch sử trước thay đổi. Từ b4 Sign In tới b11 OTP SMS và bấm tạo tài khoản vẫn là cùng một luồng cho q1–q12. Mỗi máy vẫn có SĐT, tên, thẻ, URL OTP, trạng thái gửi mã và điểm dừng/tiếp tục riêng. Thẻ hiện chỉ được giữ theo hàng, chưa sử dụng trong b1–b11.
 
-Trước b1, mỗi máy đọc cây UI Amazon theo serial của mình. Menu dạng thẻ và dạng danh sách đều chạy ba lượt bấm ngẫu nhiên từ các mục đang hiện rồi nối b4. Nhánh Home → b4 cũ chỉ còn trong mã factory cố định làm tham chiếu. Không dùng tọa độ ảnh. Nếu b1–b3 không có mục bấm rõ, báo trạng thái và để b4 tự kiểm tra menu/form. Xem [MENU_ROUTING.md](MENU_ROUTING.md).
+Trước b1, mỗi máy đã được xác nhận ở menu Amazon. B1–b3 dùng kích thước Android của đúng serial để bấm/vuốt ngẫu nhiên ở các vùng danh mục tham chiếu; không đòi hỏi OCR hay đọc màn sau cú bấm. Nếu ADB chưa gửi được cú bấm thì thử vị trí khác và lặp lại đúng bước. B4 có chốt kiểm tra đủ ba lượt, chạm menu ba gạch rồi dùng bộ nhận diện cũ. Xem [MENU_ROUTING.md](MENU_ROUTING.md) và 14 ảnh trong `flow_images/shared/random_prefix_reference/`.
 
 ## Nhận diện giao diện lúc chạy
 
-- Ảnh người dùng gửi là ví dụ để xác định luồng, **không phải tọa độ cố định** cho các lần chạy. Trước mỗi thao tác, tool đọc lại cây giao diện Android của đúng ADB serial/profile và xác định màn hình hiện tại.
+- Ảnh người dùng gửi là ví dụ để xác định luồng, **không phải tọa độ pixel cố định**. B1–b3 bấm/vuốt theo tỷ lệ kích thước Android; từ b4, tool đọc lại giao diện Android của đúng serial/profile trước thao tác.
 - Với mỗi màn hình được hướng dẫn, chuẩn bị nhiều cách nhận diện theo thứ tự ưu tiên: `resource-id` hoặc `content-desc` ổn định; nhãn chữ cùng loại phần tử và quan hệ với ô nhập; cuối cùng là vùng bấm lấy từ cây giao diện hiện tại. Chỉ dùng ảnh/OCR làm phương án bổ trợ nếu cây giao diện không đủ thông tin và đã kiểm chứng trên máy thật.
 - Một màn hình có thể có nhiều biến thể hợp lệ. Mỗi biến thể phải có dấu hiệu nhận diện riêng và cùng một kết quả cần xác minh. Sau khi bấm/gõ, tool đọc lại giao diện để xác nhận đã sang đúng bước hoặc giá trị ô nhập đã đúng.
 - Nếu Amazon đổi bố cục nhưng vẫn nhận diện được biến thể đã kiểm chứng, tool tiếp tục. Nếu màn hình lạ, phần tử không duy nhất hoặc kết quả sau thao tác không rõ, tool dừng **chỉ máy đó** ngay tại màn hình hiện tại. Nút **Tiếp tục** đọc lại màn hình mới sau khi người dùng sửa, rồi chọn bước phù hợp; không bấm lại theo tọa độ cũ.

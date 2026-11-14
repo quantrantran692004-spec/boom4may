@@ -1,6 +1,6 @@
 # Tiến độ hướng dẫn bằng ảnh — cập nhật 13/11/2026
 
-**Luồng đang chạy từ 14/11/2026:** b1–b3 của cả q1–q12 bốc mục bấm ngẫu nhiên từ menu thật trong mỗi mẻ; các chuỗi cố định q1–q6 bên dưới là lịch sử hướng dẫn trước đó. B4–b11 vẫn dùng chung và giữ dữ liệu riêng từng máy. Chưa thử b1–b3 ngẫu nhiên trên máy thật.
+**Luồng đang chạy từ 14/11/2026:** b1–b3 của q1–q12 bấm/vuốt ngẫu nhiên trong vùng danh mục dựa trên kích thước từng Android, không dùng OCR. Mỗi máy có điểm b1 riêng trong mẻ; mẻ mới xáo lại. Lệnh ADB lỗi thì thử điểm khác, không nhảy b4 trước khi có ba cú bấm được gửi thành công. Trước b4 chạm menu ba gạch; b4–b11 giữ nguyên cách nhận diện. Các chuỗi cố định q1–q6 bên dưới là lịch sử. 14 ảnh menu tại `flow_images/shared/random_prefix_reference/`; chưa thử 12 máy thật.
 
 **Chưa có toàn bộ quy trình.** Những ảnh đã gửi chỉ mô tả các mốc dưới đây. Mỗi ảnh tiếp theo của người dùng có thể bổ sung hoặc sửa một mốc; phải cập nhật file này, tài liệu máy tương ứng và mã trước khi nói máy đó đã hoàn tất. Không suy diễn màn sau ảnh cuối.
 

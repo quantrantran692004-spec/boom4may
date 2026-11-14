@@ -67,7 +67,8 @@ class RegistrationState:
     sms_requested_at: float | None = None
     code: str = field(default="", repr=False)
     create_pressed: bool = False
-    prefix_choices: dict[int, str] = field(default_factory=dict, repr=False)
+    prefix_choices: dict[int, tuple[float, float]] = field(default_factory=dict, repr=False)
+    prefix_completed: set[int] = field(default_factory=set, repr=False)
 
 
 @dataclass

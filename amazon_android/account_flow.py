@@ -32,6 +32,13 @@ SIZE = re.compile(r"(?:Physical|Override) size:\s*(\d+)x(\d+)")
 PHONE_FIELD = "Enter mobile number or email"
 NAME_FIELD = "First and last name"
 OTP_FIELD = "Enter security code"
+MENU_CARD_LABELS = frozenset({
+    "gifting", "deals & savings", "be inspired, save more",
+    "groceries and drinks", "health and personal care", "pets",
+    "fashion and beauty", "home and diy", "devices and electronics",
+    "music, video and gaming", "books and reading", "toys, kids and baby",
+    "office & professional", "sports & outdoors", "your stuff",
+})
 
 
 def _text(node: dict[str, str]) -> str:
@@ -85,8 +92,12 @@ def screen(nodes: list[dict[str, str]]) -> str:
         return "IDENTIFIER"
     if _has(nodes, "Country/region code"):
         return "COUNTRY"
+    # The heading scrolls off-screen on the lower card rows shown in the
+    # user's menu captures. Three distinct category cards still identify it.
+    visible_cards = {_text(node) for node in nodes if _visible(node)} & MENU_CARD_LABELS
     if (_has(nodes, "Shop by category") or
-            (_has(nodes, "Sign In") and _has(nodes, "Customer Service"))):
+            (_has(nodes, "Sign In") and _has(nodes, "Customer Service")) or
+            len(visible_cards) >= 3):
         return "MENU"
     return "UNKNOWN"
 
@@ -96,8 +107,7 @@ def menu_layout(nodes: list[dict[str, str]]) -> str:
     if screen(nodes) != "MENU":
         return "OTHER"
     labels = {_text(node) for node in nodes}
-    cards = {"gifting", "pets", "fashion and beauty", "your stuff",
-             "sports & outdoors", "books and reading", "office & professional"}
+    cards = MENU_CARD_LABELS
     list_items = {"books", "electronics", "home services", "see all",
                   "today's deals", "try prime"}
     if cards & labels:

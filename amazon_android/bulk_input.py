@@ -14,7 +14,10 @@ from .swarmote_desktop import ProxyConfig
 MAX_PROFILES = 12
 MAX_PROXY_CANDIDATES = 100
 MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-CARD = re.compile(r"(\d{12,19})\|(\d{1,2})\|(\d{2,4})")
+CARD = re.compile(
+    r"(\d{12,19})\|(\d{1,2})\|(\d{2,4})"
+    r"(?:\|live=>√【[^】\r\n]{1,100}】)?"
+)
 
 
 def _table_cells(line: str) -> list[str]:
@@ -35,7 +38,11 @@ def _url_from_cell(cell: str) -> str:
         label, url = match.groups()
         if label.startswith(("http://", "https://")) and label != url:
             raise ToolError("Chữ và đích của link URL OTP không khớp")
-        return url
+        cell = url
+    if cell.startswith((r"http\://", r"https\://")):
+        cell = cell.replace(r"\:", ":")
+        if cell.endswith("\\"):
+            cell = cell[:-1]
     return cell
 
 
@@ -45,7 +52,7 @@ def validate_card(raw: str) -> str:
     match = CARD.fullmatch(card)
     if not match or not 1 <= int(match.group(2)) <= 12:
         raise ToolError("Thẻ cần dạng số thẻ|tháng|năm")
-    return card
+    return "|".join(match.groups())
 
 @dataclass(frozen=True)
 class BulkRecord:

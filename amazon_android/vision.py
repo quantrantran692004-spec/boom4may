@@ -42,11 +42,20 @@ KNOWN_LABELS = (
     "Browse menu Tab",
     "Sign in for the best experience",
     "Gifting",
+    "Deals & Savings",
+    "Be Inspired, Save More",
+    "Health and Personal Care",
     "Pets",
     "Fashion and Beauty",
     "Groceries and Drinks",
     "Home and DIY",
     "Books and Reading",
+    "Devices and Electronics",
+    "Music, Video and Gaming",
+    "Toys, Kids and Baby",
+    "Office & Professional",
+    "Sports & Outdoors",
+    "Your Stuff",
     "Your Amazon Cart is empty",
     "Continue shopping",
     "Home Tab",
@@ -64,6 +73,21 @@ FIELD_LABELS = {
     "first and last name": "name",
     "enter security code": "otp",
 }
+
+WRAPPED_CARD_TITLES = (
+    ("Deals &", "Savings", "Deals & Savings"),
+    ("Be Inspired,", "Save More", "Be Inspired, Save More"),
+    ("Groceries and", "Drinks", "Groceries and Drinks"),
+    ("Health and", "Personal Care", "Health and Personal Care"),
+    ("Fashion and", "Beauty", "Fashion and Beauty"),
+    ("Home and", "DIY", "Home and DIY"),
+    ("Devices and", "Electronics", "Devices and Electronics"),
+    ("Music, Video", "and Gaming", "Music, Video and Gaming"),
+    ("Books and", "Reading", "Books and Reading"),
+    ("Toys, Kids and", "Baby", "Toys, Kids and Baby"),
+    ("Office &", "Professional", "Office & Professional"),
+    ("Sports &", "Outdoors", "Sports & Outdoors"),
+)
 
 _ocr_slots = queue.Queue()
 for _slot in range(2):
@@ -116,18 +140,21 @@ def _normalize(value: str) -> str:
                            if not unicodedata.combining(char)).split())
 
 
+def _compact(value: str) -> str:
+    return "".join(char for char in _normalize(value) if char.isalnum())
+
+
 def _canonical_text(value: str) -> str:
-    normalized = _normalize(value)
-    if normalized in {"groceries and", "home and", "books and", "fashion and"}:
+    if _compact(value) in {_compact(first) for first, _, _ in WRAPPED_CARD_TITLES}:
         return value.strip()  # Wait for the next line of a wrapped card title.
-    compact = "".join(char for char in normalized if char.isalnum())
+    compact = _compact(value)
     if not compact:
         return value.strip()
     best = value.strip()
     best_score = 0.0
     for label in KNOWN_LABELS:
         candidate = _normalize(label)
-        candidate_compact = "".join(char for char in candidate if char.isalnum())
+        candidate_compact = _compact(candidate)
         score = difflib.SequenceMatcher(None, compact, candidate_compact).ratio()
         if compact in candidate_compact or candidate_compact in compact:
             score = max(score, min(len(compact), len(candidate_compact)) /
@@ -139,8 +166,7 @@ def _canonical_text(value: str) -> str:
 
 def _join_wrapped_categories(detections: list[dict]) -> list[dict]:
     """Join known two-line card titles only within the same live card column."""
-    titles = {label.casefold(): label for label in
-              ("Groceries and Drinks", "Home and DIY", "Books and Reading", "Fashion and Beauty")}
+    titles = {_compact(label): label for _, _, label in WRAPPED_CARD_TITLES}
     joined = []
     next_id = max((item["index"] for item in detections), default=-1) + 1
     for upper in detections:
@@ -153,7 +179,7 @@ def _join_wrapped_categories(detections: list[dict]) -> list[dict]:
                     abs(ax1 - bx1) <= line_height and min(ax2, bx2) > max(ax1, bx1)):
                 continue
             text = " ".join((upper["raw"].strip(), lower["raw"].strip()))
-            title = titles.get(_normalize(text))
+            title = titles.get(_compact(text))
             if title:
                 joined.append({"text": title, "raw": text,
                                "box": (min(ax1, bx1), ay1, max(ax2, bx2), by2),

@@ -108,4 +108,23 @@ Các ảnh người dùng gửi đã được sao chép vào `flow_images/` đ�
 
 [15_b4_list_sign_in_ambiguous.png](flow_images/q1/15_b4_list_sign_in_ambiguous.png): q1 hiện menu dạng danh sách, Sign In nằm dưới Customer Service nhưng tool báo không xác định được duy nhất `Sign In`. Bộ chọn b4 cần ưu tiên phần tử có thể bấm, hoặc phần tử ở dưới Customer Service khi cây UI trả nhãn lặp. Chưa có ADB dump của chính máy này để xác minh thuộc tính các node.
 
-Ảnh tiếp theo của người dùng chưa có trong danh mục này. Khi nhận ảnh mới, lưu tên theo máy và thứ tự, cập nhật `STEP_INVENTORY.md`, file Qn tương ứng, `PROJECT_HANDOFF.md` rồi cập nhật Graphify.
+Ảnh mới về menu ngẫu nhiên được lập danh mục bên dưới. Khi nhận ảnh khác, lưu tên theo máy và thứ tự, cập nhật `STEP_INVENTORY.md`, file Qn tương ứng, `PROJECT_HANDOFF.md` rồi cập nhật Graphify.
+
+## 14 ảnh menu chung b1–b3 ngẫu nhiên — 14/11/2026
+
+Ảnh người dùng gửi chỉ là tham chiếu giao diện, không ghi máy qN hoặc chứng minh tool đã bấm thành công. Viền xanh cho biết một thẻ đang mở; các hàng mục con xuất hiện ngay trong menu. Khi cuộn xuống, `Shop by category` có thể ra khỏi khung nhìn; `Sign In` nằm ở cuối menu và chỉ dành cho b4. B1–b3 được phép bấm thẻ hoặc mục con đang hiện, không lấy tọa độ cố định từ các ảnh này.
+
+- [01_menu_cards.png](flow_images/shared/random_prefix_reference/01_menu_cards.png): đầu menu với các thẻ danh mục và tab menu.
+- [02_menu_bottom_sign_in.png](flow_images/shared/random_prefix_reference/02_menu_bottom_sign_in.png): cuối menu, Customer Service và Sign In dưới các thẻ Office, Sports, Your Stuff.
+- [03_gifting_expanded.png](flow_images/shared/random_prefix_reference/03_gifting_expanded.png): Gifting mở Gift Cards.
+- [04_deals_expanded.png](flow_images/shared/random_prefix_reference/04_deals_expanded.png): Deals & Savings mở Today's Deals, Bank Promotions, Clearance Store, Promotions, Vouchers.
+- [05_inspired_expanded.png](flow_images/shared/random_prefix_reference/05_inspired_expanded.png): Be Inspired, Save More mở International Store và Weekly New Arrivals.
+- [06_groceries_expanded.png](flow_images/shared/random_prefix_reference/06_groceries_expanded.png): Groceries and Drinks mở Grocery.
+- [07_health_expanded.png](flow_images/shared/random_prefix_reference/07_health_expanded.png): Health and Personal Care mở Health & Personal Care.
+- [08_pets_expanded.png](flow_images/shared/random_prefix_reference/08_pets_expanded.png): Pets mở Pets Supplies, Dogs, Cats, Birds, Fish, Small Animals.
+- [09_fashion_expanded.png](flow_images/shared/random_prefix_reference/09_fashion_expanded.png): Fashion and Beauty mở Fashion, Apparel, Shoes, Watches, Jewellery, Beauty, Luxury Beauty.
+- [10_home_diy_expanded.png](flow_images/shared/random_prefix_reference/10_home_diy_expanded.png): Home and DIY mở Home & Kitchen, Lawn & Garden, Arts, Crafts & Sewing, DIY Tools & Automotive.
+- [11_devices_expanded.png](flow_images/shared/random_prefix_reference/11_devices_expanded.png): Devices and Electronics mở Electronics, Mobile & Accessories, Computers, Tablets, TV.
+- [12_music_expanded.png](flow_images/shared/random_prefix_reference/12_music_expanded.png): Music, Video and Gaming mở Music, Musical Instruments, Video Games, DVD, Gaming Store.
+- [13_books_expanded.png](flow_images/shared/random_prefix_reference/13_books_expanded.png): Books and Reading mở Books, STEAM Store; Sign In ở phía dưới.
+- [14_toys_expanded.png](flow_images/shared/random_prefix_reference/14_toys_expanded.png): Toys, Kids and Baby mở Toys & Games, Baby, Baby Clothes, Girls' Clothes, Boys' Clothes, STEAM Store.
