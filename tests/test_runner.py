@@ -9,7 +9,8 @@ from amazon_android.core import ToolError
 from amazon_android.profile_registry import ProfileRegistry
 from amazon_android.runner import AccountData, RunJob, run_batch
 from amazon_android.swarmote_desktop import (ProfileCreateNotSubmitted,
-    ProfileManagerWindowError, ProfileNotFound, ProxyConfig)
+    ProfileManagerWindowError, ProfileNotFound, ProfileStartNotSubmitted,
+    ProxyConfig)
 
 
 class RunnerTests(unittest.TestCase):
@@ -311,6 +312,52 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("start:q1", self.calls)
         self.assertIn("start:q2", self.calls)
         self.assertIn("start:q3", self.calls)
+
+    def test_limit_two_waits_for_shutdown_then_starts_both_queued_phones(self):
+        jobs = [RunJob(i, "batch", self.jobs[0].proxy) for i in range(4)]
+        result = {}
+
+        def run():
+            result["summary"], _ = self.execute(jobs, start_group_size=2,
+                                                auto_close=False)
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        until = time.monotonic() + 5
+        while time.monotonic() < until and "create:q4" not in self.calls:
+            time.sleep(0.02)
+        self.assertIn("create:q4", self.calls)
+        self.assertNotIn("start:q3", self.calls)
+        self.assertNotIn("start:q4", self.calls)
+        self.running.difference_update({"q1", "q2"})
+        worker.join(7)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(result["summary"]["menu_open"], 4)
+        self.assertIn("start:q3", self.calls)
+        self.assertIn("start:q4", self.calls)
+
+    def test_start_button_not_ready_retries_without_continue(self):
+        jobs = [RunJob(i, "batch", self.jobs[0].proxy) for i in range(4)]
+        ordinary_start = self.start
+        attempts = 0
+
+        def delayed_start(name, *, wait=True):
+            nonlocal attempts
+            if name == "q3":
+                attempts += 1
+                if attempts == 1:
+                    raise ProfileStartNotSubmitted("nút Start chưa sẵn sàng")
+            return ordinary_start(name, wait=wait)
+
+        with patch.object(self, "start", side_effect=delayed_start):
+            result, events = self.execute(jobs, start_group_size=2)
+        self.assertEqual(result["menu_open"], 4)
+        self.assertEqual(result["error"], 0)
+        self.assertEqual(attempts, 2)
+        self.assertEqual(self.calls.count("start:q4"), 1)
+        self.assertTrue(any(index == 2 and state == "queued" and
+                            "tự thử lại" in message
+                            for index, message, state, _ in events))
 
     def test_failed_start_still_creates_remaining_profiles(self):
         def failed_start(name, *, wait=True):

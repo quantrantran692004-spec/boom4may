@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "amazon_android/runner.py": {
-    "mtime": 1794623915.8501272,
-    "seen": 1794624019.5858276,
-    "ast_hash": "721d3dd3deb5fa50a14135b73f6efca9",
+    "mtime": 1794625559.4010167,
+    "seen": 1794625696.745275,
+    "ast_hash": "41fa1e452cbfb067d89b6060be314878",
     "semantic_hash": ""
   },
   "amazon_android/settings.py": {
@@ -102,9 +102,9 @@
     "semantic_hash": ""
   },
   "amazon_android/swarmote_desktop.py": {
-    "mtime": 1794623905.5480776,
-    "seen": 1794624019.5858276,
-    "ast_hash": "ba05094a3dc242ba7eee8913a3b12363",
+    "mtime": 1794625728.5766428,
+    "seen": 1794625763.8150833,
+    "ast_hash": "8b92f40f1bf80b3fe65ecbe893f65019",
     "semantic_hash": ""
   },
   "pyproject.toml": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "tests/test_runner.py": {
-    "mtime": 1794623931.05278,
-    "seen": 1794624019.5858276,
-    "ast_hash": "76bd6206b091072b8d9e7249f6cde7de",
+    "mtime": 1794625576.9933276,
+    "seen": 1794625696.745275,
+    "ast_hash": "0ee2b1623a9d2da627e3cb17eac563bb",
     "semantic_hash": ""
   },
   "tests/test_settings.py": {
@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "tests/test_swarmote_batch_start.py": {
-    "mtime": 1794621960.3146102,
-    "seen": 1794623175.1177075,
-    "ast_hash": "2533c23486a1e68b36cf16cb5e9d13d2",
+    "mtime": 1794625640.1939363,
+    "seen": 1794625696.745275,
+    "ast_hash": "89d13fed2f55b170c75d12db4344b35b",
     "semantic_hash": ""
   },
   "tests/test_swarmote_install.py": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1794625177.637514,
-    "seen": 1794625227.1754122,
-    "ast_hash": "f881c49492f3b10632f45ffa07fd12f0",
+    "mtime": 1794625674.3889878,
+    "seen": 1794625696.745275,
+    "ast_hash": "6ced72758023a3c55ff0c7a832e83c4e",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -348,9 +348,9 @@
     "semantic_hash": ""
   },
   "STEP_INVENTORY.md": {
-    "mtime": 1794625202.5229628,
-    "seen": 1794625227.1754122,
-    "ast_hash": "778c59b23d731cd79d91afc839b74dbf",
+    "mtime": 1794625674.386995,
+    "seen": 1794625696.745275,
+    "ast_hash": "dece211f328545a57f4ae9c661fd9022",
     "semantic_hash": ""
   },
   "amazon_android/account_flow.py": {

@@ -24,7 +24,7 @@ Bấm Test Proxy; chỉ khi hiện Test Passed mới bấm Create. Sau Create, x
 
 ## P06 — Start điện thoại và chờ slot
 
-Tool gửi Start cho Profile đã xác nhận, tuân giới hạn số máy Running, và đợi slot nếu đủ máy. Mỗi máy có Device ID riêng. **Đã nối mã; các trường hợp chính có test mô phỏng.**
+Tool gửi Start cho Profile đã xác nhận, tuân giới hạn số máy Running, và đợi slot nếu đủ máy. Mỗi máy có Device ID riêng. Khi máy trước về Offline, Profile chờ tự mở. Nếu Swarmote chưa bật nút Start dù slot đã trống, tool giữ Profile trong hàng đợi và tự thử lại tối đa 60 giây; chỉ áp dụng khi chắc chắn chưa hề gọi nút Start. Lỗi sau khi đã gọi Start vẫn phải xác minh trạng thái, không gửi lặp. **Đã nối mã và test mô phỏng 4 máy/2 slot; chưa xác minh lần chuyển lượt mới trên Swarmote thật.**
 
 ## P07 — Mở Apps, tìm z và cài Amazon
 

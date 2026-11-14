@@ -29,6 +29,10 @@ class ProfileCreateNotSubmitted(ToolError):
     """Validation or UI failed before the Create request was sent."""
 
 
+class ProfileStartNotSubmitted(ToolError):
+    """The Start button was never invoked; retrying cannot duplicate a Start."""
+
+
 class ProxyTestFailed(ProfileCreateNotSubmitted):
     """Swarmote rejected the proxy before submitting Profile creation."""
 
@@ -475,20 +479,23 @@ def _profile_row_status(name: str, rows: list) -> dict:
 
 def start_profile(name: str, *, wait: bool = True) -> dict:
     """Send Start with UIA; optionally return before the phone finishes booting."""
-    current = profile_status(name)
-    settle_until = time.monotonic() + 15
-    while current["state"] not in {"Running", "Offline"} and time.monotonic() < settle_until:
-        time.sleep(0.5)
+    try:
         current = profile_status(name)
-    if current["state"] == "Running":
-        return current
-    if current["state"] != "Offline":
-        raise ToolError("Profile chưa ở trạng thái Offline, dừng trước khi gửi Start")
-    window = _main_window()
-    search = _one(window, "Profile Name", "Edit")
-    previous_filter = search.iface_value.CurrentValue
-    filtered = not any(x.element_info.name == name and x.element_info.control_type == "DataItem"
-                       for x in _descendants(window))
+        settle_until = time.monotonic() + 15
+        while current["state"] not in {"Running", "Offline"} and time.monotonic() < settle_until:
+            time.sleep(0.5)
+            current = profile_status(name)
+        if current["state"] == "Running":
+            return current
+        if current["state"] != "Offline":
+            raise ToolError("Profile chưa ở trạng thái Offline, dừng trước khi gửi Start")
+        window = _main_window()
+        search = _one(window, "Profile Name", "Edit")
+        previous_filter = search.iface_value.CurrentValue
+        filtered = not any(x.element_info.name == name and x.element_info.control_type == "DataItem"
+                           for x in _descendants(window))
+    except ToolError as exc:
+        raise ProfileStartNotSubmitted(str(exc)) from exc
     invoked = False
     try:
         if filtered:
@@ -505,12 +512,16 @@ def start_profile(name: str, *, wait: bool = True) -> dict:
             if len(starts) == 1:
                 if _selected_profile_names(window) != {name}:
                     raise ToolError("Swarmote đã đổi lựa chọn Profile trước khi Start; chưa gửi Start")
-                starts[0].invoke()
                 invoked = True
+                starts[0].invoke()
                 break
             time.sleep(0.25)
         else:
             raise ToolError("Swarmote chưa bật nút Start cho Profile đã chọn")
+    except ToolError as exc:
+        if not invoked:
+            raise ProfileStartNotSubmitted(str(exc)) from exc
+        raise
     finally:
         if invoked:
             try:
@@ -518,7 +529,12 @@ def start_profile(name: str, *, wait: bool = True) -> dict:
             except ToolError:
                 pass  # Next Start still requires an exact Start(1) selection.
         if filtered:
-            _set_value(window, "Profile Name", "Edit", previous_filter)
+            try:
+                _set_value(window, "Profile Name", "Edit", previous_filter)
+            except ToolError as exc:
+                if not invoked:
+                    raise ProfileStartNotSubmitted(str(exc)) from exc
+                raise
     if not wait:
         return {**current, "state": "Starting"}
     until = time.monotonic() + 90

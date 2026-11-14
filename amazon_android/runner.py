@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import time
 
 # Import on the caller thread; initialize each UIA worker explicitly as MTA.
 import pythoncom
@@ -16,7 +17,7 @@ from .home_menu import open_home_menu
 from .profile_registry import ProfileRegistry
 from .swarmote_desktop import (
     ProfileCreateNotSubmitted, ProfileManagerWindowError, ProfileNotFound,
-    ProxyTestFailed,
+    ProxyTestFailed, ProfileStartNotSubmitted,
     ProxyConfig, create_profile, install_amazon, ensure_manager_ready,
     open_adb_shell, profile_status, show_apps, collapse_apps_panel,
     start_profile, visible_profile_names,
@@ -153,6 +154,7 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
     start_blocked = False
     creation_blocked = False
     slot_warning_sent = False
+    start_retry_since: dict[str, float] = {}
     try:
         visible_names = visible_profile_names()
     except ToolError:
@@ -215,20 +217,37 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                 return
             refresh_slots()
             while waiting and len(active) < start_group_size and not stop.is_set():
-                job, name, device_id = waiting.popleft()
+                job, name, device_id = waiting[0]
                 emit(job.index, f"Đang mở máy {name}", "running", name)
                 try:
                     started = _start_and_confirm(name, device_id, stop)
                     if (started["state"] not in {"Starting", "Running"} or
                             started.get("device_id") != device_id):
                         raise ToolError(f"{name}: Start chưa xác nhận đúng Device ID")
+                except ProfileStartNotSubmitted as exc:
+                    first = start_retry_since.setdefault(name, time.monotonic())
+                    if time.monotonic() - first < 60 and not stop.is_set():
+                        emit(job.index,
+                             f"{name} đang đợi nút Start sẵn sàng; tool tự thử lại",
+                             "queued", name)
+                        return
+                    waiting.popleft()
+                    registry.mark(job.batch_id, job.index, "ERROR", error=str(exc))
+                    emit(job.index, f"Không mở được {name} sau khi đợi Start: {exc}",
+                         "error", name)
+                    summary["error"] += 1
+                    start_blocked = True
+                    return
                 except Exception as exc:
+                    waiting.popleft()
                     registry.mark(job.batch_id, job.index, "ERROR",
                                   error=str(exc) if isinstance(exc, ToolError) else type(exc).__name__)
                     emit(job.index, f"Không xác nhận được Start {name}: {exc}", "error", name)
                     summary["error"] += 1
                     start_blocked = True
                     return
+                waiting.popleft()
+                start_retry_since.pop(name, None)
                 active[name] = {"device_id": device_id,
                                 "seen_running": started["state"] == "Running"}
                 item = registry.get(job.batch_id, job.index)

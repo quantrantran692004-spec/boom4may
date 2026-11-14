@@ -2,7 +2,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from amazon_android.swarmote_desktop import _select_profile_rows, start_profile, start_profiles_together
+from amazon_android.core import ToolError
+from amazon_android.swarmote_desktop import (
+    ProfileStartNotSubmitted, _select_profile_rows, start_profile,
+    start_profiles_together,
+)
 
 
 class FakeBox:
@@ -32,6 +36,39 @@ class FakeButton:
 
 
 class BatchStartTests(unittest.TestCase):
+    def test_pre_submit_selection_error_can_be_retried(self):
+        window = object()
+        row = SimpleNamespace(element_info=SimpleNamespace(name="q3", control_type="DataItem"))
+        with patch("amazon_android.swarmote_desktop.profile_status",
+                   return_value={"profile_name": "q3", "state": "Offline",
+                                 "device_id": "ACN3"}), \
+             patch("amazon_android.swarmote_desktop._main_window", return_value=window), \
+             patch("amazon_android.swarmote_desktop._one",
+                   return_value=SimpleNamespace(iface_value=SimpleNamespace(CurrentValue=""))), \
+             patch("amazon_android.swarmote_desktop._descendants", return_value=[row]), \
+             patch("amazon_android.swarmote_desktop._select_profile_rows",
+                   side_effect=ToolError("selection not ready")):
+            with self.assertRaises(ProfileStartNotSubmitted):
+                start_profile("q3", wait=False)
+
+    def test_invoke_error_is_not_classified_as_safe_to_retry(self):
+        window = object()
+        button = FakeButton(lambda: (_ for _ in ()).throw(ToolError("invoke uncertain")))
+        button.element_info.name = "Start(1)"
+        row = SimpleNamespace(element_info=SimpleNamespace(name="q3", control_type="DataItem"))
+        with patch("amazon_android.swarmote_desktop.profile_status",
+                   return_value={"profile_name": "q3", "state": "Offline",
+                                 "device_id": "ACN3"}), \
+             patch("amazon_android.swarmote_desktop._main_window", return_value=window), \
+             patch("amazon_android.swarmote_desktop._one",
+                   return_value=SimpleNamespace(iface_value=SimpleNamespace(CurrentValue=""))), \
+             patch("amazon_android.swarmote_desktop._select_profile_rows"), \
+             patch("amazon_android.swarmote_desktop._selected_profile_names", return_value={"q3"}), \
+             patch("amazon_android.swarmote_desktop._descendants", return_value=[button, row]):
+            with self.assertRaises(ToolError) as caught:
+                start_profile("q3", wait=False)
+        self.assertNotIsInstance(caught.exception, ProfileStartNotSubmitted)
+
     def test_single_start_can_return_while_phone_is_booting(self):
         invocations = []
         window = object()
