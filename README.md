@@ -36,7 +36,7 @@ Nếu menu ba gạch hiện dạng danh sách chữ, tool nhận diện từ câ
 
 Nếu Profile q1–q4 đã được lưu ở mốc `MENU_OPEN` từ lượt trước, nút Tiếp tục sẽ nối lại ADB serial của máy đang Running rồi chạy b1 riêng của máy đó. Khi không có hàng Amazon, serial ADB hoặc máy đang Offline, hàng máy sẽ hiện lý do thay vì chỉ ghi đã tới menu.
 
-Để thử **q1–q4 đã có sẵn**: Start máy tương ứng trong Swarmote và mở Amazon tới menu ba gạch; trong tool dán 1–12 hàng `SĐT | Mật khẩu | Tên | Thẻ | URL OTP` (có thể có cột trống trong bản sao), chọn lần lượt Máy 1–4 rồi bấm **Thử qN từ menu ba gạch**. Các hàng khác vẫn hiển thị và giữ nguyên dữ liệu; q1–q4 có thể chạy song song; mỗi lần gắn kiểm tra một máy rồi khởi động worker riêng, không chờ luồng máy trước hoàn tất. Tool xác nhận đúng Profile đang Running và menu trên ADB serial của máy đó trước khi bắt đầu. Nút **Chạy máy trong mẻ** dành cho mẻ tạo Profile mới. Nếu bước nào lỗi, sửa trực tiếp trên máy đó rồi bấm **Tiếp tục** ở đúng hàng. Nút **Làm lại / mẻ mới** xóa dữ liệu và tiến độ trong tool, không xóa Profile Swarmote.
+Để thử **q1–q4 đã có sẵn**: Start máy tương ứng trong Swarmote và mở Amazon tới menu ba gạch; trong tool dán 1–12 hàng `SĐT | Mật khẩu | Tên | Thẻ | URL OTP` (có thể có cột trống trong bản sao), chọn lần lượt Máy 1–6 rồi bấm **Thử qN từ menu ba gạch**. Các hàng khác vẫn hiển thị và giữ nguyên dữ liệu; q1–q6 có thể chạy song song; mỗi lần gắn kiểm tra một máy rồi khởi động worker riêng, không chờ luồng máy trước hoàn tất. Tool xác nhận đúng Profile đang Running và menu trên ADB serial của máy đó trước khi bắt đầu. Nút **Chạy máy trong mẻ** dành cho mẻ tạo Profile mới. Nếu bước nào lỗi, sửa trực tiếp trên máy đó rồi bấm **Tiếp tục** ở đúng hàng. Nút **Làm lại / mẻ mới** xóa dữ liệu và tiến độ trong tool, không xóa Profile Swarmote.
 
 Khung điều phối sau menu có đồng hồ lượt riêng và nút **Tiếp tục** cho máy lỗi. Quy tắc gõ từng ký tự, dừng tại màn hình lỗi và chu kỳ thời hạn 3–4–5–4 phút được ghi trong [POST_MENU_REQUIREMENTS.md](POST_MENU_REQUIREMENTS.md). Kết quả sau nút Create chưa được xác nhận, nên trạng thái hoàn tất chỉ có nghĩa đã xong các bước được hướng dẫn.
 
@@ -100,3 +100,4 @@ Lệnh `install-amazon` không tự xác nhận cài đặt trên Google Play. N
 ## Trạng thái nghiệm thu
 
 Chạy `python -m amazon_android.cli test-report` trên máy đích. Chỉ TEST 01/02 được đánh giá tức thời từ ADB. Các phép thử khác giữ `NOT TESTED` cho tới khi có quy trình thực nghiệm riêng trên Android/Amazon thật.
+

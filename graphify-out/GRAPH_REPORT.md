@@ -1,26 +1,25 @@
 # Graph Report - boom4may  (2026-11-14)
 
 ## Corpus Check
-- 111 files · ~83,540 words
+- 114 files · ~84,374 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 1, .bat 1, .pyw 1)
 
 ## Summary
-- 1334 nodes · 4339 edges · 64 communities (54 shown, 10 thin omitted)
-- Extraction: 86% EXTRACTED · 14% INFERRED · 0% AMBIGUOUS · INFERRED: 598 edges (avg confidence: 0.91)
+- 1350 nodes · 4439 edges · 63 communities (55 shown, 8 thin omitted)
+- Extraction: 86% EXTRACTED · 14% INFERRED · 0% AMBIGUOUS · INFERRED: 616 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `073efd3c`
+- Built from commit: `93cd5620`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- core.py
+- screen
 - Q1FlowTests
 - time
-- ._refresh_devices
-- subprocess
+- time
 - open_adb_shell
 - RunnerTests
 - PostMenuSession
@@ -29,17 +28,17 @@
 - 002 — Gán qN duy nhất và không dùng nhầm proxy của Profile cũ
 - Danh mục từng bước đã biết — 13/11/2026
 - bulk_input.py
-- 002 — Gán qN duy nhất và không dùng nhầm proxy của Profile cũ
-- Biên bản kiểm tra thực tế — 2026-11-12
+- _read_nodes
+- home_menu.py
 - amazon-android-tool
 - Ảnh hướng dẫn q1/q2 và menu chung lưu cục bộ
-- setup_windows.py
-- desktop.py
+- Biên bản kiểm tra thực tế — 2026-11-12
+- test_isolated_reader.py
 - ProxyConfig
 - run_batch
 - BatchDraft
 - Window
-- CloudPhone
+- AttemptDeadline
 - ._apply_bulk_text
 - Nghiên cứu và tích hợp Swarmote
 - cli.py
@@ -48,14 +47,15 @@
 - ui_backend.py
 - ToolError
 - Q3Q4FlowTests
-- build_q1_steps
+- account_flow.py
 - RunJob
-- main
+- _type_field
 - post_menu.py
-- windows_identity.py
+- ExtendedRecoveryTests
 - profile_status
 - swarmote_desktop.py
-- SafetyTests
+- core.py
+- RecoverableStepError
 - Bàn giao dừng theo yêu cầu người dùng — 13/11/2026
 - Bàn giao trạng thái dự án — 13/11/2026
 - ensure_manager_ready
@@ -65,7 +65,6 @@
 - PROJECT_HANDOFF.md
 - CloudBridgeTests
 - CountryRecoveryTests
-- So sánh bộ đọc trên q1 — 13/11/2026
 - ResumeRegistrationStateTests
 - Danh mục ảnh nằm trong dự án
 - _crystal_art
@@ -81,23 +80,23 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `ToolError` - 240 edges
-2. `CloudPhone` - 151 edges
-3. `RunJob` - 86 edges
-4. `Window` - 77 edges
-5. `AttemptDeadline` - 77 edges
-6. `build_common_steps()` - 74 edges
-7. `Q1FlowTests` - 51 edges
-8. `_read_nodes()` - 49 edges
-9. `screen()` - 42 edges
-10. `PostMenuSession` - 41 edges
+2. `CloudPhone` - 158 edges
+3. `RunJob` - 91 edges
+4. `AttemptDeadline` - 83 edges
+5. `build_common_steps()` - 77 edges
+6. `Window` - 77 edges
+7. `_read_nodes()` - 54 edges
+8. `Q1FlowTests` - 51 edges
+9. `PostMenuSession` - 44 edges
+10. `screen()` - 42 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Cách xử lý ảnh tiếp theo` --references--> `screen()`  [INFERRED]
   FLOW_PROGRESS.md → amazon_android/account_flow.py
 - `b6 US +1 còn mở sau bốn cú chạm — 14/11/2026` --references--> `_wait_screen()`  [INFERRED]
   PROJECT_HANDOFF.md → amazon_android/account_flow.py
-- `Phần dùng chung đã được hướng dẫn` --references--> `build_common_steps()`  [INFERRED]
-  FLOW_PROGRESS.md → amazon_android/account_flow.py
+- `q6 b1–b3a riêng, b4–b11 chung — 14/11/2026` --references--> `_ensure_menu()`  [INFERRED]
+  PROJECT_HANDOFF.md → amazon_android/account_flow.py
 - `Trạng thái hiện tại của dự án` --references--> `build_common_steps()`  [INFERRED]
   POST_MENU_REQUIREMENTS.md → amazon_android/account_flow.py
 - `Phạm vi q1–q12 sau phản hồi người dùng — 14/11/2026` --references--> `build_common_steps()`  [INFERRED]
@@ -106,43 +105,43 @@
 ## Import Cycles
 - None detected.
 
-## Communities (64 total, 10 thin omitted)
+## Communities (63 total, 8 thin omitted)
 
-### Community 0 - "core.py"
-Cohesion: 0.28
-Nodes (18): adb(), available_memory_mb(), check_play(), connected_devices(), Device, device_avd_name(), device_resources(), emergency_stop() (+10 more)
+### Community 0 - "screen"
+Cohesion: 0.19
+Nodes (19): continue_number(), country(), create_account(), enter_otp(), focus_otp(), focus_phone(), name(), proceed() (+11 more)
 
 ### Community 1 - "Q1FlowTests"
-Cohesion: 0.11
-Nodes (3): build_common_steps(), node(), Q1FlowTests
+Cohesion: 0.08
+Nodes (10): build_common_steps(), build_q1_steps(), category(), Cách xử lý ảnh tiếp theo, Phần dùng chung đã được hướng dẫn, Phần riêng từng máy, Tiến độ hướng dẫn bằng ảnh — cập nhật 13/11/2026, node() (+2 more)
 
 ### Community 2 - "time"
 Cohesion: 0.10
 Nodes (8): browser_launch_options(), extract_otp(), _NoRedirect, read_otp(), _read_otp_in_browser(), wait_for_new_otp(), OtpTests, PackagedBrowserTests
 
-### Community 4 - "subprocess"
-Cohesion: 0.17
-Nodes (16): app_data_dir(), avd_names(), create_avd(), doctor(), executable(), installed_image(), run(), sdk_root() (+8 more)
+### Community 4 - "time"
+Cohesion: 0.07
+Nodes (46): adb(), app_data_dir(), available_memory_mb(), avd_names(), check_play(), configure_avd(), connected_devices(), create_avd() (+38 more)
 
 ### Community 5 - "open_adb_shell"
 Cohesion: 0.11
-Nodes (22): ready_for_home_menu(), _check_stop(), collapse_apps_panel(), install_amazon(), collect(), open_adb_shell(), _pause(), _phone_window() (+14 more)
+Nodes (26): ready_for_home_menu(), _prepare_phone(), progress(), _check_stop(), collapse_apps_panel(), install_amazon(), check_stop(), collect() (+18 more)
 
 ### Community 6 - "RunnerTests"
 Cohesion: 0.07
-Nodes (17): ProfileRegistry, ProfileLookupError, ProfileNotFound, Thiết kế yêu cầu, absent(), ProfileRegistryTests, lookup(), broken() (+9 more)
+Nodes (15): ProfileRegistry, ProfileNotFound, absent(), ProfileRegistryTests, lookup(), broken(), RunnerTests, create() (+7 more)
 
 ### Community 7 - "PostMenuSession"
-Cohesion: 0.14
-Nodes (10): PostMenuSession, PostMenuStep, RecoverableStepError, PostMenuTests, first_step(), SharedStepRecoveryTests, action(), action() (+2 more)
+Cohesion: 0.19
+Nodes (4): PostMenuSession, PostMenuStep, PostMenuTests, first_step()
 
 ### Community 8 - ".test_only_confirmed_target_names_are_selected_for_one_start_command"
-Cohesion: 0.09
-Nodes (11): _select_profile_rows(), _selected_profile_names(), start_profile(), start_profiles_together(), _wait_for_selected(), BatchStartTests, checkbox(), toggle() (+3 more)
+Cohesion: 0.11
+Nodes (6): BatchStartTests, checkbox(), toggle(), descendants(), FakeBox, FakeButton
 
 ### Community 9 - "PROJECT_INDEX.md"
-Cohesion: 0.21
-Nodes (6): Hướng dẫn khi tiếp tục dự án, Quy trình Swarmote hiện tại, Bản đồ repository, q3 — b1–b3 và nối luồng chung, q4 — Giỏ hàng, Pets, Home and DIY, q5 — ba thẻ riêng và b4–b11 chung
+Cohesion: 0.19
+Nodes (7): Hướng dẫn khi tiếp tục dự án, Quy trình Swarmote hiện tại, Bản đồ repository, q3 — b1–b3 và nối luồng chung, q4 — Giỏ hàng, Pets, Home and DIY, q5 — ba thẻ riêng và b4–b11 chung, q6 — Trang chủ, Giỏ hàng, menu và một thẻ
 
 ### Community 10 - "002 — Gán qN duy nhất và không dùng nhầm proxy của Profile cũ"
 Cohesion: 0.08
@@ -150,51 +149,55 @@ Nodes (20): 003 — Một quy trình hai pha với trạng thái, dừng và ti�
 
 ### Community 11 - "Danh mục từng bước đã biết — 13/11/2026"
 Cohesion: 0.06
-Nodes (33): Chung b10 — Chuyển WhatsApp sang SMS, Chung b11 — Lấy và gõ OTP SMS, Chung b11a — Chạm ô OTP trên màn SMS, Chung b11b — Bấm Create your Amazon account, Chung b4 — Sign In từ menu, Chung b4a — Chạm ô SĐT, Chung b5 — Gõ số điện thoại, Chung b6 — Chọn United States +1 (+25 more)
+Nodes (34): Chung b10 — Chuyển WhatsApp sang SMS, Chung b11 — Lấy và gõ OTP SMS, Chung b11a — Chạm ô OTP trên màn SMS, Chung b11b — Bấm Create your Amazon account, Chung b4 — Sign In từ menu, Chung b4a — Chạm ô SĐT, Chung b5 — Gõ số điện thoại, Chung b6 — Chọn United States +1 (+26 more)
 
 ### Community 12 - "bulk_input.py"
-Cohesion: 0.15
-Nodes (6): BulkRecord, lines(), parse_column(), parse_records(), _url_from_cell(), BulkInputTests
+Cohesion: 0.14
+Nodes (7): BulkRecord, lines(), parse_column(), parse_records(), _table_cells(), _url_from_cell(), BulkInputTests
 
-### Community 13 - "002 — Gán qN duy nhất và không dùng nhầm proxy của Profile cũ"
-Cohesion: 0.33
-Nodes (6): 002 — Gán qN duy nhất và không dùng nhầm proxy của Profile cũ, Kiểm tra bắt buộc, Mục tiêu và bằng chứng, Phạm vi, Rủi ro và bảo trì, Điều kiện dừng
+### Community 13 - "_read_nodes"
+Cohesion: 0.24
+Nodes (16): _at_or_after(), sign_in(), _ensure_menu(), _find_scrolling(), _read_nodes(), cart_action(), action(), cart_visible() (+8 more)
 
-### Community 14 - "Biên bản kiểm tra thực tế — 2026-11-12"
-Cohesion: 0.05
-Nodes (35): _confirm_menu_fallback(), _menu_evidence(), MenuReadUnavailable, _nodes(), budget(), open_home_menu(), _tap(), HomeMenuTests (+27 more)
+### Community 14 - "home_menu.py"
+Cohesion: 0.14
+Nodes (9): _confirm_menu_fallback(), _menu_evidence(), MenuReadUnavailable, _nodes(), budget(), open_home_menu(), _tap(), HomeMenuTests (+1 more)
 
 ### Community 16 - "Ảnh hướng dẫn q1/q2 và menu chung lưu cục bộ"
 Cohesion: 0.08
 Nodes (24): B6 — Hai ảnh đính kèm mới ngày 13/11/2026, Menu chung ảnh 01 — Danh sách chữ, Menu chung ảnh 02 — App Store bên phải sau khi Amazon mở, q1 b6 — US +1 hiện nhưng chạm không đóng hộp, 14/11/2026, q1 ảnh 01 — Menu và ba thẻ, q1 ảnh 02 — Sign In cuối menu, q1 ảnh 03 — Nhập số điện thoại, q1 ảnh 04 — Chọn mã quốc gia (+16 more)
 
-### Community 17 - "setup_windows.py"
-Cohesion: 0.14
-Nodes (15): save(), default_path(), AppSettings, load_settings(), save_settings(), settings_path(), _app_installed(), _app_paths() (+7 more)
+### Community 17 - "Biên bản kiểm tra thực tế — 2026-11-12"
+Cohesion: 0.08
+Nodes (24): b6 Country US +1 — 14/11/2026, B6 cuộn quốc gia và chọn lại — 13/11/2026, Biên bản kiểm tra thực tế — 2026-11-12, Cài và đo UiAutomator2 theo phê duyệt mới — 13/11/2026, Cập nhật luồng mẻ trước đó — 2026-11-13, Ghim taskbar — 13/11/2026, Giao diện sáng, dễ đọc — 2026-11-13, Hướng Swarmote theo ảnh người dùng (+16 more)
+
+### Community 18 - "test_isolated_reader.py"
+Cohesion: 0.24
+Nodes (7): phone_reader(), PhoneReader, ReaderResponseError, fake_worker(), IsolationTests, duplicate(), production_worker_with_fake_android()
 
 ### Community 19 - "ProxyConfig"
-Cohesion: 0.19
-Nodes (6): BatchItem, parse_proxy_line(), prepare_five(), ProxyConfig, BatchSafetyTests, CreationWindowVisibilityTests
+Cohesion: 0.27
+Nodes (3): create_profile(), ProxyConfig, CreationWindowVisibilityTests
 
 ### Community 20 - "run_batch"
-Cohesion: 0.14
-Nodes (12): emit(), _prepare_phone(), progress(), run_batch(), fill_slots(), refresh_slots(), startup_progress(), visible_lookup() (+4 more)
+Cohesion: 0.09
+Nodes (21): emit(), run_batch(), fill_slots(), refresh_slots(), startup_progress(), visible_lookup(), _start_and_confirm(), _profile_row_status() (+13 more)
 
 ### Community 22 - "Window"
-Cohesion: 0.17
+Cohesion: 0.18
 Nodes (3): _edge_light(), Window, PreparationProgressTests
 
-### Community 23 - "CloudPhone"
-Cohesion: 0.05
-Nodes (84): _ActionNotResolved, _at_or_after(), _bounds(), continue_number(), country(), create_account(), enter_otp(), focus_otp() (+76 more)
+### Community 23 - "AttemptDeadline"
+Cohesion: 0.11
+Nodes (18): _country_full_row(), home_visible(), _keyboard_visible(), _read_hierarchy(), _read_nodes_once(), _read_visual_nodes(), _tap(), _unique() (+10 more)
 
 ### Community 25 - "Nghiên cứu và tích hợp Swarmote"
 Cohesion: 0.40
 Nodes (4): Hành vi có bằng chứng, Kiểm thử còn lại, Nghiên cứu và tích hợp Swarmote, Phần đã áp dụng
 
 ### Community 26 - "cli.py"
-Cohesion: 0.19
-Nodes (10): _table_cells(), main(), parser(), report(), get_device(), print_json(), Store, open_entry() (+2 more)
+Cohesion: 0.16
+Nodes (15): BatchItem, parse_proxy_line(), prepare_five(), main(), parser(), report(), open_amazon(), foreground() (+7 more)
 
 ### Community 27 - "001 — Tách dữ liệu từng mẻ và đối chiếu số hàng"
 Cohesion: 0.29
@@ -205,56 +208,60 @@ Cohesion: 0.07
 Nodes (17): _bounds(), _canonical_text(), _engine(), _field_contents(), _field_is_blank(), _input_box(), _join_wrapped_categories(), _normalize() (+9 more)
 
 ### Community 29 - "ui_backend.py"
-Cohesion: 0.08
-Nodes (18): swarmote_adb_path(), swarmote_tunnel_owner(), phone_reader(), PhoneReader, ReaderResponseError, _serve(), _connect(), country_scroll() (+10 more)
+Cohesion: 0.16
+Nodes (9): swarmote_adb_path(), _connect(), country_scroll(), _failed(), read_tree(), ready(), _session(), _Session (+1 more)
 
 ### Community 30 - "ToolError"
-Cohesion: 0.16
-Nodes (14): configure_avd(), ToolError, _field_for_label(), fill_identifier(), fill_signup_form(), _nodes(), _tap(), _type_into() (+6 more)
+Cohesion: 0.20
+Nodes (10): require_online(), _field_for_label(), fill_identifier(), fill_signup_form(), _nodes(), _tap(), _type_into(), _unique_button() (+2 more)
 
 ### Community 31 - "Q3Q4FlowTests"
-Cohesion: 0.19
+Cohesion: 0.26
 Nodes (3): build_q3_steps(), build_q4_steps(), Q3Q4FlowTests
 
-### Community 32 - "build_q1_steps"
-Cohesion: 0.14
-Nodes (6): build_q1_steps(), category(), Cách xử lý ảnh tiếp theo, Phần dùng chung đã được hướng dẫn, Phần riêng từng máy, Tiến độ hướng dẫn bằng ảnh — cập nhật 13/11/2026
+### Community 32 - "account_flow.py"
+Cohesion: 0.13
+Nodes (19): _ActionNotResolved, _bounds(), phone_number(), _button(), _form_action(), _has(), menu_layout(), _national_phone() (+11 more)
 
 ### Community 33 - "RunJob"
 Cohesion: 0.15
-Nodes (7): AccountData, RunJob, DesktopResumeTests, apartment_type(), PreparationThreadsTests, run(), install()
+Nodes (7): AccountData, RunJob, DesktopResumeTests, PreparationThreadsTests, run(), install(), Q2FlowTests
 
-### Community 34 - "main"
-Cohesion: 0.16
-Nodes (9): main(), main(), Đợt tăng tốc và tự phục hồi b4–b11 ngày 13/11/2026, File dự án mà Graphify không phân tích trực tiếp, .gitignore, Launch Swarmote Tool.pyw, pyproject.toml, Ảnh PNG trong dự án (+1 more)
+### Community 34 - "_type_field"
+Cohesion: 0.26
+Nodes (4): _type_field(), _UiReadIncomplete, FlowRecoveryTests, form()
 
 ### Community 35 - "post_menu.py"
-Cohesion: 0.33
+Cohesion: 0.24
 Nodes (3): RegistrationState, build_q5_steps(), Q5FlowTests
 
-### Community 36 - "windows_identity.py"
-Cohesion: 0.27
-Nodes (5): create_shortcut(), relaunch_command(), runtime(), set_window_identity(), WindowsIdentityTests
+### Community 36 - "ExtendedRecoveryTests"
+Cohesion: 0.16
+Nodes (5): ExtendedRecoveryTests, fail(), read(), read(), menu()
 
 ### Community 37 - "profile_status"
-Cohesion: 0.21
-Nodes (4): control(), ProfilesNavigationTests, descendants(), descendants()
+Cohesion: 0.18
+Nodes (6): _open_profiles(), visible_profile_names(), control(), ProfilesNavigationTests, descendants(), descendants()
 
 ### Community 38 - "swarmote_desktop.py"
 Cohesion: 0.12
-Nodes (19): _activate_manager(), create_profile(), _create_profile_form(), _descendants(), inspect(), _invoke(), _main_window(), _one() (+11 more)
+Nodes (23): ToolError, _activate_manager(), _create_profile_form(), _descendants(), _invoke(), _main_window(), _one(), _profile_checkbox() (+15 more)
+
+### Community 39 - "core.py"
+Cohesion: 0.06
+Nodes (17): _automatic_resume_slots(), main(), save(), default_path(), AppSettings, load_settings(), save_settings(), settings_path() (+9 more)
+
+### Community 40 - "RecoverableStepError"
+Cohesion: 0.26
+Nodes (6): RecoverableStepError, SharedStepRecoveryTests, action(), action(), action(), action()
 
 ### Community 41 - "Bàn giao dừng theo yêu cầu người dùng — 13/11/2026"
-Cohesion: 0.25
-Nodes (8): Bàn giao dừng theo yêu cầu người dùng — 13/11/2026, Bằng chứng trực tiếp đã có, Bối cảnh đã hoàn tất trước lỗi hiện tại, Cách tiếp tục, Kiểm chứng gần nhất, Lỗi chính chưa xử lý xong, Yêu cầu mới nhất, Đường mã cần xem tiếp
+Cohesion: 0.29
+Nodes (7): Bàn giao dừng theo yêu cầu người dùng — 13/11/2026, Bằng chứng trực tiếp đã có, Bối cảnh đã hoàn tất trước lỗi hiện tại, Cách tiếp tục, Kiểm chứng gần nhất, Lỗi chính chưa xử lý xong, Yêu cầu mới nhất
 
 ### Community 42 - "Bàn giao trạng thái dự án — 13/11/2026"
-Cohesion: 0.14
-Nodes (14): B6 danh sách quốc gia vẫn mở sau khi chọn — 13/11/2026, Bàn giao trạng thái dự án — 13/11/2026, Bản chính boom4may và bản dự phòng — 14/11/2026, Bộ cài offline chia sẻ — 14/11/2026, Cài đặt máy mới, Dự phòng dùng chung khi chạy song song — 14/11/2026, Mục tiêu và quy tắc đã chốt, q3/q4 đã nối b1–b3 và thử đồng thời bốn luồng — 13/11/2026 (+6 more)
-
-### Community 43 - "ensure_manager_ready"
-Cohesion: 0.28
-Nodes (4): ensure_manager_ready(), ProfileManagerWindowError, ManagerStartupTests, unavailable()
+Cohesion: 0.08
+Nodes (24): main(), B6 danh sách quốc gia vẫn mở sau khi chọn — 13/11/2026, Bàn giao trạng thái dự án — 13/11/2026, Bản chính boom4may và bản dự phòng — 14/11/2026, Bộ cài offline chia sẻ — 14/11/2026, Cài đặt máy mới, Dự phòng dùng chung khi chạy song song — 14/11/2026, Mã hiện có (+16 more)
 
 ### Community 44 - "FakeControl"
 Cohesion: 0.13
@@ -269,23 +276,19 @@ Cohesion: 0.27
 Nodes (6): Bằng chứng và phạm vi, Kiểm chứng, Điều hướng hai dạng menu ba gạch, Luồng q1 từ menu ba gạch tới nhập OTP, Thử trên q1 đã có, Luồng q2 từ menu ba gạch
 
 ### Community 47 - "PROJECT_HANDOFF.md"
-Cohesion: 0.18
-Nodes (8): B4–b11 chạy đồng thời và OCR — 14/11/2026, b6 US +1 còn mở sau bốn cú chạm — 14/11/2026, Bỏ thời hạn tổng sau menu — 14/11/2026, Lỗi chạy song song q3 Terminal trùng / q1 chưa thấy menu — 14/11/2026, Phạm vi q1–q12 sau phản hồi người dùng — 14/11/2026, Tách bộ đọc thành tiến trình riêng từng máy — 14/11/2026, Tự tìm và mở Swarmote khi chạy mẻ — 14/11/2026, Lỗi chạy song song q3 Terminal trùng / q1 chưa thấy menu — 14/11/2026
+Cohesion: 0.13
+Nodes (12): Kết luận và tích hợp, Kết quả thực tế, So sánh bộ đọc trên q1 — 13/11/2026, Thành phần thiết bị, B4–b11 chạy đồng thời và OCR — 14/11/2026, b6 US +1 còn mở sau bốn cú chạm — 14/11/2026, Bỏ thời hạn tổng sau menu — 14/11/2026, Lỗi chạy song song q3 Terminal trùng / q1 chưa thấy menu — 14/11/2026 (+4 more)
 
 ### Community 48 - "CloudBridgeTests"
-Cohesion: 0.18
-Nodes (10): cloud_serials(), open_amazon(), foreground(), package_path(), probe(), require_online(), scan(), CloudBridgeTests (+2 more)
+Cohesion: 0.13
+Nodes (13): cloud_serials(), CloudPhone, package_path(), probe(), prop(), reported_installer(), scan(), swarmote_tunnel_owner() (+5 more)
 
 ### Community 49 - "CountryRecoveryTests"
-Cohesion: 0.31
+Cohesion: 0.27
 Nodes (4): CountryRecoveryTests, read(), wait(), node()
 
-### Community 51 - "So sánh bộ đọc trên q1 — 13/11/2026"
-Cohesion: 0.50
-Nodes (4): Kết luận và tích hợp, Kết quả thực tế, So sánh bộ đọc trên q1 — 13/11/2026, Thành phần thiết bị
-
 ### Community 52 - "ResumeRegistrationStateTests"
-Cohesion: 0.29
+Cohesion: 0.25
 Nodes (3): ResumeRegistrationStateTests, factory(), factory()
 
 ### Community 53 - "Danh mục ảnh nằm trong dự án"
@@ -326,23 +329,23 @@ Nodes (3): Cách kiểm tra sau mỗi sửa đổi, Giới hạn đã xác nhậ
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `amazon-android-tool`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 362 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 365 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ToolError` connect `ToolError` to `core.py`, `Q1FlowTests`, `time`, `._refresh_devices`, `subprocess`, `open_adb_shell`, `RunnerTests`, `PostMenuSession`, `.test_only_confirmed_target_names_are_selected_for_one_start_command`, `bulk_input.py`, `002 — Gán qN duy nhất và không dùng nhầm proxy của Profile cũ`, `Biên bản kiểm tra thực tế — 2026-11-12`, `setup_windows.py`, `desktop.py`, `ProxyConfig`, `run_batch`, `BatchDraft`, `Window`, `CloudPhone`, `._apply_bulk_text`, `cli.py`, `vision.py`, `ui_backend.py`, `build_q1_steps`, `RunJob`, `post_menu.py`, `profile_status`, `swarmote_desktop.py`, `runner.py`, `ensure_manager_ready`, `CloudBridgeTests`, `CountryRecoveryTests`, `StopResetTests`, `validate_otp_url`?**
-  _High betweenness centrality (0.456) - this node is a cross-community bridge._
+- **Why does `ToolError` connect `swarmote_desktop.py` to `screen`, `Q1FlowTests`, `time`, `._refresh_devices`, `time`, `open_adb_shell`, `RunnerTests`, `PostMenuSession`, `bulk_input.py`, `_read_nodes`, `home_menu.py`, `test_isolated_reader.py`, `ProxyConfig`, `run_batch`, `BatchDraft`, `Window`, `AttemptDeadline`, `._apply_bulk_text`, `cli.py`, `vision.py`, `ui_backend.py`, `ToolError`, `account_flow.py`, `_type_field`, `post_menu.py`, `ExtendedRecoveryTests`, `profile_status`, `core.py`, `RecoverableStepError`, `ensure_manager_ready`, `CloudBridgeTests`, `CountryRecoveryTests`, `StopResetTests`, `validate_otp_url`?**
+  _High betweenness centrality (0.428) - this node is a cross-community bridge._
 - **Are the 39 inferred relationships involving `ToolError` (e.g. with `_read_nodes_once()` and `_tap_for_transition()`) actually correct?**
   _`ToolError` has 39 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `amazon-android-tool` to the rest of the system?**
   _1 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Q1FlowTests` be split into smaller, more focused modules?**
-  _Cohesion score 0.10897435897435898 - nodes in this community are weakly interconnected._
-- **Why does `CloudPhone` connect `CloudPhone` to `Q1FlowTests`, `._refresh_devices`, `open_adb_shell`, `PostMenuSession`, `Biên bản kiểm tra thực tế — 2026-11-12`, `desktop.py`, `run_batch`, `Window`, `cli.py`, `ui_backend.py`, `ToolError`, `Q3Q4FlowTests`, `build_q1_steps`, `RunJob`, `post_menu.py`, `swarmote_desktop.py`, `runner.py`, `CloudBridgeTests`, `CountryRecoveryTests`, `ResumeRegistrationStateTests`?**
-  _High betweenness centrality (0.095) - this node is a cross-community bridge._
-- **Are the 63 inferred relationships involving `CloudPhone` (e.g. with `build_common_steps()` and `_country_full_row()`) actually correct?**
-  _`CloudPhone` has 63 INFERRED edges - model-reasoned connections that need verification._
+  _Cohesion score 0.07982583454281568 - nodes in this community are weakly interconnected._
+- **Why does `CloudPhone` connect `CloudBridgeTests` to `screen`, `Q1FlowTests`, `._refresh_devices`, `open_adb_shell`, `PostMenuSession`, `_read_nodes`, `home_menu.py`, `test_isolated_reader.py`, `run_batch`, `Window`, `AttemptDeadline`, `cli.py`, `ui_backend.py`, `ToolError`, `Q3Q4FlowTests`, `account_flow.py`, `RunJob`, `_type_field`, `post_menu.py`, `ExtendedRecoveryTests`, `swarmote_desktop.py`, `core.py`, `CountryRecoveryTests`, `ResumeRegistrationStateTests`?**
+  _High betweenness centrality (0.093) - this node is a cross-community bridge._
+- **Are the 65 inferred relationships involving `CloudPhone` (e.g. with `build_common_steps()` and `_country_full_row()`) actually correct?**
+  _`CloudPhone` has 65 INFERRED edges - model-reasoned connections that need verification._
 - **Should `time` be split into smaller, more focused modules?**
   _Cohesion score 0.10114942528735632 - nodes in this community are weakly interconnected._

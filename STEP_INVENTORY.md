@@ -140,9 +140,13 @@ Chưa có ảnh hay tiêu chí xác nhận kết quả sau nút Create. Tool ch�
 
 b1 Toys, Kids and Baby; b2 Office & Professional; b3 Sports & Outdoors. Bấm theo chữ giao diện thật trên đúng serial q5. Nếu sau cú bấm menu vẫn hiện thì tiếp bước kế ngay; nếu mở trang khác thì tự quay về menu trước cú bấm kế. Sau b3 nối b4–b11 chung. Chưa có ảnh q5 hay xác minh trên máy thật.
 
-## U02 — q6–q12 chưa có b1–b3
+## q6 b1–b3a — Trang chủ, Giỏ hàng, menu và thẻ
 
-q5 đã có hướng dẫn bằng chữ và được nối riêng; xem [Q5_FLOW.md](Q5_FLOW.md). Người dùng chưa gửi ảnh và hướng dẫn riêng cho b1–b3 của q6–q12. Các máy này vẫn dừng ở menu ba gạch. Không sao chép b1–b3 của máy khác sang chúng.
+b1 Trang chủ xem 2 giây; b2 Giỏ hàng xem 2 giây; b3 về menu ba gạch; b3a bấm Devices and Electronics ở menu thẻ hoặc Electronics ở menu danh sách. Nếu thẻ mở trang khác, b4 chung tự về menu tìm Sign In. Chưa có ảnh q6 hay xác minh trên máy thật; xem [Q6_FLOW.md](Q6_FLOW.md).
+
+## U02 — q7–q12 chưa có phần riêng
+
+q5 và q6 đã có hướng dẫn bằng chữ và được nối riêng; xem [Q5_FLOW.md](Q5_FLOW.md) và [Q6_FLOW.md](Q6_FLOW.md). Người dùng chưa gửi ảnh và hướng dẫn riêng cho q7–q12. Các máy này vẫn dừng ở menu ba gạch. Không sao chép phần riêng của máy khác sang chúng.
 
 ## U03 — Ảnh tiếp theo có thể bổ sung hoặc sửa quy trình
 

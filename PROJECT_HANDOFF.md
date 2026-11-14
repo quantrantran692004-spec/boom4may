@@ -246,3 +246,7 @@ Thêm bước chung trong `_prepare_phone`: sau `open_amazon`, trước `open_ho
 
 Người dùng chốt q5 bấm Toys, Kids and Baby → Office & Professional → Sports & Outdoors. Chỉ bấm từng thẻ; nếu thẻ mở trang riêng, tự quay về menu để tìm thẻ tiếp, nếu menu vẫn hiện thì bấm ngay. Đã nối `q5_flow.py` vào factory Máy 5, dùng nguyên `build_common_steps` từ b4; không sửa luồng q1–q4. Chưa có ảnh hoặc lượt chạy q5 thật. q6–q12 còn chờ b1–b3 riêng.
 
+## q6 b1–b3a riêng, b4–b11 chung — 14/11/2026
+
+Người dùng chốt q6: b1 Trang chủ xem 2 giây, b2 Giỏ hàng xem 2 giây, b3 về menu, b3a bấm một thẻ rồi chuyển b4. Chọn Devices and Electronics từ menu thẻ, Electronics ở menu danh sách; b3a là phần con của bước thứ ba để giữ b4 chung ở index 3. Nếu thẻ mở trang khác, b4 `_ensure_menu` tự về menu để tìm Sign In. q6 không đi theo nhánh menu danh sách vốn bỏ qua b1–b3 của máy khác. Chưa thử q6 trên máy thật. q7–q12 chưa có hướng dẫn riêng.
+

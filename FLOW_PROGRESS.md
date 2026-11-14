@@ -4,7 +4,7 @@
 
 ## Phần dùng chung đã được hướng dẫn
 
-Menu ba gạch có hai bố cục đã biết. Với menu dạng thẻ, q1–q5 chạy b1–b3 riêng. Với menu dạng danh sách, sau khi nhận diện qua cây UI Android, tool bấm Home, chỉ xem 2–5 giây, trở lại menu và tiếp tục b4 Sign In; quy tắc này dùng cho mọi máy đã được nối sau menu. Xem [MENU_ROUTING.md](MENU_ROUTING.md). Chưa thử nhánh mới trên máy thật.
+Menu ba gạch có hai bố cục đã biết. Với menu dạng thẻ, q1–q6 chạy phần đầu riêng. Với menu dạng danh sách, sau khi nhận diện qua cây UI Android, tool bấm Home, chỉ xem 2–5 giây, trở lại menu và tiếp tục b4 Sign In; quy tắc này dùng cho mọi máy đã được nối sau menu. Xem [MENU_ROUTING.md](MENU_ROUTING.md). Chưa thử nhánh mới trên máy thật.
 
 Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `United States +1`, Continue, xác nhận tài khoản mới, nhập tên, chọn **Send code by SMS** thay WhatsApp, lấy OTP mới từ URL riêng của hàng, gõ từng số vào form SMS rồi bấm **Create your Amazon account**. Ảnh cuối dừng ở màn nhập OTP SMS và nút Create; **chưa có ảnh màn sau khi bấm Create**, chưa biết điều kiện xác nhận tài khoản đã tạo thành công. Mật khẩu và thẻ có trong hàng dữ liệu nhưng ảnh hiện tại chưa có màn cần nhập chúng. Luồng chung được mã hóa tại `build_common_steps` trong `amazon_android/account_flow.py` và được gọi riêng cho từng máy.
 
@@ -17,7 +17,8 @@ Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `
 | q3 | Groceries and Drinks → Home and DIY → Books and Reading. | Có: build_q3_steps + luồng chung. | Chưa chạy thật; unittest và OCR ảnh tĩnh đạt. | Thử q3 thật. |
 | q4 | Giỏ hàng → Pets → Home and DIY. | Có: build_q4_steps + luồng chung. | Chưa chạy thật; unittest và OCR ảnh tĩnh đạt. | Thử q4 thật và chạy đồng thời q1–q4. |
 | q5 | Hướng dẫn bằng chữ: Toys, Kids and Baby → Office & Professional → Sports & Outdoors; tự quay về menu nếu thẻ mở trang khác. | Có: `build_q5_steps` + luồng chung. | Chưa. | Thử q5 thật; chưa có ảnh q5. |
-| q6–q12 | Chưa nhận ảnh hoặc hướng dẫn b1–b3 riêng. | Chưa bật sau menu. | Chưa. | Hướng dẫn b1–b3 từng máy. |
+| q6 | Hướng dẫn bằng chữ: Trang chủ 2 giây → Giỏ hàng 2 giây → menu → b3a thẻ Electronics. | Có: `build_q6_steps` + luồng chung. | Chưa. | Thử q6 thật; chưa có ảnh q6. |
+| q7–q12 | Chưa nhận ảnh hoặc hướng dẫn phần riêng. | Chưa bật sau menu. | Chưa. | Hướng dẫn từng máy. |
 
 ## Cách xử lý ảnh tiếp theo
 

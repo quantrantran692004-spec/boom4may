@@ -466,7 +466,7 @@ def _registration_nodes(phone: CloudPhone, deadline: AttemptDeadline,
 
 
 def visit_home(phone: CloudPhone, deadline: AttemptDeadline,
-               stop: threading.Event) -> None:
+               stop: threading.Event, *, view_seconds: float | None = None) -> None:
     """Open Home by its accessible tab and view it for 2–5 seconds."""
     nodes = _read_nodes(phone, deadline, stop)
     if not home_visible(nodes):
@@ -482,7 +482,8 @@ def visit_home(phone: CloudPhone, deadline: AttemptDeadline,
             stop.wait(min(0.15, max(0, until - time.monotonic())))
         else:
             raise ToolError("Amazon chưa xác nhận Trang chủ sau khi bấm biểu tượng nhà")
-    stop.wait(deadline.allowance(random.choice((2, 3, 4, 5))))
+    stop.wait(deadline.allowance(view_seconds if view_seconds is not None
+                                 else random.choice((2, 3, 4, 5))))
     deadline.remaining()
 
 
@@ -491,6 +492,9 @@ def route_list_menu(phone: CloudPhone, steps: tuple[PostMenuStep, ...],
                     deadline: AttemptDeadline,
                     stop: threading.Event) -> int | None:
     """On a list menu, visit Home once and continue at shared b4."""
+    if session.index == 5:
+        # q6 has its own Home → Cart → menu/card prefix even on the list menu.
+        return None
     matches = [index for index, step in enumerate(steps)
                if step.name == "b4 Sign In"]
     if len(matches) != 1 or current >= matches[0]:

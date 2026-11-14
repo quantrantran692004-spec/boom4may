@@ -2,7 +2,7 @@
 
 Phạm vi mới bắt đầu **sau** khi từng máy đã xác nhận `MENU_OPEN`. Luồng tạo Profile, Start, cài Amazon và mở menu hiện có được giữ nguyên. Các thao tác Amazon tiếp theo sẽ được bổ sung theo hướng dẫn màn hình của người dùng.
 
-Người dùng hướng dẫn bằng ảnh màn hình từng máy, đã có **q1–q4**. Với mỗi ảnh, cần xác định trạng thái màn hình, phân tích nhiều cách định vị và thao tác, chọn cách có thể kiểm tra kết quả, đồng thời tính đến lỗi thường gặp. **Chỉ b1–b3 khác nhau theo máy; từ b4 Sign In tới b11 OTP SMS và bấm tạo tài khoản là cùng một luồng cho q1–q12.** Mỗi máy vẫn có SĐT, tên, thẻ, URL OTP, trạng thái gửi mã, đồng hồ và điểm dừng/tiếp tục riêng. Thẻ hiện chỉ được giữ theo hàng, chưa sử dụng trong b1–b11. q5–q12 chỉ được nối sau khi người dùng hướng dẫn b1–b3 của từng máy.
+Người dùng hướng dẫn bằng ảnh màn hình từng máy, đã có **q1–q4** và hướng dẫn bằng chữ cho q5/q6. Với mỗi ảnh, cần xác định trạng thái màn hình, phân tích nhiều cách định vị và thao tác, chọn cách có thể kiểm tra kết quả, đồng thời tính đến lỗi thường gặp. **Chỉ phần trước b4 khác nhau theo máy (q6 có thêm b3a); từ b4 Sign In tới b11 OTP SMS và bấm tạo tài khoản là cùng một luồng cho q1–q12.** Mỗi máy vẫn có SĐT, tên, thẻ, URL OTP, trạng thái gửi mã, đồng hồ và điểm dừng/tiếp tục riêng. Thẻ hiện chỉ được giữ theo hàng, chưa sử dụng trong b1–b11. q7–q12 chỉ được nối sau khi người dùng hướng dẫn b1–b3 của từng máy.
 
 Trước b1, bộ định tuyến đọc cây UI Amazon của từng máy để phân biệt menu dạng thẻ và dạng danh sách chữ. Dạng danh sách đi Home, **chỉ xem 2–5 giây**, về menu và chạy thẳng b4 Sign In; dạng thẻ chạy b1–b3 riêng. Không viết bộ thao tác riêng cho từng ảnh, không dùng tọa độ ảnh. Khi chưa phân loại được màn, dừng để người dùng sửa rồi Tiếp tục. Xem [MENU_ROUTING.md](MENU_ROUTING.md).
 
@@ -30,6 +30,7 @@ Trước b1, bộ định tuyến đọc cây UI Amazon của từng máy để 
 
 ## Trạng thái hiện tại của dự án
 
-`amazon_android/post_menu.py` giữ phiên riêng từng máy, cơ chế dừng/tiếp tục đúng bước và hàm gõ từng ký tự. Giao diện đã nối nút **Tiếp tục** tới phiên sau menu khi phiên đó tạm dừng. `amazon_android/account_flow.py` giữ nhận diện UI và `build_common_steps` cho b4–b11; `q1_flow.py` đến `q4_flow.py` chỉ giữ b1–b3 riêng rồi gọi hàm chung. Mỗi máy tạo trạng thái OTP riêng. q1–q4 đã được nối theo ảnh, gồm chọn SMS thay WhatsApp, lấy mã từ URL cùng hàng và gõ vào ô OTP. q5–q12 vẫn dừng ở menu, chờ b1–b3 riêng của từng máy. Màn sau nút `Create your Amazon account` chưa được hướng dẫn nên trạng thái hiện chỉ nói đã xong các bước b1–b11, không khẳng định tạo tài khoản thành công.
+`amazon_android/post_menu.py` giữ phiên riêng từng máy, cơ chế dừng/tiếp tục đúng bước và hàm gõ từng ký tự. Giao diện đã nối nút **Tiếp tục** tới phiên sau menu khi phiên đó tạm dừng. `amazon_android/account_flow.py` giữ nhận diện UI và `build_common_steps` cho b4–b11; `q1_flow.py` đến `q6_flow.py` chỉ giữ b1–b3 riêng rồi gọi hàm chung. Mỗi máy tạo trạng thái OTP riêng. q1–q4 đã được nối theo ảnh, gồm chọn SMS thay WhatsApp, lấy mã từ URL cùng hàng và gõ vào ô OTP. q7–q12 vẫn dừng ở menu, chờ b1–b3 riêng của từng máy. Màn sau nút `Create your Amazon account` chưa được hướng dẫn nên trạng thái hiện chỉ nói đã xong các bước b1–b11, không khẳng định tạo tài khoản thành công.
 
 Trạng thái sau menu chỉ giữ trong bộ nhớ phiên. **Làm lại / mẻ mới** xóa chúng cùng dữ liệu của các hàng trong tool.
+
