@@ -6,6 +6,7 @@ account data is logged. A failed reader cools down before the ADB fallback.
 from __future__ import annotations
 
 import os
+import re
 import socket
 import threading
 import time
@@ -83,6 +84,20 @@ def read_tree(phone: CloudPhone) -> str | None:
             return None
 
 
+def country_reverse_points(top: int, bottom: int, centers: list[int]) -> tuple[int, int]:
+    """Move the list back about four visible country rows, within its bounds."""
+    height = bottom - top
+    ordered = sorted(set(center for center in centers if top <= center <= bottom))
+    gaps = [b - a for a, b in zip(ordered, ordered[1:]) if b > a]
+    if gaps:
+        row_height = sorted(gaps)[len(gaps) // 2]
+        distance = min(int(height * 0.70), max(int(height * 0.28), 4 * row_height))
+    else:
+        distance = int(height * 0.40)
+    start = top + max(1, (height - distance) // 2)
+    return start, start + distance
+
+
 def country_scroll(phone: CloudPhone, *, fling: bool, reverse: bool) -> bool:
     """Return True once a gesture was attempted; never repeat uncertain input."""
     if not ready(phone):
@@ -104,8 +119,6 @@ def country_scroll(phone: CloudPhone, *, fling: bool, reverse: bool) -> bool:
         containers = [node for node in nodes if node.get("scrollable") == "true"]
         if len(containers) != 1:
             return False
-        import re
-
         bounds = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", containers[0].get("bounds", ""))
         if not bounds:
             return False
@@ -123,10 +136,21 @@ def country_scroll(phone: CloudPhone, *, fling: bool, reverse: bool) -> bool:
             if fling:
                 control.fling.toEnd(max_swipes=3)
             else:
-                start, end = (0.40, 0.59) if reverse else (0.60, 0.40)
                 x = (left + right) // 2
-                item.device.swipe(x, top + int((bottom - top) * start),
-                                  x, top + int((bottom - top) * end), duration=0.28)
+                if reverse:
+                    centers = []
+                    for node in nodes:
+                        value = (node.get("text", "") or node.get("content-desc", "")).strip()
+                        match = re.fullmatch(r"[a-zA-ZÅå][a-zA-ZÅå .()'-]*\s*\+\d{1,4}", value)
+                        box = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds", ""))
+                        if match and box:
+                            _, y1, _, y2 = map(int, box.groups())
+                            centers.append((y1 + y2) // 2)
+                    y1, y2 = country_reverse_points(top, bottom, centers)
+                else:
+                    y1 = top + int((bottom - top) * 0.60)
+                    y2 = top + int((bottom - top) * 0.40)
+                item.device.swipe(x, y1, x, y2, duration=0.28)
         except Exception:
             # A network error may follow a delivered gesture. Caller must read
             # again, not emit an ADB swipe as a second attempt in this call.

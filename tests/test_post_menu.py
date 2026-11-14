@@ -29,6 +29,36 @@ class PostMenuTests(unittest.TestCase):
         q2 = PostMenuSession("batch", 1, "q2")
         self.assertEqual((q1.attempts, q2.attempts), (0, 0))
 
+    def test_selected_phone_stops_after_current_step_and_resumes(self):
+        q1 = PostMenuSession("batch", 0, "q1")
+        q2 = PostMenuSession("batch", 1, "q2")
+        selected_stop = threading.Event()
+        calls = []
+        events = []
+
+        def first(job, _deadline, _stop):
+            calls.append((job.index, "first"))
+            if job.index == 0:
+                selected_stop.set()
+
+        def second(job, _deadline, _stop):
+            calls.append((job.index, "second"))
+
+        steps = (PostMenuStep("b1", first), PostMenuStep("b2", second))
+        emit = lambda *event: events.append(event)
+        q1.run(RunJob(0, "batch", None), steps, emit, threading.Event(),
+               stop_after_step=selected_stop)
+        q2.run(RunJob(1, "batch", None), steps, emit, threading.Event())
+        self.assertEqual((q1.state, q1.next_step), ("PAUSED", 1))
+        self.assertEqual((q2.state, q2.next_step), ("DONE", 2))
+        self.assertEqual(calls, [(0, "first"), (1, "first"), (1, "second")])
+        self.assertTrue(any(event[0] == 0 and event[2] == "post_stopped" for event in events))
+        selected_stop.clear()
+        q1.run(RunJob(0, "batch", None), steps, emit, threading.Event(),
+               stop_after_step=selected_stop)
+        self.assertEqual((q1.state, q1.next_step), ("DONE", 2))
+        self.assertEqual(calls[-1], (0, "second"))
+
     def test_error_pauses_only_its_phone_and_continue_rechecks_same_step(self):
         q1 = PostMenuSession("batch", 0, "q1")
         q2 = PostMenuSession("batch", 1, "q2")

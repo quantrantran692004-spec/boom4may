@@ -1,5 +1,7 @@
 # q6 — Trang chủ, Giỏ hàng, menu và một thẻ
 
+> B1–b3a cố định trong tài liệu này là lịch sử hướng dẫn. Factory đang chạy của q6 dùng ba lượt ngẫu nhiên trong `random_prefix.py`; b4–b11 vẫn là luồng chung.
+
 Người dùng chốt luồng riêng q6 từ menu ba gạch:
 
 | Mốc | Thao tác |

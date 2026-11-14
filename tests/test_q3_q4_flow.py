@@ -10,6 +10,7 @@ from amazon_android.q2_flow import build_q2_steps
 from amazon_android.q3_flow import build_q3_steps
 from amazon_android.q4_flow import build_q4_steps
 from amazon_android.desktop import Window, POST_MENU_STEP_FACTORIES
+from amazon_android.random_prefix import build_random_steps
 from amazon_android.account_flow import build_common_steps
 from amazon_android.cloud import CloudPhone
 from amazon_android.post_menu import AttemptDeadline, PostMenuSession, RegistrationState
@@ -33,7 +34,9 @@ class Q3Q4FlowTests(unittest.TestCase):
             steps = factory(self.phone, lambda _: None)
             self.assertEqual([s.name for s in steps[:3]], prefix)
             self.assertEqual([s.name for s in steps[3:]], common)
-        self.assertEqual(set(POST_MENU_STEP_FACTORIES), {0, 1, 2, 3, 4, 5})
+        self.assertEqual(set(POST_MENU_STEP_FACTORIES), set(range(12)))
+        self.assertTrue(all(factory is build_random_steps
+                            for factory in POST_MENU_STEP_FACTORIES.values()))
 
     def test_common_b4_to_b11_can_bind_twelve_distinct_serials_and_states(self):
         states = [RegistrationState() for _ in range(12)]

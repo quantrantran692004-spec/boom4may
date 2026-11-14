@@ -59,7 +59,58 @@ class FlowRecoveryTests(unittest.TestCase):
              patch.object(flow, "_tap") as tap, patch.object(flow, "type_characters"):
             flow._type_field(self.phone, flow.NAME_FIELD, "Example User", self.deadline,
                              self.stop, nodes=form("", "false"))
-        self.assertEqual(tap.call_count, 2)
+        self.assertEqual(tap.call_count, 1)
+
+    def test_missed_native_taps_never_type_without_confirmed_focus(self):
+        stale = form("", "false")
+        with patch.object(flow, "_read_nodes", return_value=stale), \
+             patch.object(flow, "_tap") as tap, \
+             patch.object(flow, "type_characters") as typed, \
+             patch.object(self.stop, "wait", return_value=False):
+            with self.assertRaisesRegex(ToolError, "chưa nhận focus"):
+                flow._type_field(self.phone, flow.NAME_FIELD, "Example User",
+                                 self.deadline, self.stop, nodes=stale)
+        self.assertEqual(tap.call_count, 3)
+        typed.assert_not_called()
+
+    def test_missing_focus_flag_requires_visible_keyboard_before_typing(self):
+        uncertain = form()
+        uncertain[-1].pop("focused")
+        filled = form("Example User")
+        filled[-1].pop("focused")
+        with patch.object(flow, "_read_nodes", side_effect=[uncertain, filled]), \
+             patch.object(flow, "_keyboard_visible", return_value=True), \
+             patch.object(flow, "_tap") as tap, \
+             patch.object(flow, "type_characters") as typed:
+            flow._type_field(self.phone, flow.NAME_FIELD, "Example User",
+                             self.deadline, self.stop, nodes=uncertain)
+        tap.assert_called_once()
+        typed.assert_called_once()
+
+    def test_missing_focus_flag_and_hidden_keyboard_never_type(self):
+        uncertain = form()
+        uncertain[-1].pop("focused")
+        with patch.object(flow, "_read_nodes", return_value=uncertain), \
+             patch.object(flow, "_keyboard_visible", return_value=False), \
+             patch.object(flow, "_tap") as tap, \
+             patch.object(flow, "type_characters") as typed, \
+             patch.object(self.stop, "wait", return_value=False):
+            with self.assertRaisesRegex(ToolError, "chưa nhận focus"):
+                flow._type_field(self.phone, flow.NAME_FIELD, "Example User",
+                                 self.deadline, self.stop, nodes=uncertain)
+        self.assertEqual(tap.call_count, 3)
+        typed.assert_not_called()
+
+    def test_one_blank_frame_after_tap_is_read_again_before_retry(self):
+        blank = [{"text": "loading"}]
+        initial = form("", "false")
+        focused = form("", "true")
+        with patch.object(flow, "_read_nodes", side_effect=[blank, focused]), \
+             patch.object(flow, "_tap") as tap:
+            result = flow._tap_input(self.phone, initial[-1], self.deadline,
+                                     self.stop, label=flow.NAME_FIELD)
+        tap.assert_called_once()
+        self.assertEqual(result, focused)
 
     def test_conflicting_input_is_never_overwritten_or_retried(self):
         with patch.object(flow, "type_characters") as typed:
@@ -75,7 +126,7 @@ class FlowRecoveryTests(unittest.TestCase):
     def test_ocr_focus_retry_refreshes_moved_field_bounds(self):
         original = dict(form()[-1], vision="true", **{"vision-field-kind": "name"})
         moved = dict(original, bounds="[20,100][310,140]")
-        with patch.object(flow, "_keyboard_visible", side_effect=[False, True]), \
+        with patch.object(flow, "_keyboard_visible", side_effect=[False, False, True]), \
              patch.object(flow, "_read_nodes", return_value=form()[:-1] + [moved]), \
              patch.object(flow, "_tap") as tap:
             flow._tap_input(self.phone, original, self.deadline, self.stop)
@@ -142,7 +193,7 @@ class FlowRecoveryTests(unittest.TestCase):
         initial[-1].update({"vision": "true", "vision-field-kind": "name"})
         partial = form("Example")
         partial[-1].update({"vision": "true", "vision-field-kind": "name"})
-        with patch.object(flow, "_tap_input"), \
+        with patch.object(flow, "_tap_input", return_value=initial), \
              patch.object(flow, "_read_nodes", return_value=partial), \
              patch.object(flow, "type_characters") as typed:
             with self.assertRaises(ToolError):

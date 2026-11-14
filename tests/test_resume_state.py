@@ -30,6 +30,7 @@ class ResumeRegistrationStateTests(unittest.TestCase):
         self.window.post_menu_steps = {}
         self.window.post_menu_workers = {}
         self.window.post_menu_stops = {}
+        self.window.phone_stop_after_step = {}
         self.window.menu_opened_at = {}
         self.window.values = [{"profile_name": SimpleNamespace(get=lambda: "q1")}]
 

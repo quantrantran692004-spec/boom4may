@@ -51,7 +51,7 @@ class RunnerTests(unittest.TestCase):
         return {name: {"state": "Running"} for name in names}
 
     def execute(self, jobs=None, start_group_size=1, auto_close=True,
-                hide_profile_creation=False, menu_ready=None):
+                hide_profile_creation=False, menu_ready=None, stop_after_step=None):
         events = []
         def shell(name, device_id, **kwargs):
             return {"serial": f"127.0.0.1:{5000 + int(name[1:])}",
@@ -84,7 +84,8 @@ class RunnerTests(unittest.TestCase):
                                lambda *event: events.append(event), self.stop,
                                start_group_size=start_group_size,
                                hide_profile_creation=hide_profile_creation,
-                               menu_ready=menu_ready)
+                               menu_ready=menu_ready,
+                               stop_after_step=stop_after_step)
         return result, events
 
     def test_opens_first_phone_before_creating_second_profile(self):
@@ -253,6 +254,47 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertNotIn("start:q3", self.calls)
         self.assertEqual(self.registry.get("batch", 2)["state"], "STOPPED")
+
+    def test_selected_phone_stop_does_not_block_other_profiles(self):
+        selected_stop = threading.Event()
+        selected_stop.set()
+        summary, events = self.execute(start_group_size=2,
+                                       stop_after_step={1: selected_stop})
+        self.assertEqual(summary["menu_open"], 2)
+        self.assertEqual(summary["stopped"], 1)
+        self.assertNotIn("create:q2", self.calls)
+        self.assertIn("start:q3", self.calls)
+        self.assertTrue(any(event[0] == 1 and event[2] == "stopped"
+                            for event in events))
+
+    def test_stop_waiting_phone_starts_next_phone_when_slot_opens(self):
+        created_q3 = threading.Event()
+        selected_stop = threading.Event()
+        original_create = self.create
+        result = {}
+
+        def create(name, proxy):
+            original_create(name, proxy)
+            if name == "q3":
+                created_q3.set()
+
+        def run():
+            with patch.object(self, "create", side_effect=create):
+                result["summary"], result["events"] = self.execute(
+                    start_group_size=1, auto_close=False,
+                    stop_after_step={1: selected_stop})
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        self.assertTrue(created_q3.wait(3))
+        selected_stop.set()
+        self.running.discard("q1")
+        thread.join(6)
+        self.assertFalse(thread.is_alive())
+        self.assertNotIn("start:q2", self.calls)
+        self.assertIn("start:q3", self.calls)
+        self.assertEqual(self.registry.get("batch", 1)["state"], "STOPPED")
+        self.assertEqual(result["summary"]["stopped"], 1)
 
     def test_continue_respects_running_phones_from_same_batch(self):
         first, _ = self.execute(self.jobs[:2], start_group_size=2, auto_close=False)

@@ -67,6 +67,7 @@ class RegistrationState:
     sms_requested_at: float | None = None
     code: str = field(default="", repr=False)
     create_pressed: bool = False
+    prefix_choices: dict[int, str] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -88,7 +89,8 @@ class PostMenuSession:
     def run(self, job: RunJob, steps: tuple[PostMenuStep, ...],
             emit: Progress, stop: threading.Event,
             reconcile: Reconcile | None = None,
-            route: Route | None = None) -> None:
+            route: Route | None = None,
+            stop_after_step: threading.Event | None = None) -> None:
         """Run this phone only; errors pause at the same step for manual repair."""
         if not steps:
             raise ValueError("Post-menu steps have not been supplied")
@@ -107,6 +109,20 @@ class PostMenuSession:
         emit(self.index,
              f"{self.profile_name} · đang xử lý liên tục từ bước hiện tại",
              "post_running", self.profile_name)
+
+        def pause_if_requested() -> bool:
+            if stop_after_step is None or not stop_after_step.is_set() or stop.is_set():
+                return False
+            with self._lock:
+                self.state = "PAUSED"
+                self.last_error = ""
+            next_name = steps[self.next_step].name if self.next_step < len(steps) else "bước tiếp theo"
+            emit(self.index, f"Đã dừng riêng {self.profile_name} · tiếp từ {next_name} khi bấm Tiếp tục",
+                 "post_stopped", self.profile_name)
+            return True
+
+        if pause_if_requested():
+            return
         if route is not None:
             try:
                 target = route(self.next_step, job, deadline, stop)
@@ -120,6 +136,8 @@ class PostMenuSession:
                              f"Menu dạng danh sách · đã xem Trang chủ, tiếp từ {steps[target].name}",
                              "post_running", self.profile_name)
             except Exception as exc:
+                if pause_if_requested():
+                    return
                 reason = str(exc) if isinstance(exc, ToolError) else type(exc).__name__
                 step_name = steps[self.next_step].name
                 with self._lock:
@@ -130,6 +148,8 @@ class PostMenuSession:
                      "post_paused", self.profile_name)
                 return
         if was_paused and reconcile is not None:
+            if pause_if_requested():
+                return
             try:
                 resumed = reconcile(self.next_step, job, deadline, stop)
                 if resumed is not None:
@@ -142,6 +162,8 @@ class PostMenuSession:
                     emit(self.index, f"Đọc lại màn hiện tại · tiếp từ {steps[target].name}",
                          "post_running", self.profile_name)
             except Exception as exc:
+                if pause_if_requested():
+                    return
                 reason = str(exc) if isinstance(exc, ToolError) else type(exc).__name__
                 step_name = steps[self.next_step].name
                 with self._lock:
@@ -152,6 +174,8 @@ class PostMenuSession:
                      "post_paused", self.profile_name)
                 return
         while self.next_step < len(steps):
+            if pause_if_requested():
+                return
             step = steps[self.next_step]
             recoveries = 0
             try:
@@ -167,6 +191,8 @@ class PostMenuSession:
                             deadline.remaining()
                         break
                     except RecoverableStepError:
+                        if pause_if_requested():
+                            return
                         # b1–b9 actions re-read Android before acting and check
                         # the resulting state. SMS/OTP/Create are not replayed here.
                         retryable = bool(re.fullmatch(r'b[1-9][a-z]?', step.name.split(' ', 1)[0]))
@@ -183,6 +209,8 @@ class PostMenuSession:
                             deadline.recovering(message)
                         stop.wait(min(2.0, 0.25 * recoveries))
             except Exception as exc:
+                if pause_if_requested():
+                    return
                 reason = str(exc) if isinstance(exc, ToolError) else type(exc).__name__
                 retryable = bool(re.fullmatch(r'b[1-9][a-z]?', step.name.split(' ', 1)[0]))
                 if retryable and not stop.is_set():

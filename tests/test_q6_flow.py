@@ -5,6 +5,7 @@ from unittest.mock import patch
 from amazon_android.account_flow import route_list_menu
 from amazon_android.cloud import CloudPhone
 from amazon_android.desktop import POST_MENU_STEP_FACTORIES
+from amazon_android.random_prefix import build_random_steps
 from amazon_android.post_menu import AttemptDeadline, PostMenuSession
 from amazon_android.q1_flow import build_q1_steps
 from amazon_android.q6_flow import build_q6_steps
@@ -16,7 +17,7 @@ class Q6FlowTests(unittest.TestCase):
         phone = CloudPhone('127.0.0.1:5006')
         q6 = build_q6_steps(phone, lambda _: None)
         q1 = build_q1_steps(phone, lambda _: None)
-        self.assertIs(POST_MENU_STEP_FACTORIES[5], build_q6_steps)
+        self.assertIs(POST_MENU_STEP_FACTORIES[5], build_random_steps)
         self.assertEqual([step.name for step in q6[:3]], [
             'b1 Trang chủ 2 giây', 'b2 Giỏ hàng 2 giây',
             'b3 Menu · b3a Electronics'])

@@ -33,6 +33,7 @@ class CountryRecoveryTests(unittest.TestCase):
         self.assertEqual(x1, x2)
         self.assertTrue(55 <= x1 <= 245)
         self.assertTrue(220 < y1 < y2 < 410)
+        self.assertGreaterEqual(y2 - y1, 100)
 
     def test_country_popup_stays_open_after_tap_then_retries_current_us_row(self):
         us = node("United States +1", "[55,280][245,315]")
@@ -88,7 +89,7 @@ class CountryRecoveryTests(unittest.TestCase):
     def test_country_scrolls_to_end_before_reversing_to_us(self):
         us = node('United States +1', '[15,280][100,315]')
         first = [node('Afghanistan +93', '[15,280][100,315]')]
-        bottom = [node('Wallis and Futuna +681', '[15,280][100,315]')]
+        bottom = [node('Zimbabwe +263', '[15,280][100,315]')]
         with patch.object(flow, '_read_nodes', side_effect=[first, bottom, bottom, [us]]), \
              patch.object(flow, '_scroll_up') as scroll, \
              patch.object(self.stop, 'wait', return_value=False):
@@ -96,7 +97,7 @@ class CountryRecoveryTests(unittest.TestCase):
                                                   self.deadline, self.stop, country_list=True), us)
         self.assertEqual([(call.kwargs['fling'], call.kwargs['reverse'])
                           for call in scroll.call_args_list],
-                         [(True, False), (False, True), (False, True)])
+                         [(True, False), (True, False), (False, True)])
 
     def test_small_ocr_bounds_jitter_is_not_treated_as_list_still_flinging(self):
         original = node("United States +1", "[55,280][245,315]")

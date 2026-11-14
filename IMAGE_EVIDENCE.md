@@ -1,5 +1,9 @@
 # Ảnh hướng dẫn q1/q2 và menu chung lưu cục bộ
 
+## Video cuộn tay tới US +1 — 14/11/2026
+
+Video người dùng cung cấp ở `D:\cuonus1.mp4` (giữ ngoài repository vì có SĐT trên màn). Khoảng giây 1 hộp quốc gia ở đầu danh sách; giây 6–8 đã tới các hàng cuối gồm Zimbabwe và Åland Islands; sau một cú vuốt ngược ngắn, United States +1 hiện khoảng giây 9–10; chạm hàng US làm hộp đóng và form hiện US +1 khoảng giây 16. Đây là bằng chứng cho thao tác tay, chưa đo tốc độ hoặc xác nhận hành vi của tool đang chạy. Không ghi lại SĐT trong video.
+
 ## q1 b6 — US +1 hiện nhưng chạm không đóng hộp, 14/11/2026
 
 - [15_b6_us_tap_error.png](flow_images/q1/15_b6_us_tap_error.png): tool báo chạm US +1 bốn lần nhưng Country vẫn mở.

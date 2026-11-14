@@ -1,12 +1,16 @@
 # Tiến độ hướng dẫn bằng ảnh — cập nhật 13/11/2026
 
+**Luồng đang chạy từ 14/11/2026:** b1–b3 của cả q1–q12 bốc mục bấm ngẫu nhiên từ menu thật trong mỗi mẻ; các chuỗi cố định q1–q6 bên dưới là lịch sử hướng dẫn trước đó. B4–b11 vẫn dùng chung và giữ dữ liệu riêng từng máy. Chưa thử b1–b3 ngẫu nhiên trên máy thật.
+
 **Chưa có toàn bộ quy trình.** Những ảnh đã gửi chỉ mô tả các mốc dưới đây. Mỗi ảnh tiếp theo của người dùng có thể bổ sung hoặc sửa một mốc; phải cập nhật file này, tài liệu máy tương ứng và mã trước khi nói máy đó đã hoàn tất. Không suy diễn màn sau ảnh cuối.
 
 ## Phần dùng chung đã được hướng dẫn
 
+Ô SĐT ở b4a/b5, ô tên ở b9 và ô OTP ở b11a/b11 nay có cùng đường dự phòng khi cú chạm không lấy được focus: đọc lại màn và ô, tìm lại bounds rồi thử tối đa ba cú chạm; chỉ gõ sau khi có bằng chứng focus hoặc bàn phím hiện. Nội dung đã nhập được đối chiếu trước khi gõ tiếp. Đã qua test mô phỏng, chưa thử Swarmote thật.
+
 Menu ba gạch có hai bố cục đã biết. Với menu dạng thẻ, q1–q6 chạy phần đầu riêng. Với menu dạng danh sách, sau khi nhận diện qua cây UI Android, tool bấm Home, chỉ xem 2–5 giây, trở lại menu và tiếp tục b4 Sign In; quy tắc này dùng cho mọi máy đã được nối sau menu. Xem [MENU_ROUTING.md](MENU_ROUTING.md). Chưa thử nhánh mới trên máy thật.
 
-Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `United States +1`, Continue, xác nhận tài khoản mới, nhập tên, chọn **Send code by SMS** thay WhatsApp, lấy OTP mới từ URL riêng của hàng, gõ từng số vào form SMS rồi bấm **Create your Amazon account**. Ảnh cuối dừng ở màn nhập OTP SMS và nút Create; **chưa có ảnh màn sau khi bấm Create**, chưa biết điều kiện xác nhận tài khoản đã tạo thành công. Mật khẩu và thẻ có trong hàng dữ liệu nhưng ảnh hiện tại chưa có màn cần nhập chúng. Luồng chung được mã hóa tại `build_common_steps` trong `amazon_android/account_flow.py` và được gọi riêng cho từng máy.
+Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `United States +1`, Continue, xác nhận tài khoản mới, nhập tên, chọn **Send code by SMS** thay WhatsApp, lấy OTP mới từ URL riêng của hàng, gõ từng số vào form SMS rồi bấm **Create your Amazon account**. Ở b6, nếu US chưa hiện, cuộn tới đáy danh sách rồi vuốt ngược khoảng bốn hàng quốc gia theo video người dùng. Ảnh cuối dừng ở màn nhập OTP SMS và nút Create; **chưa có ảnh màn sau khi bấm Create**, chưa biết điều kiện xác nhận tài khoản đã tạo thành công. Mật khẩu và thẻ có trong hàng dữ liệu nhưng ảnh hiện tại chưa có màn cần nhập chúng. Luồng chung được mã hóa tại `build_common_steps` trong `amazon_android/account_flow.py` và được gọi riêng cho từng máy.
 
 ## Phần riêng từng máy
 
@@ -18,7 +22,7 @@ Từ **b4 Sign In** ở menu ba gạch: nhập số của đúng hàng, chọn `
 | q4 | Giỏ hàng → Pets → Home and DIY. | Có: build_q4_steps + luồng chung. | Chưa chạy thật; unittest và OCR ảnh tĩnh đạt. | Thử q4 thật và chạy đồng thời q1–q4. |
 | q5 | Hướng dẫn bằng chữ: Toys, Kids and Baby → Office & Professional → Sports & Outdoors; tự quay về menu nếu thẻ mở trang khác. | Có: `build_q5_steps` + luồng chung. | Chưa. | Thử q5 thật; chưa có ảnh q5. |
 | q6 | Hướng dẫn bằng chữ: Trang chủ 2 giây → Giỏ hàng 2 giây → menu → b3a thẻ Electronics. | Có: `build_q6_steps` + luồng chung. | Chưa. | Thử q6 thật; chưa có ảnh q6. |
-| q7–q12 | Chưa nhận ảnh hoặc hướng dẫn phần riêng. | Chưa bật sau menu. | Chưa. | Hướng dẫn từng máy. |
+| q7–q12 | Người dùng cho phép ba lượt bấm ngẫu nhiên trước b4, không cần ảnh thao tác riêng. | Đã bật factory ngẫu nhiên và b4–b11 chung. | Chưa. | Xác minh UI thật và màn sau Create. |
 
 ## Cách xử lý ảnh tiếp theo
 

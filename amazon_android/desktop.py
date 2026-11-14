@@ -21,12 +21,7 @@ from .post_menu import PostMenuSession, PostMenuStep
 from .account_flow import (
     resume_common_index, route_list_menu, verify_menu_open,
 )
-from .q1_flow import build_q1_steps
-from .q2_flow import build_q2_steps
-from .q3_flow import build_q3_steps
-from .q4_flow import build_q4_steps
-from .q5_flow import build_q5_steps
-from .q6_flow import build_q6_steps
+from .random_prefix import build_random_steps
 from .windows_identity import set_process_identity, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
@@ -75,9 +70,7 @@ FIELD_KEYS = (
     "full_name", "phone", "amazon_password", "profile_name", "card", "otp_url",
 )
 
-POST_MENU_STEP_FACTORIES = {0: build_q1_steps, 1: build_q2_steps,
-                            2: build_q3_steps, 3: build_q4_steps,
-                            4: build_q5_steps, 5: build_q6_steps}
+POST_MENU_STEP_FACTORIES = {index: build_random_steps for index in range(12)}
 
 
 def _automatic_resume_slots(items: list[dict]) -> list[int]:
@@ -125,6 +118,7 @@ class Window:
         self.post_menu_steps: dict[int, tuple[PostMenuStep, ...]] = {}
         self.post_menu_sessions: dict[int, PostMenuSession] = {}
         self.post_menu_stops: dict[int, threading.Event] = {}
+        self.phone_stop_after_step: dict[int, threading.Event] = {}
         self.post_menu_workers: dict[int, threading.Thread] = {}
         self.menu_opened_at: dict[int, float] = {}
         self.phone_serials: dict[int, str] = {}
@@ -402,7 +396,7 @@ class Window:
                              sticky="ew", padx=20, pady=(5, 6))
         self.proxy_line.bind("<Control-v>", self._paste_single_proxy, add="+")
         self.proxy_line.bind("<Return>", lambda _: self._split_single_proxy())
-        self._label(detail_card, "Một proxy vào máy đang chọn; nhiều proxy tự chia Máy 1–12.",
+        self._label(detail_card, "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
                     11, wraplength=305, justify="left").grid(row=5, column=0, columnspan=2, sticky="w",
                              padx=20, pady=(0, 12))
 
@@ -480,6 +474,14 @@ class Window:
         )
         self.attach_profile_button.grid(row=14, column=0, columnspan=2,
                                    sticky="ew", padx=20, pady=(0, 17))
+        self.stop_selected_button = ctk.CTkButton(
+            detail_card, text="Dừng Máy 1 sau bước hiện tại", height=40,
+            corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
+            text_color=INK, border_color=FIELD_BORDER, border_width=1,
+            state="disabled", command=self._request_stop_selected,
+        )
+        self.stop_selected_button.grid(row=15, column=0, columnspan=2,
+                                       sticky="ew", padx=20, pady=(0, 17))
 
     def _build_actions(self, parent) -> None:
         action = ctk.CTkFrame(parent, fg_color=SURFACE, corner_radius=10,
@@ -495,7 +497,7 @@ class Window:
         )
         self.run_button.pack(side="left", padx=(12, 0), pady=10)
         self.stop_button = ctk.CTkButton(
-            action, text="Dừng sau bước hiện tại", width=185, height=46,
+            action, text="Dừng cả mẻ", width=185, height=46,
             corner_radius=9, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
             font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
@@ -867,6 +869,20 @@ class Window:
             text_color=MUTED if self.running or self.attach_in_progress or post_busy or has_post_menu or partial_jobs or issue else WHITE,
         )
         self.stop_button.configure(state="normal" if self.running or post_busy else "disabled")
+        selected_stop = getattr(self, "phone_stop_after_step", {}).get(self.selected)
+        selected_session = self.post_menu_sessions.get(self.selected)
+        selected_state = self.status[self.selected][1]
+        batch_active_for_selected = (self.running and selected_session is None and
+                                     selected_state in {"idle", "running", "created",
+                                                        "started", "installed", "queued"})
+        can_stop_selected = (self.selected in self.jobs and
+                             (batch_active_for_selected or
+                              (selected_session is not None and selected_session.state == "RUNNING")) and
+                             not self.cancel.is_set() and
+                             not (selected_stop is not None and selected_stop.is_set()))
+        self.stop_selected_button.configure(
+            text=f"Dừng Máy {self.selected + 1} sau bước hiện tại",
+            state="normal" if can_stop_selected else "disabled")
         self.reset_button.configure(state="disabled" if (self.running or post_busy or
                                     self.attach_in_progress) and not self.cancel.is_set() else "normal")
         self.attach_profile_button.configure(
@@ -894,6 +910,7 @@ class Window:
                 "queued": "Đợi máy trống",
                 "post_running": "Đang tự động hóa",
                 "post_paused": "Lỗi · sửa rồi tiếp tục",
+                "post_stopped": "Đã dừng riêng",
                 "post_done": "Đã xong bước q1",
             }.get(state, text) if state != "idle" else (
                 "Proxy sẵn sàng" if has_proxy else
@@ -1064,6 +1081,7 @@ class Window:
         self.jobs = {}
         self.post_menu_sessions = {}
         self.post_menu_stops = {}
+        self.phone_stop_after_step = {}
         self.post_menu_workers = {}
         self.post_menu_steps = {}
         self.menu_opened_at = {}
@@ -1192,6 +1210,7 @@ class Window:
                         "Không đọc được OTP bằng trình duyệt" in session.last_error):
                     if not self._read_browser_otp(index):
                         return
+                self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
                 self._start_post_menu(index)
             return
         if self.running:
@@ -1245,6 +1264,22 @@ class Window:
         for event in self.post_menu_stops.values():
             event.set()
         self.run_note.configure(text="Đã yêu cầu dừng · có thể bấm Làm lại để nhập mẻ mới", text_color=MUTED)
+        self._refresh_devices()
+
+    def _request_stop_selected(self) -> None:
+        index = self.selected
+        session = self.post_menu_sessions.get(index)
+        state = self.status[index][1]
+        if (index not in self.jobs or self.cancel.is_set() or
+                not ((self.running and session is None and
+                      state in {"idle", "running", "created", "started", "installed", "queued"}) or
+                     (session is not None and session.state == "RUNNING"))):
+            return
+        event = self.phone_stop_after_step.setdefault(index, threading.Event())
+        event.set()
+        self._pending_retries.discard(index)
+        self.status[index] = (f"Máy {index + 1} sẽ dừng sau bước hiện tại", "stop_requested")
+        self.run_note.configure(text=f"Đã yêu cầu dừng riêng Máy {index + 1}", text_color=MUTED)
         self._refresh_devices()
 
     def _account_for_profile(self, index: int) -> AccountData:
@@ -1305,7 +1340,7 @@ class Window:
             pythoncom.CoUninitialize()
 
     def _start_post_menu(self, index: int) -> None:
-        """Use only the steps supplied after the menu UI has been documented."""
+        """Start this phone's post-menu steps after its Amazon menu opens."""
         factory = self.post_menu_step_factories.get(index)
         if factory is None:
             name = f"q{index + 1}"
@@ -1337,6 +1372,7 @@ class Window:
             return
         worker = self.post_menu_workers.get(index)
         if worker is not None and worker.is_alive():
+            self.root.after(100, lambda slot=index: self._start_post_menu(slot))
             return
         steps = self.post_menu_steps.get(index)
         if steps is None or session.bound_serial != serial:
@@ -1352,12 +1388,14 @@ class Window:
             session.bound_serial = serial
         stop = threading.Event()
         self.post_menu_stops[index] = stop
+        after_step = self.phone_stop_after_step.setdefault(index, threading.Event())
         worker = threading.Thread(target=self._run_post_menu,
                                   args=(session, job, steps, stop), daemon=True,
                                   kwargs={"context": {"serials": self.phone_serials,
                                       "steps": self.post_menu_steps, "factories": self.post_menu_step_factories,
                                       "events": self.events, "otp": self.otp_events,
-                                      "otp_status": self.otp_status_events}})
+                                      "otp_status": self.otp_status_events,
+                                      "after_step": after_step}})
         self.post_menu_workers[index] = worker
         worker.start()
 
@@ -1370,9 +1408,12 @@ class Window:
         context = context if context is not None else {
             "serials": self.phone_serials, "steps": self.post_menu_steps,
             "factories": self.post_menu_step_factories, "events": self.events,
-            "otp": self.otp_events, "otp_status": self.otp_status_events}
+            "otp": self.otp_events, "otp_status": self.otp_status_events,
+            "after_step": self.phone_stop_after_step.setdefault(job.index, threading.Event())}
         try:
             def route(current, active_job, deadline, active_stop):
+                if context["factories"].get(active_job.index) is build_random_steps:
+                    return None  # The random prefix also runs on list menus.
                 phone = CloudPhone(context["serials"][active_job.index])
                 return route_list_menu(phone, steps, current, session,
                                        deadline, active_stop)
@@ -1403,7 +1444,8 @@ class Window:
                 session.run(job, steps,
                             lambda index, message, state, name:
                                 context["events"].put((index, message, state, name)),
-                            stop, reconcile=reconcile, route=route)
+                            stop, reconcile=reconcile, route=route,
+                            stop_after_step=context.get("after_step"))
         finally:
             pythoncom.CoUninitialize()
 
@@ -1452,6 +1494,8 @@ class Window:
         self.run_group_size = self.settings.start_group_size
         self.run_hide_profile_creation = self.settings.hide_profile_creation
         self.cancel.clear()
+        for index in indices:
+            self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
         self.run_button.configure(state="disabled")
         self.settings_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
@@ -1461,7 +1505,8 @@ class Window:
         context = {"registry": self.registry, "events": self.events,
                    "stop": self.cancel, "serials": self.phone_serials,
                    "opened": self.menu_opened_at, "group": self.run_group_size,
-                   "hide": self.run_hide_profile_creation}
+                   "hide": self.run_hide_profile_creation,
+                   "phone_stops": self.phone_stop_after_step}
         self.batch_worker = threading.Thread(target=self._run, args=(jobs, context), daemon=True)
         self.batch_worker.start()
 
@@ -1469,7 +1514,8 @@ class Window:
         context = context if context is not None else {
             "registry": self.registry, "events": self.events, "stop": self.cancel,
             "serials": self.phone_serials, "opened": self.menu_opened_at,
-            "group": self.run_group_size, "hide": self.run_hide_profile_creation}
+            "group": self.run_group_size, "hide": self.run_hide_profile_creation,
+            "phone_stops": self.phone_stop_after_step}
         initialized = False
         message = "Mẻ đã kết thúc"
         final_state = "finished"
@@ -1490,6 +1536,7 @@ class Window:
                 hide_profile_creation=context["hide"],
                 menu_ready=lambda index, _name, _device_id, serial:
                     context["serials"].__setitem__(index, serial),
+                stop_after_step=context.get("phone_stops"),
             )
             message = (f"Mẻ kết thúc: {summary['menu_open']} tới menu · "
                        f"{summary['error']} lỗi · {summary['stopped']} dừng"

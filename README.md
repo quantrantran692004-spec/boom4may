@@ -2,6 +2,10 @@
 
 Xem [PROJECT_INDEX.md](PROJECT_INDEX.md) để đi tới toàn bộ mã, tài liệu từng bước, ảnh hướng dẫn, kiểm chứng và cây Graphify.
 
+## Dán nhiều proxy
+
+Nhập mỗi proxy theo dạng `host:port:username:password`. Có thể dán nhiều proxy trên cùng một dòng, cách nhau bằng dấu cách hoặc xuống dòng; cả ô **Proxy** dán nhanh và ô proxy của máy đang chọn đều tự chia theo thứ tự Máy 1–12. Các mục từ thứ 13 trở đi là proxy dự phòng. Chuỗi bốn trường hiện được dùng như SOCKS5; định dạng này không tự nhận biết HTTP/HTTPS từ nhà cung cấp.
+
 ## Cài trên máy Windows mới
 
 1. Cài Python 3.11 trở lên nếu máy chưa có.
@@ -28,7 +32,7 @@ Chỉ dán proxy cũng có thể chạy; bảng thông tin Amazon là tùy chọ
 
 Nếu lỗi được xác định trước khi gửi Create, bấm **Chạy** để thử lại mẻ hiện tại mà không phải dán lại dữ liệu. Trong bảng, bấm **Lỗi · bấm xem** để đọc nguyên nhân từng máy. Nếu Create đã được gửi nhưng kết quả chưa chắc chắn, tool dừng để tránh tạo trùng. Đóng và mở lại tool sẽ bắt đầu phiên mới; dữ liệu mẻ cũ không được khôi phục.
 
-Trong **Settings**, chọn tối đa 1–12 máy Running của mẻ; mặc định là 1 và lựa chọn được lưu cho những phiên sau. Ví dụ với 12 proxy và giới hạn 2, q1 được tạo rồi gửi Start, q2 được tạo trong lúc q1 khởi động/cài Amazon và cũng được Start. q3–q12 tiếp tục được tạo nhưng đợi chỗ trống. Khi bạn Stop một máy về trạng thái Offline trong Swarmote, tool tự mở Profile đang đợi đầu tiên; chỉ đóng cửa sổ điện thoại mà Profile vẫn Running sẽ không giải phóng chỗ. Tool không tự đóng máy đã mở; nút Dừng ngắt hàng đợi sau bước hiện tại. Các bước cài Amazon chạy song song trên các cửa sổ điện thoại, còn thao tác tạo Profile dùng cửa sổ quản lý Swarmote theo thứ tự. Profile có sẵn ngoài mẻ không được Start lại bởi mẻ mới.
+Trong **Settings**, chọn tối đa 1–12 máy Running của mẻ; mặc định là 1 và lựa chọn được lưu cho những phiên sau. Ví dụ với 12 proxy và giới hạn 2, q1 được tạo rồi gửi Start, q2 được tạo trong lúc q1 khởi động/cài Amazon và cũng được Start. q3–q12 tiếp tục được tạo nhưng đợi chỗ trống. Khi bạn Stop một máy về trạng thái Offline trong Swarmote, tool tự mở Profile đang đợi đầu tiên; chỉ đóng cửa sổ điện thoại mà Profile vẫn Running sẽ không giải phóng chỗ. Tool không tự đóng máy đã mở. Chọn hàng máy rồi bấm **Dừng Máy N sau bước hiện tại** trong khung chi tiết để chỉ dừng tự động hóa của máy đó; các máy khác và hàng đợi tiếp tục. Nút **Dừng cả mẻ** dừng toàn bộ. Máy đã dừng riêng có thể bấm **Tiếp tục** cùng hàng. Dừng tự động hóa không tắt Profile Swarmote hoặc giải phóng slot Running. Các bước cài Amazon chạy song song trên các cửa sổ điện thoại, còn thao tác tạo Profile dùng cửa sổ quản lý Swarmote theo thứ tự. Profile có sẵn ngoài mẻ không được Start lại bởi mẻ mới.
 
 Giao diện giữ proxy, thông tin Amazon, thẻ, URL OTP và trạng thái mẻ trong bộ nhớ phiên, không ghi chúng vào SQLite/CSV. Bảng hiển thị trạng thái OTP ban đầu **Chưa yêu cầu mã**. Bộ đọc OTP tách sáu chữ số từ phản hồi `yes|Amazon: ... is your sign-in code.` sau khi bấm gửi SMS bằng trình duyệt ẩn. **q1–q4** đã nối từ menu ba gạch tới OTP SMS và bấm `Create your Amazon account`; xem [Q1_FLOW.md](Q1_FLOW.md), [Q2_FLOW.md](Q2_FLOW.md), [Q3_FLOW.md](Q3_FLOW.md), [Q4_FLOW.md](Q4_FLOW.md). Chỉ b1–b3 khác theo máy; b4–b11 dùng cùng một luồng nhưng mỗi máy có dữ liệu và trạng thái OTP riêng. Không có thời hạn tổng b4–b11; màn chuyển chậm được đọc lại cho tới khi hiện hoặc người dùng bấm Dừng. q5–q12 vẫn dừng ở menu do thiếu b1–b3.
 

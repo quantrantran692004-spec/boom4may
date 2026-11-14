@@ -1,4 +1,4 @@
-> Bản sửa lỗi nhiều máy mới nhất: xem mục đầu [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md). Bản lỗi trước sửa: [NEXT_SESSION_HANDOFF.md](NEXT_SESSION_HANDOFF.md). 230 unittest PASS; chưa xác minh Swarmote thật.
+> Bản dán nhiều proxy trên một dòng mới nhất: xem mục đầu [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md). Bản lỗi nhiều máy trước đó: [NEXT_SESSION_HANDOFF.md](NEXT_SESSION_HANDOFF.md). 300 unittest PASS; chưa xác minh Swarmote thật.
 
 # Bản đồ repository
 

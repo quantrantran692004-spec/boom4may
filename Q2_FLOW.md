@@ -1,5 +1,7 @@
 # Luồng q2 từ menu ba gạch
 
+> B1–b3 cố định trong tài liệu này là lịch sử hướng dẫn. Factory đang chạy của q2 dùng ba lượt ngẫu nhiên trong `random_prefix.py`; b4–b11 vẫn là luồng chung.
+
 Nguồn: hai ảnh người dùng gửi ngày 13/11/2026. q2 bắt đầu ở menu ba gạch do phần chuẩn bị điện thoại đưa tới. Chỉ b1–b3 riêng q2; b4–b11 dùng `build_common_steps` như q1, với SĐT, URL OTP, trạng thái và đồng hồ riêng.
 
 Nếu menu ba gạch xuất hiện **dạng danh sách** như [ảnh mới](flow_images/shared/01_list_menu.png), bộ định tuyến chung bấm Home, chỉ xem 2–5 giây rồi trở lại menu để chạy b4 Sign In; không tìm Pets của bố cục thẻ. Đây là nhánh theo bố cục UI hiện tại, không phải b1–b3 mới của riêng q2. Xem [MENU_ROUTING.md](MENU_ROUTING.md). Chưa thử nhánh mới trên q2 thật.

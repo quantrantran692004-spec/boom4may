@@ -1,5 +1,7 @@
 # q3 — b1–b3 và nối luồng chung
 
+> B1–b3 cố định trong tài liệu này là lịch sử hướng dẫn. Factory đang chạy của q3 dùng ba lượt ngẫu nhiên trong `random_prefix.py`; b4–b11 vẫn là luồng chung.
+
 Theo hướng dẫn cùng ảnh người dùng ngày 13/11/2026:
 
 | Bước | Thao tác |

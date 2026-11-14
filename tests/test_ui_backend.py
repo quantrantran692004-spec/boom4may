@@ -73,6 +73,13 @@ class UiBackendTests(unittest.TestCase):
         args = device.swipe.call_args.args
         self.assertEqual(args[0], args[2])
         self.assertTrue(100 < args[1] < args[3] < 650)
+        self.assertGreater(args[3] - args[1], 150)
+
+    def test_reverse_distance_tracks_four_visible_country_rows(self):
+        start, end = ui.country_reverse_points(100, 650,
+                                                [125 + 50 * i for i in range(10)])
+        self.assertEqual(end - start, 200)
+        self.assertTrue(100 < start < end < 650)
 
     def test_uncertain_native_swipe_is_not_repeated_by_adb_fallback(self):
         device = self._ready_device()

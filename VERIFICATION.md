@@ -1,3 +1,15 @@
+## Nhiều proxy trên một dòng — 14/11/2026
+
+`python -m unittest discover -s tests -q`: **300/300 PASS**. Parser và ô proxy máy đang chọn nhận bốn proxy giả lập cách nhau bằng dấu cách, giữ thứ tự Máy 1–4; mật khẩu của một proxy có dấu cách vẫn giữ nguyên nếu không có tiền tố proxy tiếp theo; giới hạn 100 mục vẫn được áp dụng sau tách. Không dùng proxy thật, không kiểm tra mạng hay tạo Profile Swarmote.
+
+## b1–b3 ngẫu nhiên cho 12 máy — 14/11/2026
+
+`python -m unittest discover -s tests -q`: **296/296 PASS**. Test mới kiểm tra 12 slot cùng dùng factory ngẫu nhiên, mỗi máy có ba bước trước b4 chung, không chọn Sign In, ưu tiên ba mục khác nhau, giữ lựa chọn khi dựng lại bước để Tiếp tục và bốc lại với trạng thái mẻ mới. Nhánh menu dạng danh sách không bỏ qua ba bước; khi menu chưa có mục bấm hoặc tạm chưa trở lại được, phần ngẫu nhiên không dừng máy. Lượt đọc b1–b3 có hạn 15 giây để tránh kẹt vô thời hạn. Chưa thao tác Swarmote thật hoặc xác minh 12 máy chạy đồng thời.
+
+## b6 cuộn tới đáy rồi vuốt ngược — 14/11/2026
+
+Chạy `.venv\Scripts\python.exe -m unittest discover -s tests -q` với thư mục tạm trong repository: **289/289 PASS**. Test b6 xác nhận chưa đảo chiều tại Wallis, tiếp tục fling khi thấy Zimbabwe, chỉ đảo chiều khi các hàng cuối đứng yên; phép vuốt ngược dùng khoảng cách bốn hàng và giới hạn trong vùng danh sách cho cả Android native và ADB dự phòng. Đây là kiểm thử mô phỏng; chưa thao tác trên Swarmote thật.
+
 ## Lỗi chạy song song q3 Terminal trùng / q1 chưa thấy menu — 14/11/2026
 
 Hai ảnh người dùng báo q3 dừng "có nhiều nút Terminal đang hiện" và q1 dừng "Amazon chưa hiện menu ba gạch". Các ảnh thông báo không chứa ảnh Android hiện hành hoặc cây UIA nên chưa thể quy kết mọi trường hợp cụ thể. Đối chiếu mã tìm thấy hai điểm dừng quyết định bằng dấu hiệu thiếu: open_adb_shell đếm từng Text Terminal chứ không đếm Group cha duy nhất; open_home_menu chỉ nhận heading Shop by category và chỉ bấm Browse menu một lần.
@@ -240,4 +252,15 @@ Test mới xác nhận q1–q4 dùng đúng cùng code b4–b11, phiên cũ hơn
 ## b6 Country US +1 — 14/11/2026
 
 Hai ảnh q1 mới xác nhận hàng United States +1 đã nhìn thấy nhưng popup không đóng sau bốn lần chạm. Test tái hiện hai nhánh: vùng chữ không đóng popup nhưng giữa hàng đóng; fling tới cuối rồi reverse để tìm US. Toàn bộ unittest 267 PASS, `py_compile` mã liên quan PASS. Đây là kiểm thử mô phỏng; chưa bấm trên máy thật.
+
+## Focus ô nhập b4–b11 — 14/11/2026
+
+- Bộ xử lý chung chỉ gõ SĐT, tên hoặc OTP sau khi chạm và đọc lại đúng ô/màn, có focus trực tiếp hoặc xác nhận bàn phím khi cờ focus thiếu/OCR. Thử tìm lại bounds và chạm tối đa ba lần; không gõ nếu vẫn chưa xác nhận. Có test cho chạm trượt, ô dịch vị trí, khung WebView trống tạm và giá trị nhập dở.
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`: **288/288 PASS** trên đối tượng giả. Test thời hạn tổng cũ được sửa để kiểm tra Stop theo quy tắc hiện hành. Chưa kiểm chứng trên Swarmote thật; tool đang mở chưa tự nạp bản mã mới.
+
+## Dừng riêng một máy — 14/11/2026
+
+Nút trong khung chi tiết đặt cờ riêng theo máy, không đặt cờ dừng cả mẻ. Runner kiểm tra cờ ở ranh giới tạo Profile, Start, cài Amazon, nối ADB và mở menu; phiên b1–b11 kiểm tra trước bước kế tiếp và ở ranh giới thử lại khi bước lỗi. Test mô phỏng dừng q2 khi chờ slot, q3 vẫn tự Start; dừng một phiên sau b1, phiên khác vẫn hoàn tất và phiên đã dừng tiếp tục từ b2. Chưa thử GUI/Swarmote thật; tiến trình tool đang mở không tự nạp mã mới.
+
+`python -m unittest discover -s tests -q`: **305/305 PASS**.
 

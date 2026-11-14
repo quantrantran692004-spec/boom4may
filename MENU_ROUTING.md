@@ -1,16 +1,18 @@
 # Điều hướng hai dạng menu ba gạch
 
+**Từ 14/11/2026:** b1–b3 hiện hành của q1–q12 dùng `random_prefix.build_random_steps` trên cả menu thẻ và menu danh sách. Nhánh cũ `route_list_menu` chỉ còn dùng khi gọi các factory q1–q6 cố định cũ.
+
 ## Bằng chứng và phạm vi
 
-Ảnh mới [menu dạng danh sách](flow_images/shared/01_list_menu.png) hiển thị `Shop by Category`, Books, Electronics, Home services, See all, Today's Deals, Try Prime, Settings, Customer Service và Sign In. Người dùng xác nhận: gặp dạng này thì bấm Home, **chỉ xem 2–5 giây**, trở lại menu rồi bấm Sign In ở b4. Không cuộn Home. Ảnh này là bằng chứng thiết kế; chưa có lượt chạy thật trên Swarmote sau khi sửa. Các ảnh menu dạng thẻ của q1/q2 vẫn ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md).
+Ảnh [menu dạng danh sách](flow_images/shared/01_list_menu.png) hiển thị `Shop by Category`, Books, Electronics, Home services, See all, Today's Deals, Try Prime, Settings, Customer Service và Sign In. Trước đây người dùng hướng dẫn Home rồi b4 cho dạng này; chỉ dẫn mới thay b1–b3 bằng ba lượt ngẫu nhiên. Các ảnh menu dạng thẻ của q1/q2 vẫn ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md). Chưa có lượt chạy thật sau sửa.
 
 ## Quy tắc chạy
 
-1. Sau khi xác nhận menu ba gạch trên ADB serial của máy, khởi động đồng hồ riêng của lượt (3→4→5→4 phút). Đọc cây `uiautomator dump` hiện tại. `screen` và `menu_layout` trong `amazon_android/account_flow.py` phân loại màn và bố cục theo chữ/content description; không so khớp pixel ảnh hay tọa độ cố định.
-2. Dạng thẻ: q1 chạy Gifting → Pets → Fashion and Beauty; q2 chạy Home 2–5 giây → menu → Pets. Chỉ các máy đã có b1–b3 riêng được chạy sau menu.
-3. Dạng danh sách: `route_list_menu` ghi nhánh cho phiên máy, bấm tab Home từ cây UI có bounds hợp lệ, xác nhận Home, chờ 2–5 giây trong thời hạn lượt, rồi chuyển `next_step` sang b4. b4 dùng `_ensure_menu` để bấm tab menu ba gạch trở lại, tìm Sign In trong cây UI (cuộn menu nếu cần), bấm và xác nhận form số điện thoại. Không chạy lại b1–b3 dạng thẻ trên nhánh này đối với q1–q5. q6 là ngoại lệ đã được hướng dẫn: vẫn chạy Trang chủ → Giỏ hàng → menu → b3a Electronics, rồi dùng b4 chung.
-4. Nếu người dùng sửa màn rồi bấm Tiếp tục, tool đọc lại UI. Nhánh danh sách được giữ trong phiên để tiếp tục được cả khi máy đang ở Home sau lần dừng; nếu thấy menu dạng thẻ thì bỏ nhánh danh sách. Lỗi đọc cây, màn lạ, nhiều điều khiển cùng khớp, hoặc hết hạn đều dừng máy đó tại bước hiện tại để sửa trực tiếp. Không gửi OTP hoặc bấm Create trong bước điều hướng này.
-5. b4–b11 là một bộ bước chung với SĐT, URL OTP, trạng thái SMS, mã, đồng hồ và điểm dừng riêng cho từng máy. q7–q12 chưa có hướng dẫn phần riêng và vẫn dừng ở menu, dù bộ phân loại có thể dùng lại khi các máy này được nối về sau.
+1. Sau khi xác nhận menu trên ADB serial của máy, đọc cây Android hiện tại và lấy các mục danh mục hoặc tab Home/Cart đang hiện, có vùng bấm hợp lệ. Không dùng tọa độ từ ảnh.
+2. Mỗi máy bốc một mục cho từng bước b1, b2, b3; ưu tiên chưa lặp trong cùng mẻ. Cả menu thẻ và menu danh sách dùng cách này. Chỉ chọn trong các nhãn điều hướng/danh mục đã nhận diện; bỏ qua Sign In, Settings và thao tác tài khoản.
+3. Nếu lần bấm mở trang khác, bước kế dùng `_ensure_menu` quay lại. Lượt đọc b1–b3 có hạn 15 giây; không tìm được mục phù hợp thì báo và chuyển tiếp. B4 tự đưa máy về menu nếu cần, tìm Sign In và xác nhận form số điện thoại.
+4. Khi bấm Tiếp tục, giữ lựa chọn đã bốc của máy và bước hiện tại. Không bốc lại toàn bộ mẻ. B1–b3 không gửi OTP hoặc bấm Create; các điểm dừng an toàn của b4–b11 vẫn giữ.
+5. b4–b11 là một bộ bước chung với SĐT, URL OTP, trạng thái SMS, mã và điểm dừng riêng cho từng máy. q1–q12 đều có ba bước bấm ngẫu nhiên trước b4 trong factory hiện hành.
 
 Ở b4, menu có thể trả nhiều node cùng nhãn `Sign In` dù chỉ một hàng nhìn thấy. Bộ chọn chung ưu tiên node `clickable`; nếu nhãn vẫn lặp, dùng hàng `Customer Service` đang hiện ngay phía trên làm mốc và chỉ nhận một Sign In nằm dưới. Khi vẫn mơ hồ, tool dừng để sửa trên máy. Ảnh lỗi q1 ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md).
 

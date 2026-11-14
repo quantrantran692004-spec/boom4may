@@ -21,16 +21,19 @@ class ExtendedRecoveryTests(unittest.TestCase):
                 menu.open_home_menu(CloudPhone('127.0.0.1:5001'), stop=stop)
         tap.assert_not_called()
 
-    def test_read_recovery_keeps_deadline_and_does_not_retry_wrong_account(self):
+    def test_read_recovery_obeys_stop_and_does_not_retry_wrong_account(self):
         phone = CloudPhone('127.0.0.1:5001')
-        clock = [0.0]
+        stop = threading.Event()
+        attempts = [0]
         def fail(*args):
-            clock[0] += 1
+            attempts[0] += 1
+            if attempts[0] == 3:
+                stop.set()
             raise flow._UiReadIncomplete('temporary')
-        with patch.object(flow.time, 'monotonic', side_effect=lambda: clock[0]), \
-             patch.object(flow, '_read_nodes_once', side_effect=fail):
-            with self.assertRaisesRegex(ToolError, 'Hết thời gian'):
-                flow._read_nodes(phone, AttemptDeadline(2, started=0), threading.Event())
+        with patch.object(flow, '_read_nodes_once', side_effect=fail):
+            with self.assertRaisesRegex(ToolError, 'Đã dừng'):
+                flow._read_nodes(phone, AttemptDeadline(None), stop)
+        self.assertEqual(attempts[0], 3)
         with patch.object(flow, '_read_nodes_once', side_effect=ToolError('SĐT không khớp')) as read:
             with self.assertRaisesRegex(ToolError, 'không khớp'):
                 flow._read_nodes(phone, AttemptDeadline(10), threading.Event())

@@ -1,5 +1,9 @@
 # Danh mục từng bước đã biết — 13/11/2026
 
+## B1–B3 hiện hành — Ba lượt ngẫu nhiên q1–q12
+
+Mỗi mẻ tạo mới, từng máy đọc menu thật và chọn ba mục bấm ngẫu nhiên có vùng hợp lệ, ưu tiên không lặp trong ba bước. Khi Tiếp tục giữ lựa chọn đã bốc của máy đó. Không có mục phù hợp thì báo và đi tiếp tới b4; b4 vẫn xác nhận menu/form. Các mốc q1–q6 cố định bên dưới là lịch sử hướng dẫn, không phải factory đang chạy. Chưa thử trên máy thật.
+
 Tài liệu này là bản đồ từng mốc để phiên sau không coi ảnh chưa gửi là bước đã hoàn thành. Ảnh gốc q1/q2 đã lưu và ánh xạ tại [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); mở ảnh đó khi cần xem UI. `Đã nối mã` khác với `đã chạy thật`. Các bước được ghi từ hướng dẫn người dùng và mã hiện tại; không suy ra màn chưa có ảnh. Dữ liệu nhạy cảm không ghi vào file này.
 
 ## P01 — Dán và gán hàng dữ liệu
@@ -38,7 +42,7 @@ Mở Amazon, xử lý màn trước đăng nhập nếu có, bấm Browse menu T
 
 ## P08a — Nhận diện biến thể menu dạng danh sách
 
-Sau P08, đọc cây UI Android trực tiếp của đúng máy. Nếu menu có các thẻ danh mục như Gifting/Pets/Fashion and Beauty, giữ b1–b3 riêng của q1–q4. Nếu menu là danh sách chữ như ảnh mới (`Shop by Category`, `Books`, `Electronics`, `Home services`, `See all`, `Customer Service`, `Sign In`), bấm tab Home, **chỉ xem/chờ 2–5 giây, không cuộn**, quay lại menu và chuyển thẳng sang b4 Sign In. Thời gian này nằm trong đồng hồ lượt của máy. Nếu cấu trúc chưa xác định được hoặc thiếu nút Home/Sign In, dừng tại màn hiện tại và cho Tiếp tục; không đoán tọa độ ảnh. Nhánh này dùng chung cho các máy đã được nối sau menu; không tự bật q5–q12. **Đã nối mã và test mô phỏng; chưa thử máy thật.** Xem [MENU_ROUTING.md](MENU_ROUTING.md).
+Sau P08, đọc menu Android trực tiếp của đúng máy. Cả menu dạng thẻ và danh sách chữ đều chạy ba lượt bấm ngẫu nhiên trên mục đang hiện có vùng hợp lệ rồi nối b4 Sign In; không dùng tọa độ ảnh. Lượt đọc b1–b3 có hạn 15 giây và có thể bỏ qua một lượt khi menu tạm không rõ; b4 vẫn xác nhận màn trước khi thao tác. **Đã nối mã và test mô phỏng; chưa thử máy thật.** Xem [MENU_ROUTING.md](MENU_ROUTING.md).
 
 ## Q1 b1 — Bấm Gifting
 
@@ -80,6 +84,8 @@ Tìm hàng Sign In ở cuối menu bằng chữ trong UI, cuộn khi cần, bấ
 
 ## Chung b4a — Chạm ô SĐT
 
+Nhánh dự phòng chung cho ô SĐT, tên và OTP: sau khi chạm, đọc lại màn/ô; nếu focus chưa được xác nhận thì tìm lại vị trí và chạm thêm tối đa hai lần. Cây Android có `focused=true` là bằng chứng trực tiếp; khi thiếu cờ focus hoặc chỉ có OCR, cần xác nhận bàn phím đã hiện. Trước khi gõ, đọc lại nội dung để giữ phần đã nhập và tránh gõ lặp. Nếu vẫn không xác định được ô đúng thì không gõ. **Đã test mô phỏng ngày 14/11/2026; chưa thử trên máy thật.**
+
 Sau Sign In, chờ form nhập SĐT rồi chạm vào ô đang hiện. Nhận diện form theo nhãn `Enter mobile number or email` cùng nút `Continue`, kể cả khi cây UI WebView tạm thiếu tiêu đề hoặc node EditText. Không phân loại thành màn chọn quốc gia chỉ vì cây UI còn nhãn `Country/region code`; cần thấy các hàng quốc gia hoặc không có dấu hiệu form nhập số. B5 thử chạm lại nếu Android vẫn báo ô chưa có focus. Đây là bước dùng chung cho các máy đã nối b4–b11. Ảnh q1 báo UNKNOWN dù form SĐT đang hiện; bộ phân loại chung đã được sửa theo các dấu hiệu trên, chưa xác minh lại trên Swarmote thật.
 
 ## Chung b5 — Gõ số điện thoại
@@ -88,7 +94,7 @@ Gõ nguyên chuỗi SĐT của đúng hàng từng ký tự vào ô `Enter mobil
 
 ## Chung b6 — Chọn United States +1
 
-B6 vuốt dài trong vùng danh sách nếu cây UI cung cấp đúng một vùng cuộn hợp lệ. Nếu US chưa nhìn thấy thì cuộn tới cuối (hai lượt đọc không đổi), rồi vuốt ngược ngắn từng đoạn để tìm `United States +1`. Nếu US đã hiện thì không cuộn thêm. Chạm chữ, đợi và đọc lại; nếu hộp vẫn mở với hàng US ở đúng vị trí thì chạm giữa toàn hàng theo chiều rộng Android. Sau mỗi cú chạm phải xác nhận hộp đã đóng hoặc trạng thái đã đổi. Chỉ bấm khi mục có vùng hợp lệ. Chưa đo tốc độ trên Swarmote thật.
+B6 vuốt dài trong vùng danh sách nếu cây UI cung cấp đúng một vùng cuộn hợp lệ. Nếu US chưa nhìn thấy thì cuộn đến nhóm hàng cuối Zimbabwe/Åland Islands, cuộn thêm tới khi các hàng cuối đứng yên, rồi vuốt ngược khoảng bốn quốc gia trong vùng danh sách để tìm `United States +1`. Nếu US đã hiện thì không cuộn thêm. Chạm chữ, đợi và đọc lại; nếu hộp vẫn mở với hàng US ở đúng vị trí thì chạm giữa toàn hàng theo chiều rộng Android. Sau mỗi cú chạm phải xác nhận hộp đã đóng hoặc trạng thái đã đổi. Chỉ bấm khi mục có vùng hợp lệ. Chưa đo tốc độ trên Swarmote thật.
 
 Sau khi gõ số, mở Country/region code, cuộn tới gần cuối tìm United States +1, chọn và đọc lại số/mã quốc gia. Không bấm mục US ẩn có vùng `[0,0][0,0]`; tiếp tục cuộn đến mục đang hiển thị và có vùng bấm hợp lệ. Ảnh b6 ban đầu có tiêu đề cửa sổ q6, chỉ là tham chiếu UI. q1 đã báo lỗi vùng bấm b6; **đã sửa mã chung, chưa xác minh lại trên máy thật.**
 
@@ -146,9 +152,9 @@ b1 Toys, Kids and Baby; b2 Office & Professional; b3 Sports & Outdoors. Bấm th
 
 b1 Trang chủ xem 2 giây; b2 Giỏ hàng xem 2 giây; b3 về menu ba gạch; b3a bấm Devices and Electronics ở menu thẻ hoặc Electronics ở menu danh sách. Nếu thẻ mở trang khác, b4 chung tự về menu tìm Sign In. Chưa có ảnh q6 hay xác minh trên máy thật; xem [Q6_FLOW.md](Q6_FLOW.md).
 
-## U02 — q7–q12 chưa có phần riêng
+## U02 — q7–q12 dùng phần ngẫu nhiên chung
 
-q5 và q6 đã có hướng dẫn bằng chữ và được nối riêng; xem [Q5_FLOW.md](Q5_FLOW.md) và [Q6_FLOW.md](Q6_FLOW.md). Người dùng chưa gửi ảnh và hướng dẫn riêng cho q7–q12. Các máy này vẫn dừng ở menu ba gạch. Không sao chép phần riêng của máy khác sang chúng.
+Người dùng đã cho phép b1–b3 của cả q1–q12 bấm ngẫu nhiên từ menu thật. q7–q12 nay dùng factory chung, không sao chép chuỗi cố định của q1–q6. Chưa thử trên máy thật.
 
 ## U03 — Ảnh tiếp theo có thể bổ sung hoặc sửa quy trình
 

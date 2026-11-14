@@ -9,7 +9,7 @@ import pythoncom
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Mapping
 
 from .cloud import CloudPhone, open_amazon
 from .core import ToolError
@@ -73,7 +73,8 @@ def _start_and_confirm(name, device_id, stop):
 def _prepare_phone(job: RunJob, name: str, device_id: str,
                    registry: ProfileRegistry, emit: Progress,
                    stop: threading.Event,
-                   menu_ready: MenuReady | None = None) -> str:
+                   menu_ready: MenuReady | None = None,
+                   stop_after_step: threading.Event | None = None) -> str:
     """Operate only the phone window; the coordinator owns the Profiles window."""
     import pythoncom
 
@@ -84,6 +85,15 @@ def _prepare_phone(job: RunJob, name: str, device_id: str,
         def progress(message):
             emit(job.index, f"{message} · {name}", "running", name)
 
+        def stop_here(message: str, stage: str | None = None) -> bool:
+            if not stop.is_set() and stop_after_step is not None and stop_after_step.is_set():
+                registry.mark(job.batch_id, job.index, "STOPPED", stage=stage)
+                emit(job.index, f"Đã dừng riêng {name} · {message}", "stopped", name)
+                return True
+            return False
+
+        if stop_here("chưa chuẩn bị máy"):
+            return "stopped"
         if stop.is_set():
             registry.mark(job.batch_id, job.index, "STOPPED")
             emit(job.index, f"Đã dừng chuẩn bị {name}", "stopped", name)
@@ -96,22 +106,32 @@ def _prepare_phone(job: RunJob, name: str, device_id: str,
             install_amazon(name, device_id=device_id, stop=stop, progress=progress)
             registry.mark(job.batch_id, job.index, "READY", stage="APP_INSTALLED")
         emit(job.index, f"Amazon đã cài trên {name}", "installed", name)
+        if stop_here("sau khi cài Amazon"):
+            return "stopped"
         if stop.is_set():
             registry.mark(job.batch_id, job.index, "STOPPED")
             emit(job.index, f"Đã dừng sau khi cài Amazon · {name}", "stopped", name)
             return "stopped"
         emit(job.index, f"Đang mở menu Amazon · {name}", "running", name)
         shell = open_adb_shell(name, device_id, stop=stop, progress=progress)
+        if stop_here("sau khi nối ADB"):
+            return "stopped"
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
         show_apps(name, device_id, stop=stop, progress=progress)
+        if stop_here("sau khi mở danh sách ứng dụng"):
+            return "stopped"
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
         phone = CloudPhone(shell["serial"])
         open_amazon(phone)
+        if stop_here("sau khi mở Amazon"):
+            return "stopped"
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
         collapse_apps_panel(name, device_id, stop=stop)
+        if stop_here("sau khi thu gọn ứng dụng"):
+            return "stopped"
         menu = open_home_menu(phone, stop=stop)
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
@@ -119,12 +139,18 @@ def _prepare_phone(job: RunJob, name: str, device_id: str,
             raise ToolError("Amazon chưa xác nhận menu ba gạch")
         if menu_ready is not None:
             menu_ready(job.index, name, device_id, phone.serial)
+        if stop_here("sau khi mở menu ba gạch", stage="MENU_OPEN"):
+            return "stopped"
         registry.mark(job.batch_id, job.index, "DONE", stage="MENU_OPEN")
         message = (f"Đã mở menu ba gạch · {name}" if job.account is not None
                    else f"Đã mở menu ba gạch · {name}; chưa có dữ liệu Amazon")
         emit(job.index, message, "done", name)
         return "done"
     except Exception as exc:
+        if not stop.is_set() and stop_after_step is not None and stop_after_step.is_set():
+            registry.mark(job.batch_id, job.index, "STOPPED")
+            emit(job.index, f"Đã dừng riêng {name} tại bước đang lỗi", "stopped", name)
+            return "stopped"
         if stop.is_set():
             registry.mark(job.batch_id, job.index, "STOPPED")
             emit(job.index, f"Đã dừng chuẩn bị {name}", "stopped", name)
@@ -142,7 +168,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
               emit: Progress, stop: threading.Event, *,
               start_group_size: int = 1,
               hide_profile_creation: bool = False,
-              menu_ready: MenuReady | None = None) -> dict[str, int]:
+              menu_ready: MenuReady | None = None,
+              stop_after_step: Mapping[int, threading.Event] | None = None) -> dict[str, int]:
     """Create serially, prepare phones concurrently, and fill freed Running slots."""
     if not 1 <= start_group_size <= 12:
         raise ToolError("Giới hạn máy Running phải từ 1 đến 12")
@@ -165,6 +192,16 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
         visible_names = visible_profile_names()
     proxy_fallbacks = deque(next((job.proxy_fallbacks for job in jobs
                                   if job.proxy_fallbacks), ()))
+
+    def requested(job: RunJob) -> bool:
+        event = stop_after_step.get(job.index) if stop_after_step is not None else None
+        return event is not None and event.is_set()
+
+    def stop_job(job: RunJob, name: str | None, detail: str) -> None:
+        if registry.get(job.batch_id, job.index) is not None:
+            registry.mark(job.batch_id, job.index, "STOPPED")
+        emit(job.index, f"Đã dừng riêng q{job.index + 1} · {detail}", "stopped", name)
+        summary["stopped"] += 1
 
     def visible_lookup(name: str) -> dict:
         if name in visible_names:
@@ -213,11 +250,24 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
 
         def fill_slots() -> None:
             nonlocal start_blocked
+            if waiting:
+                remaining = deque()
+                for job, name, device_id in waiting:
+                    if requested(job):
+                        stop_job(job, name, "chưa mở máy")
+                    else:
+                        remaining.append((job, name, device_id))
+                waiting.clear()
+                waiting.extend(remaining)
             if start_blocked or stop.is_set():
                 return
             refresh_slots()
             while waiting and len(active) < start_group_size and not stop.is_set():
                 job, name, device_id = waiting[0]
+                if requested(job):
+                    waiting.popleft()
+                    stop_job(job, name, "chưa mở máy")
+                    continue
                 emit(job.index, f"Đang mở máy {name}", "running", name)
                 try:
                     started = _start_and_confirm(name, device_id, stop)
@@ -225,6 +275,10 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                             started.get("device_id") != device_id):
                         raise ToolError(f"{name}: Start chưa xác nhận đúng Device ID")
                 except ProfileStartNotSubmitted as exc:
+                    if requested(job):
+                        waiting.popleft()
+                        stop_job(job, name, "trước khi mở máy")
+                        continue
                     first = start_retry_since.setdefault(name, time.monotonic())
                     if time.monotonic() - first < 60 and not stop.is_set():
                         emit(job.index,
@@ -239,6 +293,10 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     start_blocked = True
                     return
                 except Exception as exc:
+                    if requested(job):
+                        waiting.popleft()
+                        stop_job(job, name, "khi xác nhận mở máy")
+                        continue
                     waiting.popleft()
                     registry.mark(job.batch_id, job.index, "ERROR",
                                   error=str(exc) if isinstance(exc, ToolError) else type(exc).__name__)
@@ -250,12 +308,16 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                 start_retry_since.pop(name, None)
                 active[name] = {"device_id": device_id,
                                 "seen_running": started["state"] == "Running"}
+                if requested(job):
+                    stop_job(job, name, "sau khi mở máy")
+                    continue
                 item = registry.get(job.batch_id, job.index)
                 if item and item["stage"] != "APP_INSTALLED":
                     registry.mark(job.batch_id, job.index, "READY", stage="STARTED")
                 emit(job.index, f"Đã gửi Start · {name} đang mở", "started", name)
                 future = pool.submit(_prepare_phone, job, name, device_id,
-                                     registry, emit, stop, menu_ready)
+                                     registry, emit, stop, menu_ready,
+                                     stop_after_step.get(job.index) if stop_after_step else None)
                 futures.append(future)
                 future_by_name[name] = future
 
@@ -265,6 +327,9 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     emit(remaining.index, "Đã dừng trước khi tạo Profile", "stopped", None)
                 summary["stopped"] += len(jobs) - position
                 break
+            if requested(job):
+                stop_job(job, None, "trước khi tạo Profile")
+                continue
             item = None
             try:
                 item = registry.reserve(job.batch_id, job.index, visible_lookup)
@@ -291,6 +356,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                         except ProxyTestFailed as exc:
                             registry.mark(job.batch_id, job.index, "ERROR", stage="RESERVED",
                                           error=str(exc))
+                            if requested(job):
+                                raise
                             if not proxy_fallbacks:
                                 raise
                             proxy = proxy_fallbacks.popleft()
@@ -320,6 +387,9 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                 device_id = found.get("device_id")
                 if not device_id or found["state"] not in {"Offline", "Running"}:
                     raise ToolError(f"{name}: chưa xác nhận Device ID hoặc trạng thái Profile")
+                if requested(job):
+                    stop_job(job, name, "sau khi xác nhận Profile")
+                    continue
                 if item["stage"] == "MENU_OPEN":
                     if found["state"] != "Running":
                         emit(job.index,
@@ -332,6 +402,9 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                         shell = open_adb_shell(name, device_id, stop=stop,
                             progress=lambda message, slot=job.index, profile=name:
                                 emit(slot, f"{message} · {profile}", "running", profile))
+                        if requested(job):
+                            stop_job(job, name, "sau khi nối lại ADB")
+                            continue
                         menu_ready(job.index, name, device_id, shell["serial"])
                     message = (f"Đã mở menu ba gạch · {name}" if job.account is not None
                                else f"Đã mở menu ba gạch · {name}; chưa có dữ liệu Amazon")
@@ -342,7 +415,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                 if found["state"] == "Running":
                     active[name] = {"device_id": device_id, "seen_running": True}
                     future = pool.submit(_prepare_phone, job, name, device_id,
-                                         registry, emit, stop, menu_ready)
+                                         registry, emit, stop, menu_ready,
+                                         stop_after_step.get(job.index) if stop_after_step else None)
                     futures.append(future)
                     future_by_name[name] = future
                 else:
@@ -351,9 +425,13 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     if any(queued[1] == name for queued in waiting):
                         emit(job.index, f"{name} đã tạo · chờ chỗ máy Running trống", "queued", name)
             except Exception as exc:
+                current = registry.get(job.batch_id, job.index) if item else None
+                if requested(job) and (current is None or current["state"] != "UNCERTAIN"):
+                    stop_job(job, item["name"] if item else None,
+                             "sau bước tạo Profile")
+                    continue
                 event_state = "error"
                 if item:
-                    current = registry.get(job.batch_id, job.index)
                     if current and current["state"] != "UNCERTAIN":
                         registry.mark(job.batch_id, job.index, "ERROR",
                                       error=str(exc) if isinstance(exc, ToolError) else type(exc).__name__)

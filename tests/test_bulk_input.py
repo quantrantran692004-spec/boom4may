@@ -1,7 +1,10 @@
 import unittest
+from unittest.mock import Mock
 
 from amazon_android.bulk_input import parse_column, parse_records
+from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
+from amazon_android.desktop import Window
 
 
 class BulkInputTests(unittest.TestCase):
@@ -9,6 +12,45 @@ class BulkInputTests(unittest.TestCase):
         found = parse_column("proxy", "one.example:1001:u:p\ntwo.example:1002:u:q\n")
         self.assertEqual([(x.host, x.port) for x in found],
                          [("one.example", 1001), ("two.example", 1002)])
+
+    def test_space_separated_proxy_paste_maps_four_entries_in_order(self):
+        found = parse_column(
+            "proxy", "one.example:1001:u1:p1 two.example:1002:u2:p2 "
+            "three.example:1003:u3:p3 four.example:1004:u4:p4")
+        self.assertEqual([(item.host, item.port, item.username) for item in found], [
+            ("one.example", 1001, "u1"), ("two.example", 1002, "u2"),
+            ("three.example", 1003, "u3"), ("four.example", 1004, "u4")])
+
+    def test_single_proxy_password_with_spaces_keeps_existing_parsing(self):
+        found = parse_column("proxy", "one.example:1001:u:pass with spaces")
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].password, "pass with spaces")
+
+    def test_space_separated_proxy_limit_is_enforced(self):
+        pasted = " ".join(f"host{i}.example:1001:u:p" for i in range(101))
+        with self.assertRaisesRegex(ToolError, "giới hạn"):
+            parse_column("proxy", pasted)
+
+    def test_single_proxy_field_distributes_space_separated_paste(self):
+        window = Window.__new__(Window)
+        window.draft = BatchDraft()
+        window.selected = 2
+        window.proxy_fallbacks = []
+        window.values = [{key: Mock() for key in
+                          ("host", "port", "username", "proxy_password")}
+                         for _ in range(12)]
+        window.count = Mock()
+        window.proxy_line = Mock()
+        window.run_note = Mock()
+        window._refresh_devices = Mock()
+        window._accept_proxy_text(
+            "one.example:1001:u1:p1 two.example:1002:u2:p2 "
+            "three.example:1003:u3:p3 four.example:1004:u4:p4")
+        self.assertEqual(window.draft.proxy_count, 4)
+        window.count.set.assert_called_with("4")
+        for index, host in enumerate(("one.example", "two.example",
+                                      "three.example", "four.example")):
+            window.values[index]["host"].set.assert_called_with(host)
 
     def test_internal_blank_line_rejected_to_preserve_alignment(self):
         with self.assertRaises(ToolError):

@@ -536,7 +536,8 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
         if fling:
             start, end, duration = (0.96, 0.04, "65")
         elif reverse:
-            start, end, duration = (0.40, 0.59, "280")
+            start, end = (0.30, 0.70)
+            duration = "280"
         else:
             start, end, duration = (0.60, 0.40, "280")
         scroll_regions = {_bounds(node) for node in nodes
@@ -558,9 +559,16 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
             left, top, right, bottom = scroll_regions.pop()
             x = (left + right) // 2
             height = bottom - top
+            if reverse:
+                centers = [(_bounds(node)[1] + _bounds(node)[3]) // 2
+                           for node in nodes if _visible(node) and re.fullmatch(
+                               r"[a-zå][a-zå .()'-]*\s*\+\d{1,4}", _text(node))]
+                y1, y2 = ui_backend.country_reverse_points(top, bottom, centers)
+            else:
+                y1 = top + int(height * start)
+                y2 = top + int(height * end)
             cloud_adb(phone, "shell", "input", "swipe", str(x),
-                      str(top + int(height * start)), str(x),
-                      str(top + int(height * end)), duration,
+                      str(y1), str(x), str(y2), duration,
                       timeout=max(1, math.ceil(min(6, deadline.remaining()))))
             return
     dimensions = []
@@ -620,27 +628,25 @@ def _find_scrolling(phone: CloudPhone, label: str,
                     raise
             return _unique(matches, label, starts=starts)
         visible = tuple(_text(node) for node in nodes if _visible(node) and _text(node))
-        stalled = visible == previous
+        country_labels = tuple(value.rsplit("+", 1)[0].strip() for value in visible
+                               if re.fullmatch(r"[a-zå][a-zå .()'-]*\s*\+\d{1,4}", value)) if country_list else ()
+        signature = country_labels if country_list else visible
+        stalled = signature == previous
         if stalled and not country_list:
             break
         fling = False
         if country_list:
-            country_labels = [value.rsplit("+", 1)[0].strip() for value in visible
-                              if re.fullmatch(r"[a-z][a-z .()'-]*\s*\+\d{1,4}", value)]
-            end_marker = any(value.startswith(("wallis", "western sahara", "zimbabwe"))
+            end_marker = any(value.startswith(("zimbabwe", "åland islands", "aland islands"))
                              for value in country_labels)
             if not reverse:
-                # First quickly reach the end; reverse immediately when the
-                # final alphabetical rows appear, without waiting for stasis.
-                fling = not end_marker
-                reverse = end_marker
-            elif stalled:
-                # A short reverse swipe can miss/advance slowly; keep nudging.
-                reverse = True
-        previous = visible
+                # Seeing a last row is not enough: fling once more and reverse
+                # only when the final rows no longer move.
+                reverse = end_marker and stalled
+                fling = not reverse
+        previous = signature
         _scroll_up(phone, nodes, deadline, country_list=country_list,
                    fling=fling, reverse=reverse)
-        pause = 0.1 if country_list else 0.12
+        pause = (0.25 if fling else 0.15) if country_list else 0.12
         stop.wait(deadline.allowance(pause))
         nodes = None
         attempt += 1
@@ -732,27 +738,49 @@ def _keyboard_visible(phone: CloudPhone, deadline: AttemptDeadline) -> bool:
 
 
 def _tap_input(phone: CloudPhone, field: dict[str, str],
-               deadline: AttemptDeadline, stop: threading.Event) -> None:
-    """Tap a field and confirm focus even when it came from screenshot OCR."""
-    attempts = 3 if field.get("vision") == "true" else 1
-    for attempt in range(attempts):
+               deadline: AttemptDeadline, stop: threading.Event, *,
+               label: str | None = None) -> list[dict[str, str]]:
+    """Retarget and verify a field before any input is sent to Android."""
+    label = label or {"phone": PHONE_FIELD, "name": NAME_FIELD, "otp": OTP_FIELD}.get(
+        field.get("vision-field-kind", ""))
+    expected = {PHONE_FIELD: "IDENTIFIER", NAME_FIELD: "CREATE_FORM", OTP_FIELD: "SMS"}
+    if label not in expected:
+        raise ValueError("Unknown input field")
+    for attempt in range(3):
         if stop.is_set():
             raise ToolError("Đã dừng máy này")
         if attempt:
             deadline.recovering(f"Ô nhập chưa nhận focus · tìm lại vị trí và chạm lần {attempt + 1}/3")
-            label = {"phone": PHONE_FIELD, "name": NAME_FIELD, "otp": OTP_FIELD}.get(
-                field.get("vision-field-kind", ""))
             nodes = _read_nodes(phone, deadline, stop)
-            expected = {PHONE_FIELD: "IDENTIFIER", NAME_FIELD: "CREATE_FORM", OTP_FIELD: "SMS"}
-            if label is None or screen(nodes) != expected[label]:
-                raise ToolError("Màn nhập đã thay đổi; chưa chạm lại ô")
+            if screen(nodes) == "UNKNOWN":
+                nodes = _read_nodes(phone, deadline, stop)
+            if screen(nodes) != expected[label]:
+                raise RecoverableStepError("Màn nhập đã thay đổi; chưa chạm lại ô")
             field = _field(nodes, label)
+        if field.get("vision") != "true" and field.get("focused") == "true":
+            return [field]
         _tap_for_transition(phone, field, deadline)
-        if field.get("vision") != "true" or _keyboard_visible(phone, deadline):
-            return
-        if attempt + 1 < attempts:
-            stop.wait(deadline.allowance(0.2))
-    raise ToolError("Đã thử chạm lại ô nhập nhưng bàn phím chưa mở; kiểm tra ô trên máy rồi bấm Tiếp tục")
+        for observation in range(2):
+            if stop.wait(deadline.allowance(0.15)):
+                raise ToolError("Đã dừng máy này")
+            nodes = _read_nodes(phone, deadline, stop)
+            kind = screen(nodes)
+            if kind == "UNKNOWN":
+                continue  # A WebView can expose one incomplete frame after focus.
+            if kind != expected[label]:
+                raise RecoverableStepError("Màn nhập đã thay đổi; chưa gõ vào ô")
+            try:
+                refreshed = _field(nodes, label)
+            except ToolError:
+                continue
+            if refreshed.get("vision") != "true" and refreshed.get("focused") == "true":
+                return nodes
+            if (refreshed.get("vision") == "true" or
+                    refreshed.get("focused") not in {"true", "false"}):
+                if _keyboard_visible(phone, deadline):
+                    return nodes
+    raise RecoverableStepError(
+        f"Ô '{label}' chưa nhận focus sau ba lần chạm; kiểm tra máy này")
 
 
 def _type_field(phone: CloudPhone, label: str, value: str,
@@ -793,23 +821,14 @@ def _type_field(phone: CloudPhone, label: str, value: str,
                 raise ToolError(f"OCR chưa xác nhận đầy đủ ô '{label}'; giữ nguyên nội dung để tránh gõ lặp")
         if current and not value.startswith(current):
             raise ToolError(f"Ô '{label}' khác dữ liệu của máy này; sửa trực tiếp rồi Tiếp tục")
-        if field.get("vision") == "true":
-            _tap_input(phone, field, deadline, stop)
-        elif field.get("focused") != "true":
-            _tap_for_transition(phone, field, deadline)
-        # Name, phone and OTP all require the same native focus checks.
-        if field.get("focused") == "false" and field.get("vision") != "true":
-            nodes = _read_nodes(phone, deadline, stop)
+        if field.get("vision") == "true" or field.get("focused") != "true":
+            nodes = _tap_input(phone, field, deadline, stop, label=label)
             field = _field(nodes, label)
-            if field.get("focused") == "false":
-                _tap_for_transition(phone, field, deadline)
-                nodes = _read_nodes(phone, deadline, stop)
-                field = _field(nodes, label)
-            if field.get("focused") == "false":
-                raise ToolError(f"Ô '{label}' chưa nhận focus sau khi thử lại")
             current = field.get("text", "")
             if current == value:
                 return nodes
+            if current and field.get("vision") == "true":
+                raise ToolError(f"OCR chưa xác nhận đầy đủ ô '{label}'; giữ nguyên nội dung để tránh gõ lặp")
             if current and not value.startswith(current):
                 raise ToolError(f"Ô '{label}' khác dữ liệu của máy này; chưa gõ thêm")
         if current:
@@ -918,7 +937,8 @@ def build_common_steps(phone: CloudPhone,
         nodes = _wait_screen(phone, {"IDENTIFIER", "NEW_ACCOUNT", "CREATE_FORM",
                                     "WHATSAPP", "SMS", "COUNTRY"}, deadline, stop)
         if screen(nodes) == "IDENTIFIER":
-            _tap_input(phone, _field(nodes, PHONE_FIELD), deadline, stop)
+            _tap_input(phone, _field(nodes, PHONE_FIELD), deadline, stop,
+                       label=PHONE_FIELD)
 
     def phone_number(job: RunJob, deadline: AttemptDeadline,
                      stop: threading.Event) -> None:
@@ -1083,7 +1103,7 @@ def build_common_steps(phone: CloudPhone,
                   stop: threading.Event) -> None:
         field = _field(read_sms_form(job, deadline, stop), OTP_FIELD)
         if not re.fullmatch(r"[0-9]{6}", field.get("text", "")):
-            _tap_input(phone, field, deadline, stop)
+            _tap_input(phone, field, deadline, stop, label=OTP_FIELD)
 
     def enter_otp(job: RunJob, deadline: AttemptDeadline,
                   stop: threading.Event) -> None:

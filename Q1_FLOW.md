@@ -1,5 +1,7 @@
 # Luồng q1 từ menu ba gạch tới nhập OTP
 
+> B1–b3 cố định trong tài liệu này là lịch sử hướng dẫn. Factory đang chạy của q1 dùng ba lượt ngẫu nhiên trong `random_prefix.py`; b4–b11 bên dưới vẫn là luồng chung.
+
 ## Thử trên q1 đã có
 
 q1 cần ở trạng thái Running và Amazon đang hiện menu ba gạch. Dán một hàng Amazon của q1 gồm `SĐT | Mật khẩu | Tên | Thẻ | URL OTP`, chọn Máy 1 và bấm **Thử q1 từ menu ba gạch**. Tool kiểm tra profile q1, mở tunnel ADB của đúng Device ID và đọc menu trước khi bắt đầu đồng hồ 3 phút. Thẻ được gắn cùng hàng nhưng chưa sử dụng trong b1–b11. Lỗi gắn kết không gửi yêu cầu OTP và không tạo tài khoản. Sau khi bắt đầu, lỗi ở mốc nào sẽ giữ mốc đó để sửa trên máy và bấm **Tiếp tục**. Nếu bấm **Làm lại / mẻ mới**, dữ liệu và trạng thái OTP trong tool sẽ mất.
@@ -14,7 +16,7 @@ Mã hiện nhận diện bằng chữ hoặc `content-desc` và lấy vùng bấ
 | --- | --- | --- | --- |
 | b1–b3 | Bấm lần lượt ba thẻ Gifting, Pets, Fashion and Beauty | Tìm đúng tên thẻ trong cây UI và bấm vào vùng của thẻ hiện tại. Sau mỗi lần bấm, nếu Amazon mở trang danh mục thì quay lại và xác nhận menu trước thẻ kế tiếp. | Nếu thẻ không hiện, cuộn trong danh sách với kích thước màn hiện tại. Không dùng tọa độ cố định từ ảnh. |
 | b4 | Hàng Sign In ở cuối menu và form SĐT | Tìm văn bản `Sign In` trong vùng menu, cuộn khi cần, bấm; khi thấy form `Sign in or create account` thì **chạm ô SĐT** để lấy focus. Nếu đã ở form khi Tiếp tục, chạm ô ngay. | Nếu đã ở màn sau, phân loại lại thay vì bấm Sign In. |
-| b5–b6 | Form `Sign in or create account`, số và mã quốc gia | Gõ đúng chuỗi SĐT của hàng q1 vào ô `Enter mobile number or email` trước. Sau đó mở dropdown, cuộn gần cuối nếu cần và chọn `United States +1`; đọc lại số/đầu mã quốc gia sau khi chọn. | Không tự cắt số đầu hoặc đổi định dạng SĐT theo ảnh. Nếu Amazon hiện số khác hàng q1, dừng để sửa. |
+| b5–b6 | Form `Sign in or create account`, số và mã quốc gia | Gõ đúng chuỗi SĐT của hàng q1 vào ô `Enter mobile number or email` trước. Sau đó mở dropdown; nếu US chưa hiện thì cuộn kịch tới đáy, vuốt ngược khoảng bốn hàng để tìm `United States +1`, rồi chọn và đọc lại số/đầu mã quốc gia. | Không tự cắt số đầu hoặc đổi định dạng SĐT theo ảnh. Nếu Amazon hiện số khác hàng q1, dừng để sửa. |
 | b7 | Nút Continue của form số | Tìm nút `Continue` duy nhất trên đúng form, xác nhận số đang hiển thị đúng rồi bấm. | Nếu Amazon chuyển sang đăng nhập tài khoản cũ hoặc màn lạ, dừng q1. |
 | b8 | Màn `Looks like you are new to Amazon` | Xác nhận số ở phần tóm tắt và nút `Proceed to create an account`. | Nếu số không khớp q1, dừng để sửa, không tiếp tục. |
 | b9 | Form `Create account`, ô `First and last name` | Ghép nhãn với ô nhập gần nhất; gõ từng ký tự, đọc lại nội dung; bấm `Continue` của form sau khi đúng. | Ảnh chưa thấy ô mật khẩu. Không tự đoán hay nhập mật khẩu vào ô khác. |

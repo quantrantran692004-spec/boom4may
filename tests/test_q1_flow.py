@@ -134,14 +134,17 @@ class Q1FlowTests(unittest.TestCase):
 
     def test_shared_b4_returns_from_home_to_list_menu_sign_in(self):
         field = node("", kind="android.widget.EditText")
+        focused_field = dict(field, focused="true")
         home = [node("Sign in for the best experience")]
         listed = [node(label) for label in (
             "Shop by Category", "Books", "Electronics", "Customer Service",
             "Sign In")]
         identifier = [node("Sign in or create account"),
                       node("Enter mobile number or email"), field]
+        focused_identifier = identifier[:-1] + [focused_field]
         sign_in, focus = build_common_steps(self.phone, lambda _code: None)[:2]
-        with patch("amazon_android.account_flow._read_nodes", return_value=home), \
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[home, focused_identifier]), \
              patch("amazon_android.account_flow._ensure_menu",
                    return_value=listed) as ensure, \
              patch("amazon_android.account_flow._find_scrolling",
@@ -229,10 +232,13 @@ class Q1FlowTests(unittest.TestCase):
     def test_b9_waits_for_name_readback_before_tapping_continue(self):
         action = node("Continue", bounds="[35,470][345,520]")
         heading = [node("Create account"), node("First and last name"), action]
-        field = node("", kind="android.widget.EditText", bounds="[30,210][350,250]")
+        field = dict(node("", kind="android.widget.EditText",
+                          bounds="[30,210][350,250]"), focused="false")
+        focused_field = dict(field, focused="true")
         value = self.job.account.full_name
-        snapshots = [heading + [field], heading + [dict(field, text=value[:-1])],
-                     heading + [dict(field, text=value)]]
+        snapshots = [heading + [field], heading + [focused_field],
+                     heading + [dict(focused_field, text=value[:-1])],
+                     heading + [dict(focused_field, text=value)]]
         b9 = next(step.action for step in build_common_steps(self.phone, lambda _: None)
                   if step.name.startswith("b9"))
         with patch("amazon_android.account_flow._read_nodes", side_effect=snapshots), \
@@ -305,7 +311,8 @@ class Q1FlowTests(unittest.TestCase):
              patch.object(self.stop, "wait", return_value=False):
             action(self.job, self.deadline, self.stop)
         self.assertEqual([call.args[1] for call in tap.call_args_list], [settled, sg, settled])
-        self.assertFalse(scroll.call_args.kwargs["fling"])
+        self.assertTrue(scroll.call_args.kwargs["fling"])
+        self.assertFalse(scroll.call_args.kwargs["reverse"])
 
     def test_reads_current_ui_again_after_adb_timeout(self):
         error = ToolError("ADB timeout")
@@ -344,7 +351,7 @@ class Q1FlowTests(unittest.TestCase):
         self.assertTrue(scroll.call_args_list[3].kwargs["reverse"])
 
     def test_b6_reverses_when_forward_swipe_no_longer_moves_list(self):
-        last = [node("Wallis and Futuna +681")]
+        last = [node("Zimbabwe +263")]
         target = node("United States +1")
         with patch("amazon_android.account_flow._read_nodes",
                    side_effect=[[node("United Kingdom +44")], last, last, last, [target]]), \
@@ -355,13 +362,15 @@ class Q1FlowTests(unittest.TestCase):
                                           country_list=True), target)
         self.assertFalse(scroll.call_args_list[0].kwargs["reverse"])
         self.assertEqual([call.kwargs["reverse"] for call in scroll.call_args_list[1:]],
-                         [True, True, True])
+                         [False, True, True])
 
-    def test_b6_reverses_immediately_when_bottom_countries_are_visible(self):
-        bottom = [node("United Kingdom +44"), node("Wallis and Futuna +681")]
+    def test_b6_reaches_bottom_before_reversing_past_wallis(self):
+        near_bottom = [node("United Kingdom +44"), node("Wallis and Futuna +681")]
+        bottom = [node("Zimbabwe +263"), node("Åland Islands +358")]
         target = node("United States +1")
         with patch("amazon_android.account_flow._read_nodes",
-                   side_effect=[[node("Afghanistan +93")], bottom, [target]]), \
+                   side_effect=[[node("Afghanistan +93")], near_bottom,
+                                bottom, bottom, [target]]), \
              patch("amazon_android.account_flow._scroll_up") as scroll, \
              patch.object(self.stop, "wait", return_value=False):
             result = _find_scrolling(self.phone, "United States +1", self.deadline,
@@ -369,7 +378,8 @@ class Q1FlowTests(unittest.TestCase):
         self.assertIs(result, target)
         self.assertEqual([(call.kwargs["fling"], call.kwargs["reverse"])
                           for call in scroll.call_args_list],
-                         [(True, False), (False, True)])
+                         [(True, False), (True, False), (True, False),
+                          (False, True)])
 
     def test_phone_uses_input_digits_then_checks_us_national_number(self):
         self.assertEqual(_national_phone(self.job), "2025550123")
@@ -385,12 +395,13 @@ class Q1FlowTests(unittest.TestCase):
 
     def test_b4a_focuses_phone_field_on_existing_identifier_screen(self):
         field = node("", kind="android.widget.EditText")
+        focused = dict(field, focused="true")
         identifier = [node("Sign in or create account"),
                       node("Continue"), field,
                       node("", kind="android.widget.EditText", bounds="[0,0][0,0]")]
         focus = build_common_steps(self.phone, lambda code: None)[1].action
         with patch("amazon_android.account_flow._read_nodes",
-                   return_value=identifier), \
+                   side_effect=[identifier, identifier[:-2] + [focused, identifier[-1]]]), \
              patch("amazon_android.account_flow._tap") as tap:
             focus(self.job, self.deadline, self.stop)
         self.assertIs(tap.call_args.args[1], field)
@@ -403,7 +414,8 @@ class Q1FlowTests(unittest.TestCase):
         steps = build_common_steps(self.phone, lambda _code: None)
         actions = []
         with patch("amazon_android.account_flow._read_nodes", side_effect=[
-                heading + [field], heading + [field], heading + [focused],
+                heading + [field], heading + [field], heading + [field],
+                heading + [field], heading + [focused],
                 heading + [filled]]), \
              patch("amazon_android.account_flow._tap",
                    side_effect=lambda *_: actions.append("tap")), \
@@ -559,6 +571,7 @@ class Q1FlowTests(unittest.TestCase):
         field = node("", kind="android.widget.EditText", bounds="[30,210][350,250]")
         sms = [node("Verify mobile number"), node("Enter security code"),
                node(self.job.account.phone), field]
+        focused_sms = sms[:-1] + [dict(field, focused="true")]
         steps = {step.name: step.action for step in build_common_steps(self.phone, lambda _: None)}
         actions = []
 
@@ -566,7 +579,8 @@ class Q1FlowTests(unittest.TestCase):
             actions.append("read")
             raise ToolError("Provider unavailable")
 
-        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[sms, sms, focused_sms, focused_sms]), \
              patch("amazon_android.account_flow._tap",
                    side_effect=lambda _phone, target, _deadline: actions.append(target)), \
              patch("amazon_android.account_flow.wait_for_new_otp", side_effect=provider_read), \
@@ -596,7 +610,7 @@ class Q1FlowTests(unittest.TestCase):
                    side_effect=lambda _phone, value, *_: actions.append(value)):
             steps["b10 Send code by SMS"](self.job, self.deadline, self.stop)
             steps["b11 nhập OTP"](self.job, self.deadline, self.stop)
-        self.assertEqual(actions, ["tap", "tap", "222222"])
+        self.assertEqual(actions, ["tap", "222222"])
 
     def test_create_is_not_pressed_twice_after_screen_changes(self):
         create = build_q1_steps(self.phone, lambda code: None)[-1].action

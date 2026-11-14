@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from amazon_android.cloud import CloudPhone
 from amazon_android.desktop import POST_MENU_STEP_FACTORIES
+from amazon_android.random_prefix import build_random_steps
 from amazon_android.post_menu import AttemptDeadline, RegistrationState
 from amazon_android.q5_flow import build_q5_steps
 from amazon_android import profile_navigation as nav
@@ -15,7 +16,7 @@ class Q5FlowTests(unittest.TestCase):
         phone = CloudPhone('127.0.0.1:5005')
         state = RegistrationState()
         steps = build_q5_steps(phone, lambda _: None, registration=state)
-        self.assertIs(POST_MENU_STEP_FACTORIES[4], build_q5_steps)
+        self.assertIs(POST_MENU_STEP_FACTORIES[4], build_random_steps)
         self.assertEqual([step.name for step in steps[:3]], [
             'b1 Toys, Kids and Baby', 'b2 Office & Professional',
             'b3 Sports & Outdoors'])

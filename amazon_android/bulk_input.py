@@ -151,19 +151,31 @@ def lines(text: str, label: str) -> list[str]:
     return rows
 
 
+def _proxy_rows(text: str) -> list[str]:
+    """Accept pasted proxies separated by lines or whitespace on one line."""
+    rows = []
+    for line in lines(text, "proxy"):
+        # Split only before another host:port:user: prefix so an existing
+        # password containing ordinary spaces keeps its old meaning.
+        rows.extend(re.split(r"\s+(?=[^\s:]+:[^\s:]+:[^\s:]+:)", line.strip()))
+    if len(rows) > MAX_PROXY_CANDIDATES:
+        raise ToolError(f"Danh sách proxy có {len(rows)} mục; giới hạn là {MAX_PROXY_CANDIDATES}")
+    return rows
+
+
 def parse_column(kind: str, text: str) -> list:
     label = {"proxy": "proxy", "name": "tên", "phone": "số điện thoại",
              "password": "mật khẩu"}.get(kind)
     if label is None:
         raise ValueError("Unknown column")
-    rows = lines(text, label)
+    rows = _proxy_rows(text) if kind == "proxy" else lines(text, label)
     if kind == "proxy":
         parsed = []
         for index, row in enumerate(rows, 1):
             try:
                 parsed.append(parse_proxy_line(row.strip()))
             except ToolError as exc:
-                raise ToolError(f"Proxy dòng {index}: {exc}") from exc
+                raise ToolError(f"Proxy thứ {index}: {exc}") from exc
         return parsed
     if kind == "phone":
         for index, row in enumerate(rows, 1):
