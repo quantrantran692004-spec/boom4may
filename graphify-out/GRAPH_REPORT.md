@@ -1,17 +1,17 @@
 # Graph Report - boom4may  (2026-11-21)
 
 ## Corpus Check
-- 131 files · ~154,513 words
+- 131 files · ~154,470 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 1, .bat 1, .pyw 1)
 
 ## Summary
-- 2067 nodes · 7297 edges · 85 communities (73 shown, 12 thin omitted)
+- 2067 nodes · 7294 edges · 87 communities (73 shown, 14 thin omitted)
 - Extraction: 86% EXTRACTED · 14% INFERRED · 0% AMBIGUOUS · INFERRED: 1036 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `94de866f`
+- Built from commit: `9587f861`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -37,9 +37,8 @@
 - MarketplaceFlowTests
 - _text
 - account_flow.py
-- MENU_ROUTING.md
+- Điều hướng hai dạng menu ba gạch
 - random_prefix.py
-- threading
 - RunJob
 - Nghiên cứu và tích hợp Swarmote
 - Q7StateMachineTests
@@ -81,7 +80,7 @@
 - build_reload_payment_steps
 - Bộ cài chia sẻ Windows x64
 - adb
-- _wait_after_sms
+- main
 - VERIFICATION.md
 - _CombinedStop
 - Biên bản kiểm tra thực tế — 2026-11-12
@@ -92,6 +91,8 @@
 - BatchDraft
 - swarmote_desktop.py
 - _choose_tail_target
+- q5_flow.py
+- Q5_FLOW.md
 - Bàn giao dừng theo yêu cầu người dùng — 13/11/2026
 - ._apply_bulk_text
 - GRAPH_AUDIT.md
@@ -102,7 +103,7 @@
 - PreparationProgressTests
 
 ## God Nodes (most connected - your core abstractions)
-1. `ToolError` - 346 edges
+1. `ToolError` - 345 edges
 2. `CloudPhone` - 229 edges
 3. `AttemptDeadline` - 193 edges
 4. `RunJob` - 161 edges
@@ -128,15 +129,15 @@
 ## Import Cycles
 - None detected.
 
-## Communities (85 total, 12 thin omitted)
+## Communities (87 total, 14 thin omitted)
 
 ### Community 0 - "CloudPhone"
 Cohesion: 0.09
 Nodes (22): CloudPhone, package_path(), probe(), prop(), reported_installer(), require_online(), reconcile(), route() (+14 more)
 
 ### Community 1 - "build_common_steps"
-Cohesion: 0.06
-Nodes (5): build_common_steps(), _ScreenWaitExpired, node(), Q1FlowTests, provider_read()
+Cohesion: 0.05
+Nodes (6): build_common_steps(), node(), Q1FlowTests, read(), provider_read(), read()
 
 ### Community 2 - "otp.py"
 Cohesion: 0.10
@@ -147,8 +148,8 @@ Cohesion: 0.06
 Nodes (14): BulkRecord, lines(), parse_bulk_payload(), parse_column(), parse_records(), _proxy_rows(), _table_cells(), _url_from_cell() (+6 more)
 
 ### Community 4 - "screen"
-Cohesion: 0.12
-Nodes (31): confirmed_login_otp_nodes(), continue_number(), enter_otp(), finish_auto(), finish_create(), finish_login(), focus_otp(), focus_phone() (+23 more)
+Cohesion: 0.10
+Nodes (30): confirmed_login_otp_nodes(), continue_number(), enter_otp(), finish_auto(), finish_create(), finish_login(), focus_otp(), name() (+22 more)
 
 ### Community 5 - "open_adb_shell"
 Cohesion: 0.12
@@ -183,8 +184,8 @@ Cohesion: 0.13
 Nodes (15): _prepare_phone(), _prepare_phone_locked(), progress(), stop_here(), run_batch(), fill_slots(), refresh_slots(), requested() (+7 more)
 
 ### Community 14 - "account_flow.py"
-Cohesion: 0.12
-Nodes (6): menu_layout(), _parse_ui_nodes(), route_list_menu(), _UiReadIncomplete, cloud_screenshot(), build_q5_steps()
+Cohesion: 0.16
+Nodes (6): menu_layout(), _parse_ui_nodes(), route_list_menu(), _UiReadIncomplete, verify_menu_open(), cloud_screenshot()
 
 ### Community 16 - "Ảnh hướng dẫn q1/q2 và menu chung lưu cục bộ"
 Cohesion: 0.07
@@ -203,20 +204,20 @@ Cohesion: 0.17
 Nodes (26): _button(), _account_tab(), build_marketplace_steps(), run(), account_target(), back_and_read_text(), foreground_ready(), recover_country_list() (+18 more)
 
 ### Community 20 - "account_flow.py"
-Cohesion: 0.19
-Nodes (23): _at_or_after(), country(), sign_in(), _country_nodes(), _CountryReadStop, _ensure_menu(), _find_scrolling(), _read_nodes() (+15 more)
+Cohesion: 0.17
+Nodes (24): _at_or_after(), country(), proceed(), sign_in(), _country_nodes(), _CountryReadStop, _ensure_menu(), _find_scrolling() (+16 more)
 
-### Community 21 - "MENU_ROUTING.md"
-Cohesion: 0.23
-Nodes (7): Bằng chứng và phạm vi, Kiểm chứng, Quy tắc chạy, Điều hướng hai dạng menu ba gạch, Luồng q1 từ menu ba gạch tới nhập OTP, Thử trên q1 đã có, Luồng q2 từ menu ba gạch
+### Community 21 - "Điều hướng hai dạng menu ba gạch"
+Cohesion: 0.50
+Nodes (4): Bằng chứng và phạm vi, Kiểm chứng, Quy tắc chạy, Điều hướng hai dạng menu ba gạch
 
 ### Community 22 - "random_prefix.py"
 Cohesion: 0.12
 Nodes (15): _read_nodes_once(), _read_visual_nodes(), amazon_is_foreground(), current(), _read(), _read_text_region(), _first_point(), _prefix_nodes() (+7 more)
 
 ### Community 24 - "RunJob"
-Cohesion: 0.12
-Nodes (9): AccountData, RunJob, DesktopResumeTests, apartment_type(), PreparationThreadsTests, run(), install(), Q5FlowTests (+1 more)
+Cohesion: 0.11
+Nodes (10): _automatic_resume_slots(), AccountData, RunJob, DesktopResumeTests, apartment_type(), PreparationThreadsTests, run(), install() (+2 more)
 
 ### Community 25 - "Nghiên cứu và tích hợp Swarmote"
 Cohesion: 0.40
@@ -224,7 +225,7 @@ Nodes (4): Hành vi có bằng chứng, Kiểm thử còn lại, Nghiên cứu v
 
 ### Community 26 - "Q7StateMachineTests"
 Cohesion: 0.08
-Nodes (16): ActionValidator, _already_reached_result(), build_q7_pilot_steps(), _past_known_step(), RecoveryHandler, ResultVerifier, StateDeadline, StateDetector (+8 more)
+Nodes (17): ActionValidator, _already_reached_result(), build_q7_pilot_steps(), run(), _past_known_step(), RecoveryHandler, ResultVerifier, StateDeadline (+9 more)
 
 ### Community 27 - "_tail_candidates"
 Cohesion: 0.29
@@ -243,16 +244,16 @@ Cohesion: 0.16
 Nodes (4): RegistrationState, build_tail_steps(), open_menu(), view()
 
 ### Community 31 - "PROJECT_INDEX.md"
-Cohesion: 0.19
-Nodes (6): Quy trình Swarmote hiện tại, Bản đồ repository, q3 — b1–b3 và nối luồng chung, q4 — Giỏ hàng, Pets, Home and DIY, q5 — ba thẻ riêng và b4–b11 chung, q6 — Trang chủ, Giỏ hàng, menu và một thẻ
+Cohesion: 0.18
+Nodes (8): Quy trình Swarmote hiện tại, Bản đồ repository, Luồng q1 từ menu ba gạch tới nhập OTP, Thử trên q1 đã có, Luồng q2 từ menu ba gạch, q3 — b1–b3 và nối luồng chung, q4 — Giỏ hàng, Pets, Home and DIY, q6 — Trang chủ, Giỏ hàng, menu và một thẻ
 
 ### Community 33 - "_visual_form_button"
 Cohesion: 0.50
 Nodes (3): _ActionNotResolved, _visual_form_button(), _yellow_form_button()
 
 ### Community 34 - "_type_field"
-Cohesion: 0.19
-Nodes (4): _tap_input(), _type_field(), FlowRecoveryTests, form()
+Cohesion: 0.18
+Nodes (5): focus_phone(), _tap_input(), _type_field(), FlowRecoveryTests, form()
 
 ### Community 35 - "ToolError"
 Cohesion: 0.07
@@ -271,7 +272,7 @@ Cohesion: 0.27
 Nodes (19): adb(), available_memory_mb(), check_play(), configure_avd(), connected_devices(), Device, device_avd_name(), device_resources() (+11 more)
 
 ### Community 40 - "Q3Q4FlowTests"
-Cohesion: 0.21
+Cohesion: 0.15
 Nodes (3): build_q3_steps(), build_q4_steps(), Q3Q4FlowTests
 
 ### Community 41 - "setup.py"
@@ -279,8 +280,8 @@ Cohesion: 0.16
 Nodes (16): app_data_dir(), avd_names(), create_avd(), doctor(), executable(), installed_image(), run(), sdk_root() (+8 more)
 
 ### Community 42 - "Bàn giao trạng thái dự án — 13/11/2026"
-Cohesion: 0.07
-Nodes (27): main(), main(), B6 danh sách quốc gia vẫn mở sau khi chọn — 13/11/2026, Bàn giao trạng thái dự án — 13/11/2026, Bản chính boom4may và bản dự phòng — 14/11/2026, Bộ cài offline chia sẻ — 14/11/2026, Cài đặt máy mới, Dừng riêng máy đang chọn — 14/11/2026 (+19 more)
+Cohesion: 0.11
+Nodes (18): B6 danh sách quốc gia vẫn mở sau khi chọn — 13/11/2026, Bàn giao trạng thái dự án — 13/11/2026, Bản chính boom4may và bản dự phòng — 14/11/2026, Bộ cài offline chia sẻ — 14/11/2026, Cài đặt máy mới, Dừng riêng máy đang chọn — 14/11/2026, Dự phòng dùng chung khi chạy song song — 14/11/2026, q3/q4 đã nối b1–b3 và thử đồng thời bốn luồng — 13/11/2026 (+10 more)
 
 ### Community 44 - "FakeControl"
 Cohesion: 0.13
@@ -362,9 +363,9 @@ Nodes (3): Bộ cài chia sẻ Windows x64, Dựng lại, Nguồn thành phần
 Cohesion: 0.10
 Nodes (5): adb(), tap(), adb(), adb(), tap()
 
-### Community 65 - "_wait_after_sms"
-Cohesion: 0.18
-Nodes (4): _wait_after_sms(), read(), read(), type_then_lose_readback()
+### Community 65 - "main"
+Cohesion: 0.16
+Nodes (9): main(), main(), Đợt tăng tốc và tự phục hồi b4–b11 ngày 13/11/2026, File dự án mà Graphify không phân tích trực tiếp, .gitignore, Launch Swarmote Tool.pyw, pyproject.toml, Ảnh PNG trong dự án (+1 more)
 
 ### Community 66 - "VERIFICATION.md"
 Cohesion: 0.17
@@ -407,7 +408,7 @@ Cohesion: 0.50
 Nodes (3): Cách kiểm tra sau mỗi sửa đổi, Giới hạn đã xác nhận, Kiểm tra độ phủ Graphify — 13/11/2026
 
 ### Community 82 - "Giai đoạn 2 — bản thử State Machine riêng q7"
-Cohesion: 0.40
+Cohesion: 0.33
 Nodes (5): Cách thử thật q7 sau khi người dùng sẵn sàng, Giai đoạn 2 — bản thử State Machine riêng q7, Giới hạn, Phạm vi và quan hệ với luồng cũ, Sơ đồ
 
 ### Community 83 - "build_q1_steps"
@@ -424,13 +425,13 @@ Nodes (4): emit(), _phone_preparation_lock(), retry_preparation(), P03 — Mở 
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `amazon-android-tool`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 497 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 498 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **14 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ToolError` connect `ToolError` to `CloudPhone`, `build_common_steps`, `otp.py`, `BulkInputTests`, `screen`, `open_adb_shell`, `RunnerTests`, `PostMenuSession`, `.test_only_confirmed_target_names_are_selected_for_one_start_command`, `AddressDetailTests`, `run_batch`, `StopResetTests`, `account_flow.py`, `._run`, `MarketplaceFlowTests`, `_text`, `account_flow.py`, `random_prefix.py`, `threading`, `RunJob`, `Q7StateMachineTests`, `vision.py`, `_tap_child`, `RegistrationState`, `_visual_form_button`, `_type_field`, `_visible`, `RecoverableStepError`, `Window`, `core.py`, `setup.py`, `isolated_reader.py`, `time`, `ProxyConfig`, `build_random_steps`, `cli.py`, `AppSettings`, `ensure_manager_ready`, `CountryRecoveryTests`, `RandomPrefixTests`, `cloud_adb`, `amazon_is_foreground`, `build_reload_payment_steps`, `adb`, `_wait_after_sms`, `.test_selected_stop_finishes_install_before_stopping_that_phone`, `BatchDraft`, `swarmote_desktop.py`, `_choose_tail_target`, `._apply_bulk_text`, `build_q1_steps`, `retry_preparation`?**
+- **Why does `ToolError` connect `ToolError` to `CloudPhone`, `build_common_steps`, `otp.py`, `BulkInputTests`, `screen`, `open_adb_shell`, `RunnerTests`, `PostMenuSession`, `.test_only_confirmed_target_names_are_selected_for_one_start_command`, `AddressDetailTests`, `run_batch`, `StopResetTests`, `account_flow.py`, `._run`, `MarketplaceFlowTests`, `_text`, `account_flow.py`, `random_prefix.py`, `threading`, `RunJob`, `Q7StateMachineTests`, `vision.py`, `_tap_child`, `RegistrationState`, `_visual_form_button`, `_type_field`, `_visible`, `RecoverableStepError`, `Window`, `core.py`, `Q3Q4FlowTests`, `setup.py`, `isolated_reader.py`, `time`, `ProxyConfig`, `build_random_steps`, `cli.py`, `AppSettings`, `ensure_manager_ready`, `CountryRecoveryTests`, `RandomPrefixTests`, `cloud_adb`, `amazon_is_foreground`, `build_reload_payment_steps`, `adb`, `.test_selected_stop_finishes_install_before_stopping_that_phone`, `BatchDraft`, `swarmote_desktop.py`, `_choose_tail_target`, `._apply_bulk_text`, `build_q1_steps`, `retry_preparation`?**
   _High betweenness centrality (0.392) - this node is a cross-community bridge._
 - **Are the 57 inferred relationships involving `ToolError` (e.g. with `_read_nodes_once()` and `resume_common_index()`) actually correct?**
   _`ToolError` has 57 INFERRED edges - model-reasoned connections that need verification._
@@ -443,4 +444,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 88 inferred relationships involving `CloudPhone` (e.g. with `build_common_steps()` and `_country_full_row()`) actually correct?**
   _`CloudPhone` has 88 INFERRED edges - model-reasoned connections that need verification._
 - **Should `build_common_steps` be split into smaller, more focused modules?**
-  _Cohesion score 0.05759493670886076 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0533515731874145 - nodes in this community are weakly interconnected._

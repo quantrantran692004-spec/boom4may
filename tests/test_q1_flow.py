@@ -1084,7 +1084,8 @@ class Q1FlowTests(unittest.TestCase):
         blank = [node("Verify mobile number"), node("Enter security code"),
                  node(self.job.account.phone),
                  node("", kind="android.widget.EditText",
-                      bounds="[25,100][335,140]")]
+                      bounds="[25,100][335,140]"),
+                 node("Verify mobile number", bounds="[25,155][335,195]")]
         visual = blank[:-1] + [node("222222", kind="android.widget.EditText",
                                     bounds="[25,100][335,140]"),
                                node("Verify mobile number", bounds="[25,155][335,195]")]
@@ -1096,7 +1097,7 @@ class Q1FlowTests(unittest.TestCase):
 
         def type_then_lose_readback(*_args, **kwargs):
             kwargs["before_input"]()
-            raise ToolError("Chưa xác nhận được nội dung ô 'Enter security code'")
+            self.assertFalse(kwargs["readback"])
 
         def tap(*_args):
             nonlocal tapped
@@ -1113,9 +1114,9 @@ class Q1FlowTests(unittest.TestCase):
             enter(self.job, self.deadline, self.stop)
             finish(self.job, self.deadline, self.stop)
         typed.assert_called_once()
-        self.assertEqual(visual_read.call_count, 2)
+        self.assertEqual(visual_read.call_count, 0)
         pressed.assert_called_once()
-        self.assertIs(pressed.call_args.args[1], visual[-1])
+        self.assertIs(pressed.call_args.args[1], blank[-1])
         self.assertTrue(state.login_otp_input_attempted)
         self.assertTrue(state.login_verify_pressed)
         self.assertFalse(state.create_pressed)
@@ -1138,8 +1139,7 @@ class Q1FlowTests(unittest.TestCase):
                    return_value=blank), \
              patch("amazon_android.account_flow._type_field") as typed, \
              patch("amazon_android.account_flow.wait_for_new_otp") as provider:
-            with self.assertRaisesRegex(ToolError, "không gõ lặp"):
-                enter(self.job, self.deadline, self.stop)
+            enter(self.job, self.deadline, self.stop)
         typed.assert_not_called()
         provider.assert_not_called()
 

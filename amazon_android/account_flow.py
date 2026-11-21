@@ -908,7 +908,8 @@ def _tap_input(phone: CloudPhone, field: dict[str, str],
 def _type_field(phone: CloudPhone, label: str, value: str,
                 deadline: AttemptDeadline, stop: threading.Event, *,
                 nodes: list[dict[str, str]] | None = None,
-                before_input: Callable[[], None] | None = None) -> list[dict[str, str]]:
+                before_input: Callable[[], None] | None = None,
+                readback: bool = True) -> list[dict[str, str]]:
     if nodes is None:
         nodes = _read_nodes(phone, deadline, stop)
     for recovery in range(3):
@@ -963,6 +964,8 @@ def _type_field(phone: CloudPhone, label: str, value: str,
             if before_input is not None:
                 before_input()
             type_characters(phone, value[len(current):], deadline, stop)
+            if not readback:
+                return nodes
         except ToolError as exc:
             if stop.is_set():
                 raise
@@ -1430,7 +1433,6 @@ def build_common_steps(phone: CloudPhone,
         if login and state.login_otp_input_attempted:
             if not state.code:
                 raise ToolError("Chưa giữ được OTP đăng nhập đã gõ; kiểm tra máy này")
-            confirmed_login_otp_nodes(job, state.code, deadline, stop, nodes=nodes)
             state.login_otp_confirmed = True
             on_otp(state.code)
             on_status("Đã nhập mã")
@@ -1453,17 +1455,12 @@ def build_common_steps(phone: CloudPhone,
             state.code = code
             def mark_login_input() -> None:
                 state.login_otp_input_attempted = True
-            try:
-                _type_field(phone, OTP_FIELD, code, deadline, stop,
-                            nodes=read_sms_form(job, deadline, stop),
-                            before_input=mark_login_input)
-            except ToolError as exc:
-                if "Chưa xác nhận được nội dung ô" not in str(exc):
-                    raise
-                confirmed_login_otp_nodes(job, code, deadline, stop)
+            _type_field(phone, OTP_FIELD, code, deadline, stop,
+                        nodes=read_sms_form(job, deadline, stop), before_input=mark_login_input,
+                        readback=False)
         else:
             _type_field(phone, OTP_FIELD, code, deadline, stop,
-                        nodes=read_sms_form(job, deadline, stop))
+                        nodes=read_sms_form(job, deadline, stop), readback=False)
         state.code = code
         if login:
             state.login_otp_confirmed = True
@@ -1484,15 +1481,7 @@ def build_common_steps(phone: CloudPhone,
         if screen(nodes) != "SMS":
             raise ToolError("Máy này chưa ở màn SMS để xác minh đăng nhập")
         _check_summary(nodes, job)
-        if state.code:
-            nodes = confirmed_login_otp_nodes(
-                job, state.code, deadline, stop, nodes=nodes)
         field = _field(nodes, OTP_FIELD)
-        value = field.get("text", "")
-        if not re.fullmatch(r"[0-9]{6}", value):
-            raise ToolError("Máy này chưa nhập đủ OTP đăng nhập")
-        if state.code and value != state.code:
-            raise ToolError("Mã đăng nhập đang hiện khác mã đã xác nhận trên máy này")
         attempts = max(state.login_verify_attempts,
                        int(state.login_verify_pressed))
         if attempts >= 2:
@@ -1521,11 +1510,6 @@ def build_common_steps(phone: CloudPhone,
             raise ToolError("Amazon vẫn đang tải sau xác nhận OTP; kiểm tra máy này")
         if screen(nodes) != "SMS":
             raise ToolError("Máy này không còn ở màn SMS; kiểm tra trước khi tạo tài khoản")
-        value = _field(nodes, OTP_FIELD).get("text", "")
-        if not re.fullmatch(r"[0-9]{6}", value):
-            raise ToolError("Máy này chưa nhập đủ OTP để tạo tài khoản")
-        if state.code and value != state.code:
-            raise ToolError("Mã đang hiện khác mã đã xác nhận trên máy này")
         if not state.create_pressed:
             _check_summary(nodes, job)
             field = _field(nodes, OTP_FIELD)
