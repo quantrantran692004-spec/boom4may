@@ -45,6 +45,38 @@ class RunJob:
 
 Progress = Callable[[int, str, str, str | None], None]
 MenuReady = Callable[[int, str, str, str], None]
+_preparation_guard = threading.Lock()
+_preparation_locks: dict[tuple[str, int], threading.RLock] = {}
+
+
+def _phone_preparation_lock(job):
+    with _preparation_guard:
+        return _preparation_locks.setdefault((job.batch_id, job.index), threading.RLock())
+
+
+def retry_preparation(job, registry, emit, stop, menu_ready=None, stop_after_step=None):
+    """Resume a confirmed phone independently of other phones being prepared."""
+    with _phone_preparation_lock(job):
+        if stop.is_set() or (stop_after_step is not None and stop_after_step.is_set()):
+            emit(job.index, "Đã dừng nối lại máy", "stopped", None)
+            return
+        item = registry.get(job.batch_id, job.index)
+        if not item or not item.get("device_id") or item["stage"] not in {
+                "PROFILE_CONFIRMED", "STARTED", "APP_INSTALLED", "MENU_OPEN"}:
+            raise ToolError("Profile chưa xác nhận Device ID; kiểm tra bước tạo Profile của máy này")
+        if item.get("state") == "UNCERTAIN":
+            raise ToolError("Kết quả tạo Profile chưa chắc chắn; kiểm tra đúng Profile trước khi nối lại")
+        if item["stage"] == "MENU_OPEN":
+            shell = open_adb_shell(item["name"], item["device_id"], stop=stop)
+            if stop.is_set() or (stop_after_step is not None and stop_after_step.is_set()):
+                emit(job.index, "Đã dừng sau khi nối lại ADB", "stopped", item["name"])
+                return
+            if menu_ready is not None:
+                menu_ready(job.index, item["name"], item["device_id"], shell["serial"])
+            emit(job.index, "Đã nối lại máy · tiếp tục từ menu Amazon", "done", item["name"])
+            return
+        return _prepare_phone(job, item["name"], item["device_id"], registry,
+                              emit, stop, menu_ready, stop_after_step)
 
 
 def _start_and_confirm(name, device_id, stop):
@@ -75,6 +107,15 @@ def _prepare_phone(job: RunJob, name: str, device_id: str,
                    stop: threading.Event,
                    menu_ready: MenuReady | None = None,
                    stop_after_step: threading.Event | None = None) -> str:
+    with _phone_preparation_lock(job):
+        return _prepare_phone_locked(job, name, device_id, registry, emit, stop,
+                                     menu_ready, stop_after_step)
+
+
+def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
+                          registry: ProfileRegistry, emit: Progress,
+                          stop: threading.Event, menu_ready: MenuReady | None,
+                          stop_after_step: threading.Event | None) -> str:
     """Operate only the phone window; the coordinator owns the Profiles window."""
     import pythoncom
 
@@ -169,6 +210,7 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
               start_group_size: int = 1,
               hide_profile_creation: bool = False,
               menu_ready: MenuReady | None = None,
+              proxy_prefix_ready: Callable[[int, str], None] | None = None,
               stop_after_step: Mapping[int, threading.Event] | None = None) -> dict[str, int]:
     """Create serially, prepare phones concurrently, and fill freed Running slots."""
     if not 1 <= start_group_size <= 12:
@@ -343,14 +385,25 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     if name in visible_names:
                         raise ToolError(f"{name} đã hiện trong Swarmote; chưa xác minh proxy của mẻ này")
                     proxy = job.proxy
+                    focus_retries = 0
                     while True:
                         registry.mark(job.batch_id, job.index, "RUNNING", stage="CREATING")
                         emit(job.index, f"Đang Test proxy và tạo {name}", "running", name)
                         try:
                             if hide_profile_creation:
-                                create_profile(name, proxy, hide_window=True)
+                                created = create_profile(name, proxy, hide_window=True)
                             else:
-                                create_profile(name, proxy)
+                                created = create_profile(name, proxy)
+                            prefix = (created.get('address_search_prefix')
+                                      if isinstance(created, dict) else None)
+                            if (proxy_prefix_ready is not None and isinstance(prefix, str)
+                                    and len(prefix) == 4 and prefix.isascii() and prefix.isdigit()):
+                                try:
+                                    proxy_prefix_ready(job.index, prefix)
+                                    emit(job.index, 'Đã lưu 4 số từ Test proxy cho bước địa chỉ',
+                                         'running', name)
+                                except Exception:
+                                    pass  # Optional address hint must not stop Profile creation.
                             found = profile_status(name)
                             break
                         except ProxyTestFailed as exc:
@@ -365,6 +418,15 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                                  f"Proxy không đạt; thử proxy dự phòng còn {len(proxy_fallbacks)} · {name}",
                                  "running", name)
                         except ProfileCreateNotSubmitted as exc:
+                            if ("Không đưa được cửa sổ quản lý Swarmote lên trước" in str(exc)
+                                    and focus_retries < 3 and not requested(job)
+                                    and not stop.is_set()):
+                                focus_retries += 1
+                                emit(job.index,
+                                     f"Swarmote đang tranh cửa sổ; thử lại tạo {name} "
+                                     f"({focus_retries}/3)", "running", name)
+                                if not stop.wait(1):
+                                    continue  # Create has not been submitted.
                             registry.mark(job.batch_id, job.index, "ERROR", stage="RESERVED",
                                           error=str(exc))
                             if isinstance(exc.__cause__, ProfileManagerWindowError):

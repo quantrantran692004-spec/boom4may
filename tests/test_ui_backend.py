@@ -81,6 +81,22 @@ class UiBackendTests(unittest.TestCase):
         self.assertEqual(end - start, 200)
         self.assertTrue(100 < start < end < 650)
 
+    def test_gentle_reverse_is_shorter_and_moves_from_top_to_bottom(self):
+        centers = [125 + 50 * i for i in range(10)]
+        regular = ui.country_reverse_points(100, 650, centers)
+        gentle = ui.country_reverse_points(100, 650, centers, gentle=True)
+        self.assertEqual(gentle[1] - gentle[0], 50)  # At most one visible row.
+        triple = ui.country_reverse_points(100, 650, centers, gentle=True,
+                                           distance_multiplier=3)
+        self.assertEqual(triple[1] - triple[0], 3 * (gentle[1] - gentle[0]))
+        device = self._ready_device()
+        self.assertTrue(ui.country_scroll(self.phone, fling=False, reverse=True,
+                                          gentle=True))
+        _, y1, _, y2 = device.swipe.call_args.args
+        self.assertTrue(100 < y1 < y2 < 650)
+        self.assertLess(y2 - y1, regular[1] - regular[0])
+        self.assertEqual(device.swipe.call_args.kwargs["duration"], 0.65)
+
     def test_uncertain_native_swipe_is_not_repeated_by_adb_fallback(self):
         device = self._ready_device()
         device.swipe.side_effect = RuntimeError('delivery uncertain')

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .batch import parse_proxy_line
 from .core import ToolError
@@ -18,6 +18,7 @@ CARD = re.compile(
     r"(\d{12,19})\|(\d{1,2})\|(\d{2,4})"
     r"(?:\|live=>√【[^】\r\n]{1,100}】)?"
 )
+PROXY_TOKEN = re.compile(r"(?<!\S)[^\s|:,]+:\d{1,5}:[^\s|:,]+:[^\s|:,]+(?!\S)")
 
 
 def _table_cells(line: str) -> list[str]:
@@ -92,23 +93,33 @@ def parse_records(text: str, *, three_columns_only: bool = False,
         if account_table:
             profile = f"q{index}"
             phone, password, name = cells[:3]
-            try:
-                url_cells = [_url_from_cell(cell) for cell in cells[3:] if cell]
-            except ToolError as exc:
-                raise ToolError(f"Bảng dòng {index}: {exc}") from exc
-            urls = [cell for cell in url_cells
-                    if cell.startswith(("http://", "https://"))]
+            url_cells = []
+            urls = []
+            for cell in cells[3:]:
+                if not cell:
+                    continue
+                try:
+                    cleaned = _url_from_cell(cell)
+                except ToolError:
+                    continue  # Discard an unrelated or inconsistent export cell.
+                url_cells.append(cleaned)
+                try:
+                    urls.append(validate_otp_url(cleaned))
+                except ToolError:
+                    pass
             if len(urls) != 1:
                 raise ToolError(f"Bảng dòng {index}: cần đúng 1 URL OTP trong hàng")
             otp_url = urls[0]
             other = [cell for cell in url_cells if cell not in urls]
             if other:
-                # Markdown exports may escape the two pipes or leave them raw.
-                raw_card = other[0] if len(other) == 1 else "|".join(other)
+                # Card is optional reference data. An unrelated export column
+                # or malformed card must not reject an otherwise valid row.
+                raw_card = "|".join(other)
+                match = CARD.search(raw_card)
                 try:
-                    card = validate_card(raw_card)
-                except ToolError as exc:
-                    raise ToolError(f"Bảng dòng {index}: {exc}") from exc
+                    card = validate_card(match.group(0)) if match else ""
+                except ToolError:
+                    card = ""
         elif len(cells) == 3:
             profile = f"q{index}"
             phone, password, name = cells
@@ -141,6 +152,41 @@ def parse_records(text: str, *, three_columns_only: bool = False,
     if len(tokens) != len(set(tokens)):
         raise ToolError("Bảng có URL OTP trùng nhau giữa các máy")
     return result
+
+
+def parse_bulk_payload(text: str) -> tuple[list[ProxyConfig], list[BulkRecord]]:
+    """Keep valid proxy/account rows from either paste box; discard surplus text."""
+    proxies: list[ProxyConfig] = []
+    accounts: list[BulkRecord] = []
+    seen_tokens: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            records = parse_records(line, account_table=True)
+        except ToolError:
+            records = []
+        if records:
+            record = records[0]
+            token = otp_token(record.otp_url)
+            if token not in seen_tokens and len(accounts) < MAX_PROFILES:
+                seen_tokens.add(token)
+                accounts.append(replace(record, profile_name=f"q{len(accounts) + 1}"))
+            continue
+        try:
+            found = parse_column("proxy", line)
+        except ToolError:
+            found = []
+            for candidate in PROXY_TOKEN.findall(line):
+                try:
+                    found.append(parse_proxy_line(candidate))
+                except ToolError:
+                    pass
+        proxies.extend(found[:max(0, MAX_PROXY_CANDIDATES - len(proxies))])
+    if not proxies and not accounts:
+        raise ToolError("Clipboard không có proxy hoặc hàng Amazon hợp lệ")
+    return proxies, accounts
 
 
 def lines(text: str, label: str) -> list[str]:

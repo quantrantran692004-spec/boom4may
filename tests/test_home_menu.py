@@ -8,6 +8,19 @@ from amazon_android.home_menu import _nodes, open_home_menu
 
 
 class HomeMenuTests(unittest.TestCase):
+    def test_first_launch_uses_android_back_instead_of_skip(self):
+        phone = CloudPhone("127.0.0.1:12345")
+        skip = [{"text": "Skip sign in", "class": "android.widget.Button",
+                 "bounds": "[20,100][200,140]"}]
+        menu = [{"text": "Shop by category", "package": AMAZON_PACKAGE}]
+        with patch("amazon_android.home_menu._nodes", side_effect=[skip, menu]), \
+             patch("amazon_android.home_menu.cloud_adb") as adb, \
+             patch("amazon_android.home_menu._tap") as tap, \
+             patch("amazon_android.home_menu.time.sleep"):
+            self.assertEqual(open_home_menu(phone)["stage"], "HOME_MENU_OPEN")
+        adb.assert_called_once_with(phone, "shell", "input", "keyevent", "4")
+        tap.assert_not_called()
+
     def test_leaves_account_verification_screen_untouched(self):
         phone = CloudPhone("127.0.0.1:12345")
         with patch("amazon_android.home_menu._nodes", return_value=[

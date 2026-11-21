@@ -117,6 +117,8 @@ def build_random_steps(phone: CloudPhone, on_otp,
                    stop: threading.Event) -> None:
             if stop.is_set():
                 raise ToolError("Đã dừng máy này")
+            if number in state.prefix_completed:
+                return
             started = state.q7_prefix_started_at.setdefault(number, time.monotonic())
             deadline = PrefixDeadline(PREFIX_TIMEOUT_SECONDS, started=started,
                                       notice=outer.notice)
@@ -162,6 +164,16 @@ def build_random_steps(phone: CloudPhone, on_otp,
                     continue
                 if stop.wait(0.5):
                     raise ToolError("Đã dừng máy này")
+                try:
+                    after_card = _read_hierarchy(phone, deadline, stop)
+                except ToolError:
+                    after_card = []
+                if after_card and screen(after_card) != "MENU":
+                    if stop.wait(deadline.allowance(1 + EXTRA_VIEW_SECONDS / 3)):
+                        raise ToolError("Đã dừng máy này")
+                    state.prefix_choices[number] = point
+                    state.prefix_completed.add(number)
+                    return
                 try:
                     opened_child = _tap_child(phone, deadline, stop)
                 except Q7PrefixTimeout:

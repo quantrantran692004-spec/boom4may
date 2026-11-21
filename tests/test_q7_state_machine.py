@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 from amazon_android.cloud import CloudPhone
 from amazon_android.core import ToolError
 from amazon_android.account_flow import _wait_screen
-from amazon_android.post_menu import AttemptDeadline, PostMenuSession, PostMenuStep
+from amazon_android.post_menu import AttemptDeadline, PostMenuSession, PostMenuStep, RegistrationState
 from amazon_android.q7_state_machine import (
     ActionValidator, RecoveryHandler, ResultVerifier, SPECS, StateDeadline, StateDetector,
     StateMachineStop, StateMachineTimeout, TransitionManager,
@@ -35,8 +35,10 @@ class Q7StateMachineTests(unittest.TestCase):
 
     def test_state_specs_cover_existing_common_steps_without_changing_actions(self):
         steps = build_q7_pilot_steps(self.phone, lambda _: None)
-        self.assertEqual([step.name for step in steps[3:]],
+        self.assertEqual([step.name for step in steps[3:-11]],
                          [spec.name for spec in SPECS])
+        self.assertEqual([step.name.split(" ", 1)[0] for step in steps[-11:]],
+                         [f'b{i}' for i in range(12, 23)])
         self.assertEqual([step.name for step in steps[:3]],
                          ["b1 ngẫu nhiên", "b2 ngẫu nhiên", "b3 ngẫu nhiên"])
 
@@ -119,6 +121,81 @@ class Q7StateMachineTests(unittest.TestCase):
                 ResultVerifier(StateDetector(self.phone)).verify(
                     SPECS[-1], self.job, StateDeadline(3), self.stop)
 
+    def test_create_result_can_enter_documented_browse_menu_without_claiming_success(self):
+        menu = [{"text": "Shop by category", "bounds": "[10,10][200,40]"}]
+        with patch("amazon_android.q7_state_machine._read_nodes", return_value=menu):
+            ResultVerifier(StateDetector(self.phone)).verify(
+                SPECS[-1], self.job, StateDeadline(3), self.stop)
+
+    def test_final_sms_result_can_land_on_home_before_b12_opens_browse(self):
+        home = [{"text": "Today's picks", "bounds": "[10,10][200,40]"},
+                {"content-desc": "Browse menu Tab, 4 of 4",
+                 "bounds": "[300,700][390,740]"},
+                {"content-desc": "Home Tab, 1 of 4",
+                 "bounds": "[10,700][80,740]"}]
+        with patch("amazon_android.q7_state_machine._read_nodes",
+                   return_value=home), \
+             patch("amazon_android.q7_state_machine.cloud_adb") as adb:
+            ResultVerifier(StateDetector(self.phone)).verify(
+                SPECS[-1], self.job, StateDeadline(3), self.stop)
+        adb.assert_not_called()
+
+    def test_login_otp_visual_confirmation_survives_blank_native_readback(self):
+        sms = [{"text": "Verify mobile number", "bounds": "[10,10][200,40]"},
+               {"text": "Enter security code", "bounds": "[10,50][200,80]"},
+               {"text": self.job.account.phone, "bounds": "[10,90][200,120]"},
+               {"text": "", "class": "android.widget.EditText",
+                "bounds": "[10,130][200,170]"}]
+        state = RegistrationState(login_jump_seen=True, login_otp_confirmed=True,
+                                  code="222222")
+        with patch("amazon_android.q7_state_machine._read_nodes", return_value=sms):
+            ResultVerifier(StateDetector(self.phone)).verify(
+                SPECS[-2], self.job, StateDeadline(3), self.stop,
+                registration=state)
+            with self.assertRaisesRegex(StateMachineStop, "sáu số OTP"):
+                ResultVerifier(StateDetector(self.phone)).verify(
+                    SPECS[-2], self.job, StateDeadline(3), self.stop,
+                    registration=RegistrationState(create_flow_seen=True))
+
+    def test_final_sms_accepts_home_or_browse_menu(self):
+        pages = ([{"content-desc": "Home Tab, 1 of 4", "selected": "true",
+                   "bounds": "[10,700][80,740]"}],
+                 [{"text": "Shop by category", "bounds": "[20,100][330,160]"}])
+        for page in pages:
+            with self.subTest(page=page), patch(
+                    "amazon_android.q7_state_machine._read_nodes", return_value=page):
+                ResultVerifier(StateDetector(self.phone)).verify(
+                    SPECS[-1], self.job, StateDeadline(3), self.stop)
+
+    def test_q7_resume_after_create_can_continue_from_visible_menu_without_retap(self):
+        destinations = (
+            [{"text": "Shop by category", "bounds": "[10,10][200,40]"}],
+            [{"text": "Today's picks", "bounds": "[10,10][200,40]"},
+             {"content-desc": "Browse menu Tab, 4 of 4",
+              "bounds": "[300,700][390,740]"}],
+        )
+        for marker in ("create_pressed", "login_verify_pressed"):
+            for destination in destinations:
+                with self.subTest(marker=marker, destination=destination[0]["text"]):
+                    self._assert_q7_resume_without_repeating_sms(marker, destination)
+
+    def _assert_q7_resume_without_repeating_sms(self, marker, destination):
+        state = RegistrationState(**{marker: True})
+        actions = [Mock() for _ in SPECS]
+        original = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock())
+                         for i in (1, 2, 3))
+        original += tuple(PostMenuStep(spec.name, action)
+                          for spec, action in zip(SPECS, actions))
+        with patch("amazon_android.q7_state_machine.build_random_steps",
+                   return_value=original):
+            steps = build_q7_pilot_steps(self.phone, lambda _: None,
+                                         registration=state)
+        create_step = steps[3 + len(SPECS) - 1]
+        with patch("amazon_android.q7_state_machine._read_nodes",
+                   return_value=destination):
+            create_step.action(self.job, AttemptDeadline(None), self.stop)
+        actions[-1].assert_not_called()
+
     def test_q7_wrapper_runs_action_then_verifies_value(self):
         actions = [Mock() for _ in range(len(SPECS))]
         originals = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock()) for i in (1, 2, 3))
@@ -132,6 +209,99 @@ class Q7StateMachineTests(unittest.TestCase):
                                 self.identifier(self.job.account.phone)]):
             steps[5].action(self.job, AttemptDeadline(None), self.stop)
         actions[2].assert_called_once()
+
+    def test_q7_skips_known_direct_sms_jump_without_replaying_earlier_actions(self):
+        actions = [Mock() for _ in SPECS]
+        originals = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock()) for i in (1, 2, 3))
+        originals += tuple(PostMenuStep(spec.name, action)
+                           for spec, action in zip(SPECS, actions))
+        with patch("amazon_android.q7_state_machine.build_random_steps",
+                   return_value=originals):
+            steps = build_q7_pilot_steps(self.phone, lambda _: None)
+        sms = [{"text": "Verify mobile number"},
+               {"text": "Enter security code"},
+               {"text": self.job.account.phone}]
+        with patch("amazon_android.q7_state_machine._read_nodes", return_value=sms):
+            for index in range(3 + 2, 3 + 7):
+                steps[index].action(self.job, AttemptDeadline(None), self.stop)
+        for action in actions[2:7]:
+            action.assert_not_called()
+
+    def test_q7_remembers_create_form_when_earlier_step_is_skipped(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState()
+        actions = [Mock() for _ in SPECS]
+        originals = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock())
+                          for i in (1, 2, 3))
+        originals += tuple(PostMenuStep(spec.name, action)
+                           for spec, action in zip(SPECS, actions))
+        with patch("amazon_android.q7_state_machine.build_random_steps",
+                   return_value=originals):
+            steps = build_q7_pilot_steps(self.phone, lambda _: None,
+                                         registration=state)
+        form = [{"text": "Create account"}, {"text": "First and last name"},
+                {"text": self.job.account.phone}]
+        with patch("amazon_android.q7_state_machine._read_nodes", return_value=form):
+            steps[3 + 4].action(self.job, AttemptDeadline(None), self.stop)
+        self.assertTrue(state.create_flow_seen)
+        self.assertFalse(state.login_jump_seen)
+        actions[4].assert_not_called()
+
+    def test_q7_b4_does_not_open_menu_when_already_on_whatsapp(self):
+        actions = [Mock() for _ in SPECS]
+        originals = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock()) for i in (1, 2, 3))
+        originals += tuple(PostMenuStep(spec.name, action)
+                           for spec, action in zip(SPECS, actions))
+        with patch("amazon_android.q7_state_machine.build_random_steps",
+                   return_value=originals):
+            steps = build_q7_pilot_steps(self.phone, lambda _: None)
+        whatsapp = [{"text": "Verify with WhatsApp"},
+                    {"text": "Send code by SMS"},
+                    {"text": self.job.account.phone}]
+        with patch("amazon_android.q7_state_machine.cloud_adb",
+                   return_value=SimpleNamespace(stdout="mCurrentFocus=com.amazon.mShop.android.shopping")), \
+             patch("amazon_android.q7_state_machine._read_nodes", return_value=whatsapp), \
+             patch("amazon_android.q7_state_machine._menu") as menu:
+            steps[3].action(self.job, AttemptDeadline(None), self.stop)
+        menu.assert_not_called()
+        actions[0].assert_not_called()
+
+    def test_q7_b7_accepts_sms_result_after_one_continue(self):
+        actions = [Mock() for _ in SPECS]
+        originals = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock()) for i in (1, 2, 3))
+        originals += tuple(PostMenuStep(spec.name, action)
+                           for spec, action in zip(SPECS, actions))
+        with patch("amazon_android.q7_state_machine.build_random_steps",
+                   return_value=originals):
+            steps = build_q7_pilot_steps(self.phone, lambda _: None)
+        sms = [{"text": "Verify mobile number"},
+               {"text": "Enter security code"},
+               {"text": self.job.account.phone}]
+        with patch("amazon_android.q7_state_machine._read_nodes",
+                   side_effect=[self.identifier(), sms]):
+            steps[7].action(self.job, AttemptDeadline(None), self.stop)
+        actions[4].assert_called_once()
+
+    def test_q7_does_not_repeat_continue_when_result_is_already_visible(self):
+        actions = [Mock() for _ in SPECS]
+        originals = tuple(PostMenuStep(f"b{i} ngẫu nhiên", Mock()) for i in (1, 2, 3))
+        originals += tuple(PostMenuStep(spec.name, action)
+                           for spec, action in zip(SPECS, actions))
+        with patch("amazon_android.q7_state_machine.build_random_steps",
+                   return_value=originals):
+            steps = build_q7_pilot_steps(self.phone, lambda _: None)
+        new = [{"text": "Looks like you are new to Amazon"},
+               {"text": "Proceed to create an account"},
+               {"text": self.job.account.phone}]
+        whatsapp = [{"text": "Verify with WhatsApp"},
+                    {"text": "Send code by SMS"},
+                    {"text": self.job.account.phone}]
+        with patch("amazon_android.q7_state_machine._read_nodes", return_value=new):
+            steps[7].action(self.job, AttemptDeadline(None), self.stop)
+        with patch("amazon_android.q7_state_machine._read_nodes", return_value=whatsapp):
+            steps[9].action(self.job, AttemptDeadline(None), self.stop)
+        actions[4].assert_not_called()
+        actions[6].assert_not_called()
 
     def test_focus_recovery_is_bounded_and_duplicate_locator_stops(self):
         actions = [Mock() for _ in SPECS]

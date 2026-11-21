@@ -184,6 +184,13 @@ def _invoke(window, name: str, control_type: str = "Button") -> None:
     try:
         item.invoke()
     except Exception as exc:
+        if name == "Test Proxy":
+            try:
+                _activate_manager(window)
+                item.click_input()
+                return
+            except Exception as fallback_exc:
+                raise ToolError("Chưa bấm được Test Proxy sau cách kích hoạt dự phòng") from fallback_exc
         raise ToolError(f"Không thể kích hoạt '{name}' bằng UI Automation; đã dừng để không chiếm chuột") from exc
 
 
@@ -256,14 +263,27 @@ def _activate_manager(window) -> None:
     import win32con
     import win32gui
 
+    last_error = None
+    for attempt in range(3):
+        try:
+            if not win32gui.IsWindowVisible(window.handle):
+                win32gui.ShowWindow(window.handle, win32con.SW_SHOWNA)
+            if win32gui.IsIconic(window.handle):
+                win32gui.ShowWindow(window.handle, win32con.SW_RESTORE)
+            win32gui.SetForegroundWindow(window.handle)
+            if win32gui.GetForegroundWindow() == window.handle:
+                return
+        except Exception as exc:
+            last_error = exc
+        if attempt < 2:
+            time.sleep(0.25)
     try:
-        if not win32gui.IsWindowVisible(window.handle):
-            win32gui.ShowWindow(window.handle, win32con.SW_SHOWNA)
-        if win32gui.IsIconic(window.handle):
-            win32gui.ShowWindow(window.handle, win32con.SW_RESTORE)
-        win32gui.SetForegroundWindow(window.handle)
+        window.set_focus()  # UIA fallback after a temporary Windows focus denial.
+        if win32gui.GetForegroundWindow() == window.handle:
+            return
     except Exception as exc:
-        raise ToolError("Không đưa được cửa sổ quản lý Swarmote lên trước để bấm New Profile") from exc
+        last_error = exc
+    raise ToolError("Không đưa được cửa sổ quản lý Swarmote lên trước để bấm New Profile") from last_error
 
 
 def _profile_form_open(window) -> bool:
@@ -361,6 +381,24 @@ def create_profile(name: str, proxy: ProxyConfig, *, hide_window: bool = False) 
             win32gui.ShowWindow(window.handle, win32con.SW_SHOWNA)
 
 
+def _proxy_postal_prefix(controls) -> str | None:
+    """Read four leading postal digits beside City in a passed proxy test."""
+    names = [str(item.element_info.name or '').strip() for item in controls]
+    if 'Test Passed' not in names:
+        return None
+    for index, name in enumerate(names):
+        if name.casefold() != 'city' and not name.casefold().startswith('city '):
+            continue
+        nearby = []
+        for value in names[index:index + 5]:
+            if value.casefold().startswith(('timezone', 'isp', 'org', 'account', 'password')):
+                break
+            nearby.extend(re.findall(r'(?<!\d)\d{5}(?:-\d{4})?(?!\d)', value))
+        if len(set(nearby)) == 1:
+            return nearby[0][:4]
+    return None
+
+
 def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
     # The optional hidden mode can keep the form hidden between Chromium button
     # invocations. Each button still needs a brief visible foreground activation.
@@ -384,6 +422,14 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
         if any(x.element_info.name == name.strip() and x.element_info.control_type == "DataItem"
                for x in _descendants(window)):
             raise ToolError("Profile cùng tên đã tồn tại trong danh sách Swarmote; không tạo lại")
+        if _profile_form_open(window) and any(
+                item.element_info.name in {"Test Passed", "Test Failed"}
+                for item in _descendants(window)):
+            # A previous proxy test can leave its result visible on this form.
+            # Reusing it would mistake that result for the next proxy's test.
+            _activate_manager(window)
+            _invoke(window, "Cancel")
+            _wait_for(window, "New Profile", "Button")
         if not _profile_form_open(window):
             _open_profiles(window)
             _activate_manager(window)
@@ -409,9 +455,15 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
         _invoke(window, "Test Proxy")
         restore_hidden()
         until_tested = time.monotonic() + 35
+        postal_prefix = None
         while time.monotonic() < until_tested:
-            labels = {x.element_info.name for x in _descendants(window)}
+            controls = _descendants(window)
+            labels = {x.element_info.name for x in controls}
             if "Test Passed" in labels:
+                try:
+                    postal_prefix = _proxy_postal_prefix(controls)
+                except Exception:
+                    postal_prefix = None  # The address flow can use its old fallback.
                 break
             if "Test Failed" in labels:
                 raise ProxyTestFailed("Swarmote báo proxy không đạt bài kiểm tra; chưa tạo Profile")
@@ -430,7 +482,7 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
     except ToolError as exc:
         raise ToolError("Đã gửi yêu cầu tạo Profile nhưng chưa xác định kết quả; kiểm tra danh sách trước khi thử lại") from exc
     return {"profile_name": name.strip(), "created": True, "proxy_configured": True,
-            "phone_started": False}
+            "phone_started": False, "address_search_prefix": postal_prefix}
 
 
 def profile_status(name: str) -> dict:

@@ -7,6 +7,50 @@ from amazon_android.core import ToolError
 
 
 class CloudBridgeTests(unittest.TestCase):
+    def test_foreground_falls_back_from_windows_to_full_window_with_multiple_displays(self):
+        phone = cloud.CloudPhone('127.0.0.1:12345')
+        outputs = ['', 'mCurrentFocus=null\nmFocusedApp=null\n'
+                   'mCurrentFocus=Window{61bff3f u0 com.amazon.mShop.android.shopping/MainActivity}']
+        with patch.object(cloud, 'cloud_adb', side_effect=[
+                subprocess.CompletedProcess([],0,out,'') for out in outputs]) as adb:
+            self.assertTrue(cloud.amazon_is_foreground(phone))
+        self.assertEqual([c.args[1:] for c in adb.call_args_list],
+                         [('shell','dumpsys','window','windows'), ('shell','dumpsys','window')])
+        self.assertTrue(all(c.args[0] is phone for c in adb.call_args_list))
+
+    def test_foreground_can_use_resumed_activity_when_focus_fields_are_missing(self):
+        outputs = ['', 'mCurrentFocus=null',
+                   'mResumedActivity: ActivityRecord{e2536c7 u0 com.amazon.mShop.android.shopping/MainActivity}']
+        with patch.object(cloud, 'cloud_adb', side_effect=[
+                subprocess.CompletedProcess([],0,out,'') for out in outputs]):
+            self.assertTrue(cloud.amazon_is_foreground(cloud.CloudPhone('127.0.0.1:12345')))
+
+    def test_foreground_does_not_accept_background_amazon_when_another_app_has_focus(self):
+        output = ('mCurrentFocus=Window{u0 com.android.chrome/MainActivity}\n'
+                  'mFocusedApp=ActivityRecord{u0 com.amazon.mShop.android.shopping/MainActivity}\n'
+                  'topResumedActivity=ActivityRecord{u0 com.amazon.mShop.android.shopping/MainActivity}')
+        with patch.object(cloud, 'cloud_adb', return_value=
+                          subprocess.CompletedProcess([],0,output,'')) as adb:
+            self.assertFalse(cloud.amazon_is_foreground(cloud.CloudPhone('127.0.0.1:12345')))
+        adb.assert_called_once()
+
+    def test_foreground_rejects_ambiguous_non_null_apps_across_displays(self):
+        output = ('mCurrentFocus=Window{u0 com.amazon.mShop.android.shopping/MainActivity}\n'
+                  'mCurrentFocus=Window{u0 com.android.settings/MainActivity}')
+        with patch.object(cloud, 'cloud_adb', return_value=subprocess.CompletedProcess([],0,output,'')):
+            self.assertFalse(cloud.amazon_is_foreground(cloud.CloudPhone('127.0.0.1:12345')))
+
+    def test_foreground_ignores_amazon_only_in_activity_history(self):
+        output = 'Hist #3 ActivityRecord{u0 com.amazon.mShop.android.shopping/MainActivity}'
+        with patch.object(cloud, 'cloud_adb', return_value=subprocess.CompletedProcess([],0,output,'')):
+            self.assertFalse(cloud.amazon_is_foreground(cloud.CloudPhone('127.0.0.1:12345')))
+
+    def test_foreground_focused_app_is_last_fallback_for_older_android(self):
+        outputs = ['', 'mFocusedApp=ActivityRecord{u0 com.amazon.mShop.android.shopping/MainActivity}', '']
+        with patch.object(cloud, 'cloud_adb', side_effect=[
+                subprocess.CompletedProcess([],0,out,'') for out in outputs]):
+            self.assertTrue(cloud.amazon_is_foreground(cloud.CloudPhone('127.0.0.1:12345')))
+
     @patch.object(cloud, "probe", return_value={"boot_completed": True,
                                                   "amazon_package_installed": True})
     def test_open_amazon_does_not_relaunch_foreground_app(self, _):

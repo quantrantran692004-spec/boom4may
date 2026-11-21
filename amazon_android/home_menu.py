@@ -100,7 +100,7 @@ def open_home_menu(phone: CloudPhone, timeout: int = 45, *, stop=None) -> dict:
     """Reach Amazon's Browse menu, with no account data entered."""
     deadline = time.monotonic() + timeout
     backed_out = False
-    skipped = False
+    skip_back_sent = False
     tapped_menu = False
     menu_taps = 0
     unselected_reads = 0
@@ -147,14 +147,11 @@ def open_home_menu(phone: CloudPhone, timeout: int = 45, *, stop=None) -> dict:
             tapped_menu = True
             menu_taps += 1
             unselected_reads = 0
-        elif "Skip sign in" in labels and not skipped:
-            buttons = [node for node in nodes
-                       if node.get("text") == "Skip sign in"
-                       and node.get("class") == "android.widget.Button"]
-            if len(buttons) != 1:
-                raise ToolError("Không xác định được nút Skip sign in duy nhất")
-            _tap(phone, buttons[0])
-            skipped = True
+        elif "Skip sign in" in labels and not skip_back_sent:
+            # Leave the first-run sign-in screen with Android Back, without
+            # touching the Skip control or changing subsequent menu routing.
+            cloud_adb(phone, "shell", "input", "keyevent", "4")
+            skip_back_sent = True
         elif "Sign in or create account" in labels and not backed_out:
             cloud_adb(phone, "shell", "input", "keyevent", "4")
             backed_out = True

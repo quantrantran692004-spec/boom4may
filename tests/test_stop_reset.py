@@ -9,14 +9,15 @@ from amazon_android.desktop import Window
 from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
 from amazon_android.post_menu import PostMenuSession
-from amazon_android.runner import _prepare_phone, RunJob
+from amazon_android.runner import _prepare_phone, RunJob, retry_preparation
 
 
 class StopResetTests(unittest.TestCase):
     def window(self):
         w=Window.__new__(Window)
         w.cancel=threading.Event(); w.running=True; w.attach_in_progress=False
-        w.post_menu_stops={}; w.phone_stop_after_step={}; w.post_menu_sessions={}; w.post_menu_workers={}
+        w.post_menu_stops={}; w.phone_stop_after_step={}; w.post_menu_resume_after_stop=set()
+        w.post_menu_sessions={}; w.post_menu_workers={}
         w.post_menu_steps={}; w.menu_opened_at={}; w.phone_serials={}; w.jobs={0:object()}
         w.batch_worker=Mock(is_alive=Mock(return_value=True)); w.attach_worker=None
         w._draining_workers=[]; w._pending_retries=set()
@@ -58,10 +59,146 @@ class StopResetTests(unittest.TestCase):
     def test_failed_row_can_request_retry_while_another_machine_is_running(self):
         w=self.window(); w.status=[('failed','error')]
         self.assertTrue(w._may_continue(0,'error',False))
-        with patch.object(w,'_launch') as launch:
+        with patch.object(w,'_launch') as launch, \
+             patch.object(w,'_start_preparation_retry') as retry:
             w._continue_profile(0)
-        self.assertEqual(w._pending_retries,{0})
+        self.assertEqual(w._pending_retries,set())
+        retry.assert_called_once_with(0)
         launch.assert_not_called()
+
+    def test_uncreated_profile_continue_queues_creation_after_busy_batch(self):
+        w = self.window()
+        w.jobs = {0: RunJob(0, 'batch', None)}
+        w.registry = Mock()
+        w.registry.get.return_value = {'stage': 'RESERVED', 'state': 'ERROR',
+                                       'device_id': None}
+        w.status = [('focus failed', 'error')]
+        with patch.object(w, '_start_preparation_retry') as prepare, \
+             patch.object(w, '_launch') as launch:
+            w._continue_profile(0)
+        self.assertEqual(w._pending_retries, {0})
+        self.assertEqual(w.status[0][1], 'retry_queued')
+        prepare.assert_not_called()
+        launch.assert_not_called()
+
+    def test_uncreated_profile_continue_restarts_creation_when_batch_idle(self):
+        w = self.window()
+        w.running = False
+        w.jobs = {0: RunJob(0, 'batch', None)}
+        w.registry = Mock()
+        w.registry.get.return_value = {'stage': 'RESERVED', 'state': 'ERROR',
+                                       'device_id': None}
+        w.status = [('focus failed', 'error')]
+        with patch.object(w, '_start_preparation_retry') as prepare, \
+             patch.object(w, '_launch') as launch:
+            w._continue_profile(0)
+        launch.assert_called_once_with([0])
+        prepare.assert_not_called()
+
+    def test_retry_starts_while_batch_is_busy_and_double_continue_does_not_duplicate(self):
+        w = self.window()
+        w.registry = Mock()
+        w.jobs = {0: RunJob(0, 'batch', None)}
+        w.status = [('failed', 'error')]
+        entered = threading.Event()
+        release = threading.Event()
+        def retry(*args, **kwargs):
+            entered.set()
+            release.wait(3)
+        with patch('amazon_android.desktop.retry_preparation', side_effect=retry) as prepare:
+            try:
+                w._continue_profile(0)
+                self.assertTrue(entered.wait(2))
+                self.assertTrue(w.running)
+                self.assertTrue(w.batch_worker.is_alive())
+                w._continue_profile(0)
+                self.assertEqual(prepare.call_count, 1)
+                self.assertEqual(w._pending_retries, set())
+                self.assertEqual(w.status[0][1], 'running')
+            finally:
+                release.set()
+                for worker in getattr(w, 'preparation_retry_workers', {}).values():
+                    worker.join(3)
+
+    def test_continue_uses_connected_phone_immediately_without_preparation_queue(self):
+        w = self.window()
+        w.phone_serials = {0: '127.0.0.1:5001'}
+        with patch.object(w, '_start_post_menu') as start, \
+             patch.object(w, '_start_preparation_retry') as prepare:
+            w._continue_profile(0)
+        start.assert_called_once_with(0)
+        prepare.assert_not_called()
+        self.assertEqual(w._pending_retries, set())
+
+    def test_confirmed_phone_retry_uses_saved_device_without_new_batch(self):
+        job = RunJob(2, 'batch', None)
+        registry = Mock()
+        registry.get.return_value = {'name': 'q3', 'device_id': 'device-three',
+                                     'stage': 'APP_INSTALLED', 'state': 'ERROR'}
+        emit = Mock(); stop = threading.Event(); selected = threading.Event()
+        with patch('amazon_android.runner._prepare_phone', return_value='done') as prepare:
+            retry_preparation(job, registry, emit, stop, stop_after_step=selected)
+        prepare.assert_called_once_with(job, 'q3', 'device-three', registry,
+                                         emit, stop, None, selected)
+
+    def test_menu_retry_reconnects_without_reinstalling_or_reopening_amazon(self):
+        job = RunJob(2, 'batch', None)
+        registry = Mock()
+        registry.get.return_value = {'name': 'q3', 'device_id': 'device-three',
+                                     'stage': 'MENU_OPEN', 'state': 'STOPPED'}
+        emit = Mock(); ready = Mock()
+        with patch('amazon_android.runner.open_adb_shell', return_value={
+                'serial': '127.0.0.1:5003'}) as shell, \
+             patch('amazon_android.runner._prepare_phone') as prepare:
+            retry_preparation(job, registry, emit, threading.Event(), ready)
+        self.assertEqual(shell.call_args.args, ('q3', 'device-three'))
+        ready.assert_called_once_with(2, 'q3', 'device-three', '127.0.0.1:5003')
+        prepare.assert_not_called()
+        self.assertEqual(emit.call_args.args[2], 'done')
+
+    def test_reset_quarantines_retry_worker_and_its_queues(self):
+        w = self.window()
+        retry_worker = Mock(is_alive=Mock(return_value=True))
+        w.preparation_retry_workers = {0: retry_worker}
+        old_events = w.events
+        w.cancel.set()
+        w._reset()
+        self.assertIn(retry_worker, w._draining_workers)
+        self.assertEqual(w.preparation_retry_workers, {})
+        self.assertIsNot(w.events, old_events)
+
+    def test_preparation_guard_blocks_same_phone_but_not_other_phones(self):
+        from concurrent.futures import ThreadPoolExecutor
+        for second_slot in (0, 1):
+            with self.subTest(second_slot=second_slot):
+                first = RunJob(0, f'lock-test-{second_slot}', None)
+                second = RunJob(second_slot, first.batch_id, None)
+                registry = Mock()
+                registry.get.return_value = {'name': f'q{second_slot+1}',
+                    'device_id': f'device-{second_slot}', 'stage': 'APP_INSTALLED', 'state': 'ERROR'}
+                entered = threading.Event(); resumed = threading.Event(); release = threading.Event()
+                calls = []
+                def prepare(job, *args):
+                    calls.append(job.index)
+                    if len(calls) == 1:
+                        entered.set()
+                        release.wait(3)
+                    else:
+                        resumed.set()
+                    return 'done'
+                with patch('amazon_android.runner._prepare_phone_locked', side_effect=prepare), \
+                     ThreadPoolExecutor(max_workers=2) as pool:
+                    old = pool.submit(_prepare_phone, first, 'q1', 'device-0', registry,
+                                      Mock(), threading.Event())
+                    self.assertTrue(entered.wait(2))
+                    retry = pool.submit(retry_preparation, second, registry, Mock(), threading.Event())
+                    try:
+                        self.assertEqual(resumed.wait(0.2 if second_slot == 0 else 2), second_slot == 1)
+                    finally:
+                        release.set()
+                    self.assertEqual(old.result(3), 'done')
+                    self.assertEqual(retry.result(3), 'done')
+                self.assertEqual(calls, [0, second_slot])
 
     def test_stopped_install_is_reported_stopped_instead_of_error(self):
         stop=threading.Event(); registry=Mock(); registry.get.return_value={'stage':'STARTED'}
@@ -143,6 +280,103 @@ class StopResetTests(unittest.TestCase):
         self.assertNotIn(0,w.phone_stop_after_step)
         self.assertEqual(w._pending_retries,set())
         self.assertEqual(w.status[0],('running','running'))
+
+    def test_row_stop_targets_its_machine_without_changing_selection(self):
+        w=self.window(); w.jobs={0:object(), 1:object()}; w.selected=0
+        w.status=[('running','running'),('running','running')]
+        w._request_stop_phone(1)
+        self.assertEqual(w.selected,0)
+        self.assertFalse(w.cancel.is_set())
+        self.assertTrue(w.phone_stop_after_step[1].is_set())
+        self.assertNotIn(0,w.phone_stop_after_step)
+        self.assertEqual(w.status[0],('running','running'))
+        self.assertFalse(w._can_stop_phone(1))
+        self.assertTrue(w._can_stop_phone(0))
+
+    def test_menu_only_phone_can_stop_without_resetting_other_phone(self):
+        w=self.window(); w.jobs={0:object(), 1:object()}
+        w.status=[('q1 đang chạy','running'),
+                  ('q2 đã tới menu nhưng thiếu hàng Amazon','menu_only')]
+        self.assertTrue(w._can_stop_phone(1))
+        w._request_stop_phone(1)
+        self.assertEqual(w.status[1][1], 'stopped')
+        self.assertTrue(w.phone_stop_after_step[1].is_set())
+        self.assertEqual(w.status[0][1], 'running')
+        self.assertFalse(w.cancel.is_set())
+        self.assertFalse(w._can_stop_phone(1))
+
+    def test_continue_can_queue_while_phone_stop_is_finishing(self):
+        w=self.window(); w.status=[('Đang tự động hóa','post_running')]
+        w.post_menu_sessions[0]=PostMenuSession('batch',0,'q1',state='RUNNING')
+        w._request_stop_phone(0)
+        self.assertTrue(w.phone_stop_after_step[0].is_set())
+        self.assertTrue(w._may_continue(0,'stop_requested',False))
+        w._continue_profile(0)
+        self.assertEqual(w.post_menu_resume_after_stop,{0})
+        self.assertTrue(w.phone_stop_after_step[0].is_set())
+        self.assertEqual(w.status[0][1],'resume_queued')
+        self.assertFalse(w._may_continue(0,'resume_queued',False))
+
+    def test_continue_queue_starts_after_stop_event_and_keeps_status(self):
+        w=self.window(); w.status=[('Đang tự động hóa','post_running')]
+        session=PostMenuSession('batch',0,'q1',state='RUNNING')
+        w.post_menu_sessions[0]=session
+        w.values=[{'profile_name':Mock()}]
+        w.selected=0; w.detail_status=Mock(); w.root=Mock()
+        w._request_stop_phone(0)
+        w.events.put((0,'bước cũ','post_running','q1'))
+        w._poll()
+        self.assertEqual(w.status[0][1],'stop_requested')
+        w._continue_profile(0)
+        session.state='PAUSED'
+        w.events.put((0,'Đã dừng riêng q1','post_stopped','q1'))
+        with patch.object(w,'_start_post_menu') as start:
+            w._poll()
+        start.assert_called_once_with(0)
+        self.assertEqual(w.status[0][1],'resume_queued')
+        self.assertEqual(w.post_menu_resume_after_stop,{0})
+
+    def test_global_stop_cancels_queued_phone_resume(self):
+        w=self.window(); w.post_menu_resume_after_stop={0}
+        w._request_stop()
+        self.assertEqual(w.post_menu_resume_after_stop,set())
+
+    def test_late_stop_event_cannot_mark_resumed_phone_stopped(self):
+        w=self.window(); w.status=[('Đang tự động hóa','post_running')]
+        w.post_menu_sessions[0]=PostMenuSession('batch',0,'q1',state='RUNNING')
+        w.values=[{'profile_name':Mock()}]
+        w.selected=0; w.detail_status=Mock(); w.root=Mock()
+        w.events.put((0,'Đã dừng riêng q1','post_stopped','q1'))
+        w._poll()
+        self.assertEqual(w.status[0],('Đang tự động hóa','post_running'))
+
+    def test_row_stop_cancels_only_that_queued_retry(self):
+        w=self.window(); w.jobs={0:object(),1:object()}; w.selected=0
+        w.status=[('running','running'),('waiting','retry_queued')]
+        w._pending_retries={1}
+        self.assertTrue(w._can_stop_phone(1))
+        w._request_stop_phone(1)
+        self.assertEqual(w._pending_retries,set())
+        self.assertEqual(w.status[1][1],'stopped')
+        self.assertEqual(w.status[0],('running','running'))
+        self.assertFalse(w.cancel.is_set())
+        self.assertTrue(w.phone_stop_after_step[1].is_set())
+
+    def test_each_table_row_has_its_own_stop_command(self):
+        w=Window.__new__(Window)
+        w.main=Mock(); w.table_rows=[]; w.row_buttons=[]; w.row_stop_buttons=[]
+        w._label=Mock(side_effect=lambda *args,**kwargs: Mock())
+        w._continue_profile=Mock(); w._request_stop_phone=Mock()
+        with patch('amazon_android.desktop.ctk.CTkFrame',side_effect=lambda *args,**kwargs: Mock()), \
+             patch('amazon_android.desktop.ctk.CTkFont',return_value=Mock()), \
+             patch('amazon_android.desktop.ctk.CTkButton',side_effect=lambda *args,**kwargs: Mock()) as make_button:
+            w._build_preview_table()
+        self.assertEqual(len(w.row_stop_buttons),12)
+        stop_calls=[call for call in make_button.call_args_list if call.kwargs.get('text')=='Dừng']
+        self.assertEqual(len(stop_calls),12)
+        stop_calls[1].kwargs['command']()
+        stop_calls[8].kwargs['command']()
+        self.assertEqual(w._request_stop_phone.call_args_list,[((1,),{}),((8,),{})])
 
 
 if __name__=='__main__': unittest.main()

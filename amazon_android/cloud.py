@@ -65,6 +65,41 @@ def cloud_adb(phone: CloudPhone | None, *args: str, timeout: int = 30,
     return run(command + list(args), timeout=timeout, check=check, input_text=input_text)
 
 
+def amazon_is_foreground(phone: CloudPhone, *, timeout: int = 4, adb=None) -> bool:
+    """Read focus across Android dumpsys variants and secondary displays.
+
+    A live focus on another app takes precedence over an Amazon activity that
+    merely remains in history. Null focus for an unused display is ignored.
+    """
+    adb = cloud_adb if adb is None else adb
+    def packages(output, markers):
+        found = set()
+        for line in output.splitlines():
+            if not any(re.search(r'\b' + marker + r'\s*[:=]', line) for marker in markers):
+                continue
+            component = re.search(r'\b((?:[A-Za-z_]\w*\.)+[A-Za-z_]\w*)/', line)
+            if component:
+                found.add(component.group(1))
+        return found
+    focused_apps = set()
+    for command in (('window', 'windows'), ('window',), ('activity', 'activities')):
+        try:
+            result = adb(phone, 'shell', 'dumpsys', *command, timeout=timeout, check=False)
+        except ToolError:
+            continue
+        if result.returncode:
+            continue
+        focused = packages(result.stdout, ('mCurrentFocus', 'mFocusedWindow'))
+        if focused:
+            return focused == {AMAZON_PACKAGE}
+        if command[0] == 'activity':
+            resumed = packages(result.stdout, ('topResumedActivity', 'mResumedActivity'))
+            if resumed:
+                return resumed == {AMAZON_PACKAGE}
+        focused_apps.update(packages(result.stdout, ('mFocusedApp',)))
+    return focused_apps == {AMAZON_PACKAGE}
+
+
 def cloud_serials() -> dict[str, str]:
     output = cloud_adb(None, "devices").stdout
     devices = {}

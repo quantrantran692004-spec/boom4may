@@ -84,8 +84,10 @@ def read_tree(phone: CloudPhone) -> str | None:
             return None
 
 
-def country_reverse_points(top: int, bottom: int, centers: list[int]) -> tuple[int, int]:
-    """Move the list back about four visible country rows, within its bounds."""
+def country_reverse_points(top: int, bottom: int, centers: list[int],
+                           *, gentle: bool = False,
+                           distance_multiplier: int = 1) -> tuple[int, int]:
+    """Move back four rows normally, or at most one row for a gentle b6 swipe."""
     height = bottom - top
     ordered = sorted(set(center for center in centers if top <= center <= bottom))
     gaps = [b - a for a, b in zip(ordered, ordered[1:]) if b > a]
@@ -94,11 +96,15 @@ def country_reverse_points(top: int, bottom: int, centers: list[int]) -> tuple[i
         distance = min(int(height * 0.70), max(int(height * 0.28), 4 * row_height))
     else:
         distance = int(height * 0.40)
+    if gentle:
+        distance = max(1, min(int(height * 0.10), row_height if gaps else int(height * 0.08)))
+        distance *= distance_multiplier
     start = top + max(1, (height - distance) // 2)
     return start, start + distance
 
 
-def country_scroll(phone: CloudPhone, *, fling: bool, reverse: bool) -> bool:
+def country_scroll(phone: CloudPhone, *, fling: bool, reverse: bool,
+                   gentle: bool = False) -> bool:
     """Return True once a gesture was attempted; never repeat uncertain input."""
     if not ready(phone):
         return False
@@ -146,11 +152,13 @@ def country_scroll(phone: CloudPhone, *, fling: bool, reverse: bool) -> bool:
                         if match and box:
                             _, y1, _, y2 = map(int, box.groups())
                             centers.append((y1 + y2) // 2)
-                    y1, y2 = country_reverse_points(top, bottom, centers)
+                    y1, y2 = country_reverse_points(top, bottom, centers,
+                                                    gentle=gentle)
                 else:
                     y1 = top + int((bottom - top) * 0.60)
                     y2 = top + int((bottom - top) * 0.40)
-                item.device.swipe(x, y1, x, y2, duration=0.28)
+                item.device.swipe(x, y1, x, y2,
+                                  duration=0.65 if reverse and gentle else 0.28)
         except Exception:
             # A network error may follow a delivered gesture. Caller must read
             # again, not emit an ADB swipe as a second attempt in this call.

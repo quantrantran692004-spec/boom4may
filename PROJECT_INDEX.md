@@ -1,6 +1,27 @@
-> Bản dán nhiều proxy trên một dòng mới nhất: xem mục đầu [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md). Bản lỗi nhiều máy trước đó: [NEXT_SESSION_HANDOFF.md](NEXT_SESSION_HANDOFF.md). 300 unittest PASS; chưa xác minh Swarmote thật.
+> Bản đồ file và quy tắc tìm chỗ sửa nằm ở đây. Hành vi hiện hành của từng bước nằm trong [STEP_INVENTORY.md](STEP_INVENTORY.md); trạng thái chạy thật, lần sửa và mức xác minh nằm trong [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) và [VERIFICATION.md](VERIFICATION.md). Đoạn ghi ngày cũ là lịch sử, không được dùng thay cho mã đang chạy và ảnh màn hiện tại.
 
 # Bản đồ repository
+
+## Một quy luật để sửa mã về sau — 20/11/2026
+
+Luồng bắt đầu ở `desktop.POST_MENU_STEP_FACTORIES`: 12 slot dùng `random_prefix.build_random_steps`, riêng slot 7 dùng `q7_state_machine.build_q7_pilot_steps`. Các bước sau xác minh được nối một lần qua `random_prefix.build_post_auth_steps`. `PostMenuSession` chạy các `PostMenuStep` theo thứ tự; `RegistrationState` giữ dấu bấm, mốc chờ và bước hoàn tất của đúng máy. Tên bước có hậu tố như b4a, b11a, b11b là bước thật trong danh sách, không suy ra chỉ số bằng số b.
+
+| Mốc | File sở hữu hành vi | Trạng thái/điều kiện chuyển bước | Test cần xem |
+| --- | --- | --- | --- |
+| P01–P08, mở Amazon/menu | `desktop.py`, `bulk_input.py`, `runner.py`, `swarmote_desktop.py`, `home_menu.py` | `BatchDraft` và trạng thái chuẩn bị trong `runner.py`; khi Profile chưa tạo và máy lỗi, sửa dữ liệu riêng tại `desktop.py` rồi Tiếp tục bằng `RunJob` mới của đúng hàng | `test_bulk_input.py`, `test_stop_reset.py`, `test_runner.py`, `test_home_menu.py`, `test_swarmote_waits.py` |
+| b1–b3 thường | `random_prefix.py` | `prefix_choices`, `prefix_view_until`, `prefix_completed`; đủ ba lượt xem rồi mới b4 | `test_random_prefix.py`, `test_resume_state.py` |
+| b1–b3 Máy 7 | `q7_random_prefix.py` | Dấu riêng của pilot; chỉ áp dụng slot 7 | `test_q7_random_prefix.py` |
+| b4–b11b Tạo/Đăng nhập | `account_flow.py`; Máy 7 có lớp kiểm tra trong `q7_state_machine.py` | Các dấu SMS/OTP/Create/Verify trong `RegistrationState`; xác nhận màn thật trước bước kế | `test_q1_flow.py`, `test_q7_state_machine.py`, `test_resume_state.py` |
+| b12–b15 chung | `random_prefix.py` | `tail_choices`, `tail_view_until`, `tail_viewed`, `tail_page_scrolled`, `tail_back_sent`, `tail_completed`; về menu rồi mới hoàn tất lượt | `test_random_prefix.py`, `test_resume_state.py` |
+| b16–b22 chung | `marketplace_flow.py` | `marketplace_completed` và các dấu Done; xác nhận United States và màn sau Done | `test_marketplace_flow.py` |
+| b23–b25 chỉ Tạo | `create_address_flow.py` | `create_address_completed`, `create_address_wait_until`; mở Your Addresses | `test_create_address_flow.py` |
+| b26–b31 chỉ Tạo | `create_address_detail_flow.py` | Dấu nhập/chọn gợi ý/lưu trong `RegistrationState`; b28 xác nhận focus Street trước khi gõ, b30 xác nhận đã lưu | `test_create_address_detail_flow.py` |
+| b32–b39 chỉ Tạo | `reload_payment_flow.py` | Sau b31 cuộn ngay, OCR chữ Reload Balance/Buy Now/mục thêm thẻ; b38 nhập ba ô theo đúng hàng máy rồi bấm Add and continue; b39 thấy Use this address thì bấm | `test_reload_payment_flow.py` |
+| Dừng/Tiếp tục và trạng thái máy | `post_menu.py`, `runner.py`, `desktop.py` | `PostMenuSession.next_step`, `RegistrationState`, serial và khóa riêng máy; không phát lại hành động đã xác nhận | `test_post_menu.py`, `test_resume_state.py`, `test_stop_reset.py`, `test_runner.py` |
+
+Quy tắc sửa: tìm mốc trong bảng này → đọc mục tương ứng trong `STEP_INVENTORY.md` → đọc ảnh tại `IMAGE_EVIDENCE.md` nếu là lỗi nhận diện → sửa ở file sở hữu → cập nhật trạng thái/test nếu có thao tác hoặc điểm Dừng/Tiếp tục → ghi kết quả thật hay mô phỏng vào mục cũ của `PROJECT_HANDOFF.md`. Sau đó chạy test liên quan, `python -m graphify update .` và `python -m graphify tree`. Không coi test mô phỏng là bằng chứng phiên Swarmote đang mở đã nạp mã mới.
+
+Quy tắc file: `cloud.py`/`ui_backend.py`/`vision.py` là lớp ADB, cây Android và OCR dùng chung; `*_flow.py` quyết định hành động của bước; `post_menu.py` giữ trạng thái và thứ tự; `desktop.py` nối UI với runner. `q1_flow.py`–`q6_flow.py` và Q1–Q6 Markdown còn phần tham chiếu lịch sử; luồng thường hiện tại lấy từ `random_prefix.py`. Khi có hành vi mới sau một mốc, nối ở factory chung thay vì sao chép vào từng máy.
 
 Đây là điểm bắt đầu để tiếp tục dự án mà không bỏ sót mốc đã biết. Ảnh người dùng cung cấp đã hướng dẫn q1–q4; q5/q6 được hướng dẫn bằng chữ; chưa có toàn bộ quy trình.
 

@@ -59,6 +59,48 @@ class PostMenuTests(unittest.TestCase):
         self.assertEqual((q1.state, q1.next_step), ("DONE", 2))
         self.assertEqual(calls[-1], (0, "second"))
 
+    def test_selected_phone_stop_interrupts_a_waiting_step_only_for_that_phone(self):
+        from amazon_android.account_flow import _wait_screen
+
+        q1 = PostMenuSession("batch", 0, "q1")
+        q2 = PostMenuSession("batch", 1, "q2")
+        batch_stop = threading.Event()
+        phone_stop = threading.Event()
+        waiting = threading.Event()
+        events = []
+
+        def read_nodes(_phone, _deadline, _stop):
+            waiting.set()
+            return []
+
+        def step(job, deadline, stop):
+            if job.index == 0:
+                _wait_screen(CloudPhone("127.0.0.1:5001"), {"MENU"},
+                             deadline, stop, seconds=5)
+
+        steps = (PostMenuStep("b4 Sign In", step),)
+        worker = threading.Thread(target=q1.run,
+                                  args=(RunJob(0, "batch", None), steps,
+                                        lambda *event: events.append(event), batch_stop),
+                                  kwargs={"stop_after_step": phone_stop})
+        with patch("amazon_android.account_flow._read_nodes", side_effect=read_nodes):
+            worker.start()
+            try:
+                self.assertTrue(waiting.wait(1))
+                q2.run(RunJob(1, "batch", None), steps,
+                       lambda *event: events.append(event), batch_stop)
+                phone_stop.set()
+                worker.join(1)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual((q1.state, q1.next_step), ("PAUSED", 0))
+                self.assertEqual((q2.state, q2.next_step), ("DONE", 1))
+                self.assertFalse(batch_stop.is_set())
+                self.assertTrue(any(event[0] == 0 and event[2] == "post_stopped"
+                                    for event in events))
+            finally:
+                batch_stop.set()
+                worker.join(1)
+
     def test_error_pauses_only_its_phone_and_continue_rechecks_same_step(self):
         q1 = PostMenuSession("batch", 0, "q1")
         q2 = PostMenuSession("batch", 1, "q2")

@@ -22,6 +22,26 @@ class RecoverableStepError(ToolError):
     """Observation/locator failure eligible for a checked, same-step retry."""
 
 
+class _CombinedStop:
+    """Wake a phone's waits for either its own stop or the batch stop."""
+
+    def __init__(self, batch: threading.Event, phone: threading.Event) -> None:
+        self.batch = batch
+        self.phone = phone
+
+    def is_set(self) -> bool:
+        return self.batch.is_set() or self.phone.is_set()
+
+    def wait(self, timeout: float | None = None) -> bool:
+        until = None if timeout is None else time.monotonic() + timeout
+        while not self.is_set():
+            remaining = float("inf") if until is None else until - time.monotonic()
+            if remaining <= 0:
+                break
+            self.batch.wait(min(0.05, remaining))
+        return self.is_set()
+
+
 @dataclass(frozen=True)
 class AttemptDeadline:
     seconds: int | None
@@ -65,11 +85,51 @@ Route = Callable[[int, RunJob, AttemptDeadline, threading.Event], int | None]
 class RegistrationState:
     """Keep dispatch markers when a phone's steps are rebound or rewound."""
     sms_requested_at: float | None = None
+    sms_tap_attempts: int = 0
     code: str = field(default="", repr=False)
     create_pressed: bool = False
+    create_flow_seen: bool = False
+    login_jump_seen: bool = False
+    login_otp_input_attempted: bool = False
+    login_otp_confirmed: bool = False
+    login_verify_pressed: bool = False
+    login_verify_attempts: int = 0
     prefix_choices: dict[int, tuple[float, float]] = field(default_factory=dict, repr=False)
     prefix_completed: set[int] = field(default_factory=set, repr=False)
+    prefix_view_until: dict[int, float] = field(default_factory=dict, repr=False)
     q7_prefix_started_at: dict[int, float] = field(default_factory=dict, repr=False)
+    tail_choices: dict[int, str] = field(default_factory=dict, repr=False)
+    tail_attempted: set[str] = field(default_factory=set, repr=False)
+    tail_completed: set[int] = field(default_factory=set, repr=False)
+    flow_mode: str = "auto"
+    prefix_attempted: set[str] = field(default_factory=set, repr=False)
+    tail_view_until: dict[int, float] = field(default_factory=dict, repr=False)
+    tail_viewed: set[int] = field(default_factory=set, repr=False)
+    tail_page_scrolled: set[int] = field(default_factory=set, repr=False)
+    tail_back_sent: set[int] = field(default_factory=set, repr=False)
+    tail_menu_wait_started: dict[int, float] = field(default_factory=dict, repr=False)
+    manual_sms_completed: bool = False
+    marketplace_completed: set[int] = field(default_factory=set, repr=False)
+    marketplace_done_sent: bool = False
+    marketplace_done_confirmed: bool = False
+    marketplace_done_attempts: int = 0
+    marketplace_done_at: float | None = None
+    create_address_completed: set[int] = field(default_factory=set, repr=False)
+    create_address_wait_until: dict[int, float] = field(default_factory=dict, repr=False)
+    create_address_prefix: str | None = field(default=None, repr=False)
+    create_address_proxy_prefix: str | None = field(default=None, repr=False)
+    create_address_prefix_sent: bool = False
+    create_address_prefix_sent_at: float | None = None
+    create_address_prefix_attempts: int = 0
+    create_address_street_bounds: str | None = None
+    create_address_suggestion_tapped_at: float | None = None
+    create_address_submit_attempts: int = 0
+    create_address_submit_sent_at: float | None = None
+    create_address_saved_at: float | None = None
+    reload_completed: set[int] = field(default_factory=set, repr=False)
+    reload_card_fields_sent: set[int] = field(default_factory=set, repr=False)
+    country_reverse_started: bool = False
+    country_reverse_swipes: int = 0
 
 
 @dataclass
@@ -123,11 +183,12 @@ class PostMenuSession:
                  "post_stopped", self.profile_name)
             return True
 
+        active_stop = _CombinedStop(stop, stop_after_step) if stop_after_step is not None else stop
         if pause_if_requested():
             return
         if route is not None:
             try:
-                target = route(self.next_step, job, deadline, stop)
+                target = route(self.next_step, job, deadline, active_stop)
                 if target is not None:
                     if target < self.next_step or target >= len(steps):
                         raise ValueError("Invalid menu route")
@@ -153,11 +214,15 @@ class PostMenuSession:
             if pause_if_requested():
                 return
             try:
-                resumed = reconcile(self.next_step, job, deadline, stop)
+                resumed = reconcile(self.next_step, job, deadline, active_stop)
                 if resumed is not None:
                     target, replacement = resumed
-                    if target < 0 or target > self.next_step or len(replacement) != len(steps):
+                    if target < 0 or target >= len(steps) or len(replacement) != len(steps):
                         raise ValueError("Invalid resume step")
+                    if target > self.next_step and any(not re.match(
+                            r"b(?:[4-9]|10|11)[a-z]?(?:\s|$)", step.name)
+                            for step in steps[self.next_step:target]):
+                        raise ValueError("Cannot skip random viewing steps on resume")
                     with self._lock:
                         self.next_step = target
                     steps = replacement
@@ -182,13 +247,15 @@ class PostMenuSession:
             recoveries = 0
             try:
                 while True:
+                    if pause_if_requested():
+                        return
                     if stop.is_set():
                         raise ToolError("Đã dừng tự động hóa")
                     if step.within_attempt:
                         deadline.remaining()
                     action_deadline = deadline
                     try:
-                        step.action(job, action_deadline, stop)
+                        step.action(job, action_deadline, active_stop)
                         if step.within_attempt:
                             deadline.remaining()
                         break
@@ -209,7 +276,7 @@ class PostMenuSession:
                                    f"đang đợi rồi tự đọc lại ({recoveries})")
                         if recoveries == 1 or recoveries % 20 == 0:
                             deadline.recovering(message)
-                        stop.wait(min(2.0, 0.25 * recoveries))
+                        active_stop.wait(min(2.0, 0.25 * recoveries))
             except Exception as exc:
                 if pause_if_requested():
                     return
@@ -221,7 +288,7 @@ class PostMenuSession:
                         message = (f"{step.name} · lần xử lý chưa thành công ({reason}); "
                                    f"đang đợi rồi tự kiểm tra lại ({recoveries})")
                         emit(self.index, message, "post_running", self.profile_name)
-                    stop.wait(min(2.0, 0.25 * recoveries))
+                    active_stop.wait(min(2.0, 0.25 * recoveries))
                     continue
                 with self._lock:
                     self.state = "PAUSED"

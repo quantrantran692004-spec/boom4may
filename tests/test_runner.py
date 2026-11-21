@@ -51,7 +51,8 @@ class RunnerTests(unittest.TestCase):
         return {name: {"state": "Running"} for name in names}
 
     def execute(self, jobs=None, start_group_size=1, auto_close=True,
-                hide_profile_creation=False, menu_ready=None, stop_after_step=None):
+                hide_profile_creation=False, menu_ready=None, stop_after_step=None,
+                proxy_prefix_ready=None, create_result=None):
         events = []
         def shell(name, device_id, **kwargs):
             return {"serial": f"127.0.0.1:{5000 + int(name[1:])}",
@@ -68,6 +69,7 @@ class RunnerTests(unittest.TestCase):
             else:
                 self.assertEqual(kwargs, {})
             self.create(name, proxy)
+            return create_result(name) if create_result else None
 
         with patch("amazon_android.runner.profile_status", self.status), \
              patch("amazon_android.runner.visible_profile_names",
@@ -85,6 +87,7 @@ class RunnerTests(unittest.TestCase):
                                start_group_size=start_group_size,
                                hide_profile_creation=hide_profile_creation,
                                menu_ready=menu_ready,
+                               proxy_prefix_ready=proxy_prefix_ready,
                                stop_after_step=stop_after_step)
         return result, events
 
@@ -92,6 +95,15 @@ class RunnerTests(unittest.TestCase):
         result, _ = self.execute()
         self.assertEqual(result["menu_open"], 3)
         self.assertLess(self.calls.index("start:q1"), self.calls.index("create:q2"))
+
+    def test_passed_proxy_postal_prefix_is_kept_per_machine_without_blocking_missing_value(self):
+        captured = {}
+        result, _ = self.execute(self.jobs[:3],
+            proxy_prefix_ready=lambda slot, prefix: captured.__setitem__(slot, prefix),
+            create_result=lambda name: {'address_search_prefix':
+                                         {'q1': '3654', 'q2': None, 'q3': '9021'}[name]})
+        self.assertEqual(result['menu_open'], 3)
+        self.assertEqual(captured, {0: '3654', 2: '9021'})
 
     def test_twelve_jobs_create_start_install_and_reach_their_own_menu(self):
         jobs = [RunJob(i, 'batch', self.jobs[0].proxy) for i in range(12)]
@@ -180,6 +192,23 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result["stopped"], 2)
         self.assertIsNone(self.registry.get("batch", 1))
         self.assertIsNone(self.registry.get("batch", 2))
+
+    def test_transient_manager_focus_error_retries_same_profile_before_next(self):
+        attempts = []
+        original = self.create
+        def create(name, proxy):
+            attempts.append(name)
+            if name == 'q1' and attempts.count(name) < 3:
+                raise ProfileCreateNotSubmitted(
+                    'Không đưa được cửa sổ quản lý Swarmote lên trước để bấm New Profile')
+            original(name, proxy)
+        with patch.object(self, 'create', side_effect=create), \
+             patch.object(self.stop, 'wait', return_value=False):
+            result, events = self.execute(self.jobs[:2], start_group_size=2)
+        self.assertEqual(attempts, ['q1', 'q1', 'q1', 'q2'])
+        self.assertEqual(result['error'], 0)
+        self.assertEqual(result['menu_open'], 2)
+        self.assertTrue(any('tranh cửa sổ' in event[1] for event in events))
 
     def test_creates_second_profile_while_first_phone_is_installing(self):
         second_created = threading.Event()

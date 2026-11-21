@@ -43,7 +43,7 @@ class CountryRecoveryTests(unittest.TestCase):
                 node("Continue", "[20,150][300,190]"), node("US +1", "[20,100][80,130]")]
         taps = []
 
-        def read(*_):
+        def read(*_, **_kwargs):
             return form if len(taps) >= 2 else country
 
         def wait(_phone, expected, *_args, **_kwargs):
@@ -73,7 +73,7 @@ class CountryRecoveryTests(unittest.TestCase):
                 node('Continue', '[10,160][250,190]'),
                 node('US +1', '[10,100][80,130]')]
         tapped = []
-        def read(*_):
+        def read(*_, **_kwargs):
             return form if len(tapped) >= 2 else country
         action = next(step.action for step in flow.build_common_steps(self.phone, lambda _: None)
                       if step.name.startswith('b6'))
@@ -97,7 +97,7 @@ class CountryRecoveryTests(unittest.TestCase):
                                                   self.deadline, self.stop, country_list=True), us)
         self.assertEqual([(call.kwargs['fling'], call.kwargs['reverse'])
                           for call in scroll.call_args_list],
-                         [(True, False), (True, False), (False, True)])
+                         [(True, False), (False, True), (False, True)])
 
     def test_small_ocr_bounds_jitter_is_not_treated_as_list_still_flinging(self):
         original = node("United States +1", "[55,280][245,315]")

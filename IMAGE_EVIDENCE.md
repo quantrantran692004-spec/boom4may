@@ -4,6 +4,8 @@
 
 Video người dùng cung cấp đã sao chép từ `D:\cuonus1.mp4` vào [cuonus1.mp4](flow_images/shared/cuonus1.mp4) theo yêu cầu lưu toàn bộ minh chứng trên Git. Khoảng giây 1 hộp quốc gia ở đầu danh sách; giây 6–8 đã tới các hàng cuối gồm Zimbabwe và Åland Islands; sau một cú vuốt ngược ngắn, United States +1 hiện khoảng giây 9–10; chạm hàng US làm hộp đóng và form hiện US +1 khoảng giây 16. Đây là bằng chứng cho thao tác tay, chưa đo tốc độ hoặc xác nhận hành vi của tool đang chạy. Không ghi lại SĐT trong tài liệu.
 
+Ảnh bổ sung cùng bước ngày 18/11: [b6_bottom_stalled_18nov.png](flow_images/shared/b6_bottom_stalled_18nov.png) có danh sách Uruguay → Åland Islands, chưa thấy US +1; người dùng báo cuộn xuống cuối rồi đứng im. OCR thật nhận COUNTRY. Tính thử cú vuốt ngược từ các hàng trong ảnh: (152,432) → (152,482), 50 px/650 ms; ADB được mock, không có cú vuốt thật. Đã sửa đọc có hạn và vuốt ngược trực tiếp, test hai luồng qua một cú nhẹ rồi chọn US; chưa chứng minh phiên tool đang mở đã nạp mã.
+
 ## q1 b6 — US +1 hiện nhưng chạm không đóng hộp, 14/11/2026
 
 - [15_b6_us_tap_error.png](flow_images/q1/15_b6_us_tap_error.png): tool báo chạm US +1 bốn lần nhưng Country vẫn mở.
@@ -79,6 +81,8 @@ Các ảnh người dùng gửi đã được sao chép vào `flow_images/` đ�
 
 [14_b10_not_whatsapp.png](flow_images/q1/14_b10_not_whatsapp.png): b10 báo q1 chưa ở màn chọn SMS; cần đọc lại màn hiện tại khi Tiếp tục và quay về đúng bước chung của máy này.
 
+Hai ảnh người dùng gửi 17/11 (`codex-clipboard-a6f1474a-d530-4bdd-9e58-a29be4c7896c.png`, `codex-clipboard-ef43aef2-5fb4-4e49-9d86-bbb7dcc4b530.png`) cho thấy bảng của Máy 1 báo màn chuyển chậm `(WHATSAPP)` và màn Amazon vẫn có nút `Send code by SMS`. Ảnh không cho biết tool đang ở b7 hay b10; không chép ảnh có SĐT vào repository công khai. Mã mới xử lý cả hai đường chờ, chưa xác minh trên máy thật.
+
 ## q2 ảnh 01 — Trang chủ
 
 [01_home.png](flow_images/q2/01_home.png): b1 bấm tab nhà, xem 2–5 giây.
@@ -104,6 +108,14 @@ Các ảnh người dùng gửi đã được sao chép vào `flow_images/` đ�
 - [05_b10_error.png](flow_images/q1/latest_errors/05_b10_error.png): thông báo URL OTP HTTP 403 khi tool ghi b10.
 - [06_whatsapp.png](flow_images/q1/latest_errors/06_whatsapp.png): màn vẫn là Verify with WhatsApp, nút Send code by SMS chưa được bấm. Ảnh này cho thấy bản đang chạy đã đọc URL trước khi gửi SMS; mã nguồn hiện tại đọc URL ở b11 sau khi xác nhận màn SMS. Chưa kiểm chứng phiên tool đang chạy nạp phiên bản mã nào.
 
+Ảnh bảng trạng thái người dùng gửi ngày 17/11 báo `Dừng tại b11 bấm Create your Amazon account` vì không xác định nút vàng dưới ô OTP. Người dùng xác nhận máy đó đi **nhánh đăng nhập** khi nhảy sớm tới xác minh; ảnh này chỉ chứa bảng trạng thái, không chứa màn Android SMS. Không dùng ảnh đó làm bằng chứng nhãn nút Verify trên thiết bị. Đường tạo tài khoản theo các ảnh cũ vẫn dùng Create.
+
+Ảnh bảng trạng thái tiếp theo ngày 17/11 báo `Dừng tại b11 nhập OTP: Chưa xác nhận được nội dung ô 'Enter security code'`. Người dùng nói mã đã được gõ nhưng nút vàng chưa được bấm; đây là nhánh đăng nhập. Ảnh chỉ có thông báo tool, chưa thấy ô OTP hoặc nút trên Android nên không dùng làm bằng chứng pixel của nút.
+
+Hai ảnh tiếp theo ngày 17/11 cho thấy **màn Android thật** của nhánh đăng nhập: OTP đã hiện trong ô, nút vàng ngay dưới ô ghi `Verify mobile number`, và tiêu đề phía trên cũng ghi đúng cụm này. Người dùng xác nhận lại ngày 18/11 rằng ảnh này là **đăng nhập**, không phải tạo tài khoản. Ảnh thông báo tool báo nhánh đăng nhập “chưa thấy nút Verify”; nguyên nhân là mã tìm nhãn `Verify` không khớp nút thật. Không ghi lại mã OTP hoặc SĐT từ ảnh vào tài liệu. Bộ chọn phải lấy nút cùng nhãn ở dưới ô mã, không lấy tiêu đề.
+
+Đọc pixel trực tiếp trên ảnh này cho thấy chữ đen ở giữa làm ngắt các hàng vàng liên tục; ngưỡng dò cũ không nhận được nút. Ngưỡng riêng của nhánh đăng nhập nhận đúng một vùng vàng dưới ô OTP, không cần OCR để xác định màu. Kết quả này chỉ xác nhận bộ chọn trên ảnh tĩnh, chưa xác nhận cú bấm trên máy thật. Ngày 18/11, sau khi cài ONNX Runtime 1.20.1 và sửa nhận diện viền ô nhập chồng nhau, OCR đọc được ô mã đủ sáu ký tự và vùng nút Verify nằm dưới ô từ chính ảnh này; không lưu giá trị mã hoặc SĐT.
+
 ## q1 ảnh 15 — b4 Sign In trên menu danh sách
 
 [15_b4_list_sign_in_ambiguous.png](flow_images/q1/15_b4_list_sign_in_ambiguous.png): q1 hiện menu dạng danh sách, Sign In nằm dưới Customer Service nhưng tool báo không xác định được duy nhất `Sign In`. Bộ chọn b4 cần ưu tiên phần tử có thể bấm, hoặc phần tử ở dưới Customer Service khi cây UI trả nhãn lặp. Chưa có ADB dump của chính máy này để xác minh thuộc tính các node.
@@ -112,7 +124,7 @@ Các ảnh người dùng gửi đã được sao chép vào `flow_images/` đ�
 
 ## 14 ảnh menu chung b1–b3 ngẫu nhiên — 14/11/2026
 
-Ảnh người dùng gửi chỉ là tham chiếu giao diện, không ghi máy qN hoặc chứng minh tool đã bấm thành công. Viền xanh cho biết một thẻ đang mở; các hàng mục con xuất hiện ngay trong menu. Khi cuộn xuống, `Shop by category` có thể ra khỏi khung nhìn; `Sign In` nằm ở cuối menu và chỉ dành cho b4. B1–b3 được phép bấm thẻ hoặc mục con đang hiện, không lấy tọa độ cố định từ các ảnh này.
+Ảnh người dùng gửi chỉ là tham chiếu giao diện, không ghi máy qN hoặc chứng minh tool đã bấm thành công. Viền xanh cho biết một thẻ đang mở; các hàng mục con xuất hiện ngay trong menu. Khi cuộn xuống, `Shop by category` có thể ra khỏi khung nhìn; `Sign In` nằm ở cuối menu và chỉ dành cho b4. B1–b3 được phép bấm thẻ hoặc mục con đang hiện, không lấy tọa độ cố định từ các ảnh này. Lời nhắc 18/11: chọn mục con sang trang khác vẫn xem đủ lượt và đủ cả b1–b3, mở ba gạch ở lượt kế; b12–b15 cũng mở lại menu khi sang trang khác.
 
 - [01_menu_cards.png](flow_images/shared/random_prefix_reference/01_menu_cards.png): đầu menu với các thẻ danh mục và tab menu.
 - [02_menu_bottom_sign_in.png](flow_images/shared/random_prefix_reference/02_menu_bottom_sign_in.png): cuối menu, Customer Service và Sign In dưới các thẻ Office, Sports, Your Stuff.
@@ -128,3 +140,57 @@ Các ảnh người dùng gửi đã được sao chép vào `flow_images/` đ�
 - [12_music_expanded.png](flow_images/shared/random_prefix_reference/12_music_expanded.png): Music, Video and Gaming mở Music, Musical Instruments, Video Games, DVD, Gaming Store.
 - [13_books_expanded.png](flow_images/shared/random_prefix_reference/13_books_expanded.png): Books and Reading mở Books, STEAM Store; Sign In ở phía dưới.
 - [14_toys_expanded.png](flow_images/shared/random_prefix_reference/14_toys_expanded.png): Toys, Kids and Baby mở Toys & Games, Baby, Baby Clothes, Girls' Clothes, Boys' Clothes, STEAM Store.
+
+Ảnh báo lỗi bổ sung 18/11: [15_q4_prefix_read_recovery.png](flow_images/shared/random_prefix_reference/15_q4_prefix_read_recovery.png) cho thấy Máy 4 báo “Đọc màn hình chưa xong · đang tự phục hồi lần 45”. Người dùng báo sau lượt ngẫu nhiên sang màn lạ phục hồi lâu. Ảnh chỉ có bảng trạng thái, không xác định màn Android hoặc bước đang chạy. Kiểm tra mã tìm thấy `_prefix_nodes` gọi bộ đọc tự lặp nên thời hạn 12 giây không dừng được vòng này; đã đổi sang đọc một lượt có ngân sách, thêm Browse/Back dự phòng và test. Chưa xác minh cú bấm trên máy thật.
+
+Ảnh lỗi b13–b15 bổ sung 18/11: [16_q1_lens_camera_permission.png](flow_images/shared/random_prefix_reference/16_q1_lens_camera_permission.png) là Lens có hộp Allow camera access, Not now và Allow access; [17_b15_browse_recovery_error.png](flow_images/shared/random_prefix_reference/17_b15_browse_recovery_error.png) báo b15 không tìm lại được Browse sau ba lượt đọc. Người dùng nói ô tìm kiếm làm bàn phím che tab. OCR thật trên ảnh 16 nhận overlay và một Not now, không có ứng viên chọn ngẫu nhiên. Mã đã lọc đầu vào/camera và bổ sung thoát màn trước khi mở Browse; đây là đối chiếu ảnh và test mô phỏng, chưa thao tác trên máy thật.
+Ảnh ngày 19/11: [18_b14_wait_menu.png](flow_images/shared/random_prefix_reference/18_b14_wait_menu.png) là trạng thái b14 lặp “chờ Trang chủ và menu”; không cho thấy màn Android. Theo yêu cầu mới, b13–b15 chọn điều hướng đang hiện trước, chỉ dùng ba gạch/Back khi không có mục, không chờ Trang chủ giữa các lượt.
+
+## Tạo tài khoản b23–b25 — Account và Your Addresses (19/11/2026)
+
+- [01_b23_account.png](flow_images/shared/create_address/01_b23_account.png) và [13_b23_account_closeup.png](flow_images/shared/create_address/13_b23_account_closeup.png): Sau b22 giữ chờ 3 giây; thấy chữ Account trong ảnh thì bấm ngay, không cần điều kiện nhận diện trang khác.
+- [02_b24_top.png](flow_images/shared/create_address/02_b24_top.png): Đầu trang Account; Your Addresses chưa hiện, cần cuộn xuống.
+- [03_b24_addresses.png](flow_images/shared/create_address/03_b24_addresses.png) và [14_b24_your_addresses_closeup.png](flow_images/shared/create_address/14_b24_your_addresses_closeup.png): Your Addresses đã hiện dưới Account settings; thấy đúng chữ thì chọn, không đòi thêm nhãn khác. Người dùng báo đôi khi quảng cáo chen vào sau b23 cần Back; chưa có ảnh quảng cáo riêng.
+- [04_b25_addresses.png](flow_images/shared/create_address/04_b25_addresses.png): Mục Your Addresses cần bấm ở b25; ảnh sau cú bấm là 05_b26_add_new_address.png.
+- [05_b26_add_new_address.png](flow_images/shared/create_address/05_b26_add_new_address.png): Trang Your Addresses; b26 chọn Add a new address.
+- [06_b27_enter_manually.png](flow_images/shared/create_address/06_b27_enter_manually.png): B27 chọn Enter an address manually.
+- [07_b28_street_form.png](flow_images/shared/create_address/07_b28_street_form.png): Form địa chỉ; b28 tìm ô Street address theo chữ trong cây Android.
+- [08_b28_suggestions.png](flow_images/shared/create_address/08_b28_suggestions.png): Sau khi nhập số, thấy gợi ý địa chỉ thì chọn ngay một dòng, không đợi xác nhận ZIP.
+- [09_b29_default_address.png](flow_images/shared/create_address/09_b29_default_address.png) và [15_b29_empty_checkbox_closeup.png](flow_images/shared/create_address/15_b29_empty_checkbox_closeup.png): Sau khi chọn gợi ý, tìm chữ Make this my default address rồi bấm thẳng ô vuông bên trái một lần; ảnh cận cảnh cho thấy ô ban đầu trống. Không đọc trạng thái ô trước hoặc sau cú bấm.
+- [10_b30_add_address.png](flow_images/shared/create_address/10_b30_add_address.png) và [16_b30_add_address_closeup.png](flow_images/shared/create_address/16_b30_add_address_closeup.png): B30 cuộn khi chưa thấy Add address, thấy chữ thì bấm ngay; sau cú bấm mới đọc kết quả lưu.
+- [11_b31_address_saved.png](flow_images/shared/create_address/11_b31_address_saved.png): Address saved/Personal Addresses xác nhận b30; b31 bấm tab hình người ở thanh dưới, b32 cuộn ngay để tìm Reload Balance, không đọc xác nhận Account.
+- [12_proxy_test_postal.png](flow_images/shared/create_address/12_proxy_test_postal.png): Sau Test Passed của Swarmote, mã bưu chính cạnh City; lấy 4 chữ số đầu cho b28 của đúng máy (ví dụ 36547 → 3654), nếu không đọc được thì dùng dự phòng cũ.
+
+### B32–b39 — Reload Balance, thêm thẻ và địa chỉ thanh toán (21/11/2026)
+
+- [01_b32_account_reload_balance.png](flow_images/shared/reload_payment/01_b32_account_reload_balance.png) và [11_b33_reload_balance_closeup.png](flow_images/shared/reload_payment/11_b33_reload_balance_closeup.png): Sau tab hình người, cuộn tìm đúng chữ Reload Balance rồi bấm ngay.
+- [02_b34_reload_product_top.png](flow_images/shared/reload_payment/02_b34_reload_product_top.png): Đầu trang Amazon Gift Card Balance Reload trước khi cuộn.
+- [03_b36_buy_now.png](flow_images/shared/reload_payment/03_b36_buy_now.png) và [12_b36_buy_now_closeup.png](flow_images/shared/reload_payment/12_b36_buy_now_closeup.png): Sau Reload Balance, vuốt ngắn ngay trên màn mới; thấy Buy Now thì bấm ngay, không đọc lại ở bước sau.
+- [04_b37_add_payment_method.png](flow_images/shared/reload_payment/04_b37_add_payment_method.png) và [13_b37_card_option_closeup.png](flow_images/shared/reload_payment/13_b37_card_option_closeup.png): Thấy Add a credit or debit card thì bấm ngay, không chọn Set up now.
+- [05_b38_card_form_empty.png](flow_images/shared/reload_payment/05_b38_card_form_empty.png): Form thẻ ba ô đang trống, nút Add and continue chưa hoạt động.
+- [06_b38_add_and_continue.png](flow_images/shared/reload_payment/06_b38_add_and_continue.png): Form đã nhập, nút Add and continue sáng; ảnh mới cùng trạng thái đã được kiểm tra OCR vùng nút và không lưu thêm vì chứa dữ liệu thẻ. Sau khi nhập xong, thấy chữ Add and continue thì bấm ngay. Ảnh b39 được lưu nguyên bản theo yêu cầu người dùng; xem mục riêng bên dưới.
+- [14_b39_use_this_address.png](flow_images/shared/reload_payment/14_b39_use_this_address.png): màn Select a billing address với nút Use this address. Ảnh nguyên bản có tên và địa chỉ cá nhân; không chép lại các giá trị vào văn bản.
+- [07_b34_product_stalled.png](flow_images/shared/reload_payment/07_b34_product_stalled.png): ảnh mới 21/11 cho thấy trang Amazon Gift Card Balance Reload đã hiện nhưng Buy Now còn dưới màn; người dùng yêu cầu vuốt ngắn từ dưới lên.
+- [08_b34_error.png](flow_images/shared/reload_payment/08_b34_error.png): tool dừng ở b34 vì chưa thấy mục cần bấm, dù ảnh trang sản phẩm đã hiện. Chưa xác nhận phiên tool đang mở đã nạp mã mới.
+- [09_b37_visible_card_option.png](flow_images/shared/reload_payment/09_b37_visible_card_option.png): ảnh mới cho thấy rõ Add a credit or debit card trên Your Auto-Reload Setting; OCR vùng 20–65% đọc được chữ và vị trí.
+- [10_b37_not_found_error.png](flow_images/shared/reload_payment/10_b37_not_found_error.png): tool báo dừng b37 vì không thấy mục dù ảnh bên cạnh có nút; chưa xác nhận phiên hiện tại đã nạp sửa đổi.
+
+## B16–b22 chung — Đổi marketplace sang United States (18/11/2026)
+
+Bảy ảnh gốc người dùng gửi đã được lưu nguyên bản, áp dụng cho cả Tạo và Đăng nhập. Ảnh có cả vùng điều khiển Swarmote bên phải; mã thao tác Android theo serial, không bấm theo tọa độ toàn ảnh.
+
+| Mốc | Ảnh gốc | Thao tác được hướng dẫn |
+| --- | --- | --- |
+| b16 | [01_b16_account_tab.png](flow_images/shared/marketplace_us/01_b16_account_tab.png) | Tab hình người ở thanh dưới; màn tài khoản có thể báo lỗi tải các khối nội dung. |
+| b17 | [02_b17_locale_button.png](flow_images/shared/marketplace_us/02_b17_locale_button.png), [14_b17_en_closeup.png](flow_images/shared/marketplace_us/14_b17_en_closeup.png) | Sau khi bấm hình người, thấy chữ EN cạnh cờ thì bấm ngay; không cần nhận diện toàn trang Account. |
+| b18 | [03_b18_country_setting.png](flow_images/shared/marketplace_us/03_b18_country_setting.png) | Mở ô Country/Region trên màn Country/Region and Language. |
+| b19 | [04_b19_country_list_top.png](flow_images/shared/marketplace_us/04_b19_country_list_top.png) | Vuốt từ dưới lên trong danh sách marketplace để tìm United States. Không phải danh sách mã điện thoại US +1 của b6. |
+| b20 | [05_b20_united_states.png](flow_images/shared/marketplace_us/05_b20_united_states.png) | Chọn hàng United States / Amazon.com. |
+| b21 | [06_b21_done_us.png](flow_images/shared/marketplace_us/06_b21_done_us.png) | Ô Country/Region đã là United States; bấm Done. |
+| b22 | [07_b22_account_after_done.png](flow_images/shared/marketplace_us/07_b22_account_after_done.png) | Sau Done thấy tab hình người là bấm ngay; chỉ chờ khi chưa tìm được tab, không đợi ảnh Trang chủ; chưa có hướng dẫn b23. |
+
+Ảnh bổ sung 18/11: [08_b16_menu_before_account.png](flow_images/shared/marketplace_us/08_b16_menu_before_account.png) cho thấy menu đang cuộn thấp, hình người vẫn ở thanh dưới; [09_b16_focus_error.png](flow_images/shared/marketplace_us/09_b16_focus_error.png) báo “Amazon chưa ở phía trước”. Người dùng xác nhận ảnh b16 ban đầu là kết quả sau khi bấm tab, không phải màn tool phải đợi trước khi bấm. OCR ảnh menu mới nhận MENU. ADB read-only trên hai serial đang online xác nhận lệnh `dumpsys window windows` không xuất focus; full `window` và `activity activities` đều thấy Amazon, có display phụ focus null. Mã đã sửa guard và test cú bấm hình người từ menu/thiếu nhãn icon; chưa bấm thật hoặc nạp lại phiên RAM.
+
+Ảnh lỗi bổ sung cùng mục ngày 18/11: [10_q3_b16_focus_error.png](flow_images/shared/marketplace_us/10_q3_b16_focus_error.png), [11_search_keyboard_without_tabs.png](flow_images/shared/marketplace_us/11_search_keyboard_without_tabs.png), [12_q3_b16_focus_error_detail.png](flow_images/shared/marketplace_us/12_q3_b16_focus_error_detail.png), [13_b17_focus_error.png](flow_images/shared/marketplace_us/13_b17_focus_error.png). Ảnh 11 là màn tìm kiếm Amazon.sg có bàn phím, chưa có thanh tab hình người/ba gạch để bấm. OCR thật nhận search=True, navigation_ready=False. Mã đã thêm Back có giới hạn và đọc lại thanh điều hướng; test mô phỏng qua đủ b16–b22, chưa bấm trên Android thật. Các ảnh báo focus không chứng minh app khác đang ở trước; ADB đọc hiện tại xác nhận Amazon. Phiên tool đang mở có từ trước bản sửa focus và chưa tự nạp mã.
+
+OCR thật bằng môi trường .venv đã nhận đúng loại màn của cả 7 ảnh, chọn được vùng EN, Country/Region, United States và Done trên ảnh tĩnh. Dòng Previously visited có United States không chứng minh quốc gia hiện tại đã chọn US; phải đối chiếu ô Country/Region phía trên. Chưa kiểm chứng cú bấm, cuộn hoặc thay marketplace trên Swarmote thật.

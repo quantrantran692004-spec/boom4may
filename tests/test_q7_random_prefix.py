@@ -18,6 +18,9 @@ from amazon_android.runner import RunJob
 
 class RandomPrefixTests(unittest.TestCase):
     def setUp(self):
+        reader = patch.object(random_prefix, "_read_hierarchy", return_value=[])
+        reader.start()
+        self.addCleanup(reader.stop)
         self.phone = CloudPhone("127.0.0.1:5001")
         self.job = RunJob(0, "batch", None)
         self.deadline = AttemptDeadline(None)
@@ -80,6 +83,26 @@ class RandomPrefixTests(unittest.TestCase):
             self.assertTrue(random_prefix._tap_child(self.phone, self.deadline, self.stop))
         self.assertEqual(adb.call_args.args[1:5], ("shell", "input", "tap", "205"))
         self.assertEqual(adb.call_args.args[5], "195")
+
+    def test_opened_page_is_viewed_for_each_of_three_steps_before_b4(self):
+        state = RegistrationState()
+        steps = random_prefix.build_random_steps(self.phone, lambda _: None,
+                                                  registration=state)
+        page = [{"text": "Category page", "bounds": "[20,100][330,150]"}]
+        with patch.object(random_prefix, "_read_hierarchy", return_value=page), \
+             patch.object(random_prefix, "cloud_adb", return_value=SimpleNamespace(
+                 stdout="Physical size: 420x840")), \
+             patch.object(random_prefix, "_tap_child") as child, \
+             patch.object(self.stop, "wait", return_value=False) as wait:
+            for number, step in enumerate(steps[:3], 1):
+                step.action(self.job, self.deadline, self.stop)
+                self.assertEqual(len(state.prefix_completed), number)
+                if number < 3:
+                    with self.assertRaises(RecoverableStepError):
+                        steps[3].action(self.job, self.deadline, self.stop)
+        child.assert_not_called()
+        self.assertEqual(sum(call.args == (11,) for call in wait.call_args_list), 3)
+        self.assertEqual(state.prefix_completed, {1, 2, 3})
 
     def test_child_waits_for_expanded_menu_and_never_taps_sign_in(self):
         loading = [{"text": "Shop by category", "bounds": "[1,1][200,40]"}]

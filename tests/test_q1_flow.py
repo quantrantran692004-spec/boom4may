@@ -8,9 +8,9 @@ from PIL import Image, ImageDraw
 
 from amazon_android.cloud import CloudPhone
 from amazon_android.core import AMAZON_PACKAGE, ToolError
-from amazon_android.post_menu import AttemptDeadline, PostMenuSession
+from amazon_android.post_menu import AttemptDeadline, PostMenuSession, RecoverableStepError
 from amazon_android.account_flow import (
-    _button, _find_scrolling, _national_phone, _parse_ui_nodes, _read_nodes, _scroll_up, _unique,
+    _ScreenWaitExpired, _button, _find_scrolling, _national_phone, _parse_ui_nodes, _read_nodes, _scroll_up, _unique,
     build_common_steps, menu_layout, resume_common_index,
     route_list_menu, screen, _yellow_form_button,
 )
@@ -311,8 +311,8 @@ class Q1FlowTests(unittest.TestCase):
              patch.object(self.stop, "wait", return_value=False):
             action(self.job, self.deadline, self.stop)
         self.assertEqual([call.args[1] for call in tap.call_args_list], [settled, sg, settled])
-        self.assertTrue(scroll.call_args.kwargs["fling"])
-        self.assertFalse(scroll.call_args.kwargs["reverse"])
+        self.assertFalse(scroll.call_args.kwargs["fling"])
+        self.assertTrue(scroll.call_args.kwargs["reverse"])
 
     def test_reads_current_ui_again_after_adb_timeout(self):
         error = ToolError("ADB timeout")
@@ -349,9 +349,10 @@ class Q1FlowTests(unittest.TestCase):
         self.assertTrue(scroll.call_args_list[0].kwargs["fling"])
         self.assertTrue(scroll.call_args_list[1].kwargs["fling"])
         self.assertTrue(scroll.call_args_list[3].kwargs["reverse"])
+        self.assertTrue(scroll.call_args_list[3].kwargs["gentle_reverse"])
 
     def test_b6_reverses_when_forward_swipe_no_longer_moves_list(self):
-        last = [node("Zimbabwe +263")]
+        last = [node("Yemen +967")]  # No known bottom landmark: detect unchanged rows.
         target = node("United States +1")
         with patch("amazon_android.account_flow._read_nodes",
                    side_effect=[[node("United Kingdom +44")], last, last, last, [target]]), \
@@ -378,8 +379,229 @@ class Q1FlowTests(unittest.TestCase):
         self.assertIs(result, target)
         self.assertEqual([(call.kwargs["fling"], call.kwargs["reverse"])
                           for call in scroll.call_args_list],
-                         [(True, False), (True, False), (True, False),
+                         [(True, False), (True, False), (False, True),
                           (False, True)])
+
+    def test_b6_vietnam_at_bottom_gets_short_reverse_after_fling(self):
+        target = node("United States +1")
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[[node("Afghanistan +93")], [node("Vietnam +84")],
+                                [node("Vietnam +84")], [target]]), \
+             patch("amazon_android.account_flow._scroll_up") as scroll, \
+             patch.object(self.stop, "wait", return_value=False):
+            self.assertIs(_find_scrolling(self.phone, "United States +1",
+                                          self.deadline, self.stop,
+                                          country_list=True), target)
+        self.assertEqual([(call.kwargs["fling"], call.kwargs["reverse"],
+                           call.kwargs["gentle_reverse"])
+                          for call in scroll.call_args_list],
+                         [(True, False, False), (False, True, True),
+                          (False, True, True)])
+        self.assertTrue(scroll.call_args_list[-1].kwargs["force_adb"])
+
+    def test_b6_resumed_at_vietnam_reverses_without_another_downward_fling(self):
+        target = node("United States +1")
+        for label in ("Vietnam", "Viet Nam", "Việt Nam"):
+            with self.subTest(label=label), \
+                 patch("amazon_android.account_flow._read_nodes",
+                       side_effect=[[node(label)], [target]]), \
+                 patch("amazon_android.account_flow._scroll_up") as scroll, \
+                 patch.object(self.stop, "wait", return_value=False):
+                self.assertIs(_find_scrolling(self.phone, "United States +1",
+                                              self.deadline, self.stop,
+                                              country_list=True), target)
+                scroll.assert_called_once()
+                self.assertTrue(scroll.call_args.kwargs["reverse"])
+                self.assertTrue(scroll.call_args.kwargs["gentle_reverse"])
+                self.assertFalse(scroll.call_args.kwargs["fling"])
+
+    def test_b6_continues_short_reverse_when_first_swipe_misses_us(self):
+        target = node("United States +1")
+        vietnam = [node("Vietnam +84")]
+        bottom = [node("Zimbabwe +263")]
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[[node("Afghanistan +93")], vietnam, vietnam,
+                                vietnam, bottom, bottom, [target]]), \
+             patch("amazon_android.account_flow._scroll_up") as scroll, \
+             patch.object(self.stop, "wait", return_value=False):
+            self.assertIs(_find_scrolling(self.phone, "United States +1",
+                                          self.deadline, self.stop,
+                                          country_list=True), target)
+        self.assertEqual([call.kwargs["gentle_reverse"]
+                          for call in scroll.call_args_list],
+                         [False, True, True, True, True, True])
+        self.assertTrue(scroll.call_args_list[-1].kwargs["reverse"])
+        self.assertFalse(scroll.call_args_list[-1].kwargs["fling"])
+        self.assertEqual([call.kwargs["force_adb"] for call in scroll.call_args_list],
+                         [False, True, True, True, True, True])
+
+    def test_b6_gentle_reverse_adb_stays_inside_country_list(self):
+        region = node("", bounds="[40,120][340,720]")
+        region["scrollable"] = "true"
+        vietnam = node("Vietnam +84", bounds="[50,650][300,690]")
+        with patch("amazon_android.isolated_reader.current", return_value=None), \
+             patch("amazon_android.account_flow.ui_backend.country_scroll",
+                   return_value=False), \
+             patch("amazon_android.account_flow.cloud_adb") as adb:
+            _scroll_up(self.phone, [region, vietnam], self.deadline,
+                       country_list=True, reverse=True, gentle_reverse=True)
+        _, _, _, _, x1, y1, x2, y2, duration = adb.call_args.args
+        self.assertEqual(x1, x2)
+        self.assertTrue(40 < int(x1) < 340)
+        self.assertTrue(120 < int(y1) < int(y2) < 720)
+        self.assertLess(int(y2) - int(y1), 200)
+        self.assertEqual(duration, "650")
+
+    def test_b6a_reverse_adb_distance_is_three_times_b6b(self):
+        region = dict(node("", bounds="[40,120][340,720]"), scrollable="true")
+        vietnam = node("Vietnam +84", bounds="[50,650][300,690]")
+        with patch("amazon_android.isolated_reader.current", return_value=None), \
+             patch("amazon_android.account_flow.ui_backend.country_scroll", return_value=False), \
+             patch("amazon_android.account_flow.cloud_adb") as adb:
+            _scroll_up(self.phone, [region, vietnam], self.deadline,
+                       country_list=True, reverse=True, gentle_reverse=True,
+                       force_adb=True)
+            b6b = adb.call_args.args
+            _scroll_up(self.phone, [region, vietnam], self.deadline,
+                       country_list=True, reverse=True, gentle_reverse=True,
+                       force_adb=True, first_reverse_triple=True)
+            b6a = adb.call_args.args
+        self.assertEqual(int(b6a[7]) - int(b6a[5]),
+                         3 * (int(b6b[7]) - int(b6b[5])))
+        self.assertEqual(b6a[8], b6b[8])
+
+    def test_b6_screenshot_bottom_swipes_once_then_selects_us_in_both_modes(self):
+        from amazon_android.post_menu import RegistrationState
+        region = dict(node('', bounds='[53,165][360,785]'), scrollable='true')
+        rows = ['Uruguay +598', 'Uzbekistan +998', 'Vanuatu +678', 'Vatican City +39',
+                'Venezuela +58', 'Vietnam +84', 'Wallis & Futuna +681',
+                'Western Sahara +212', 'Yemen +967', 'Zambia +260',
+                'Zimbabwe +263', 'Åland Islands +358']
+        bottom = [node('Country/region code', bounds='[80,120][290,150]'), region] + [
+            node(text, bounds=f'[80,{185+50*i}][310,{215+50*i}]')
+            for i,text in enumerate(rows)]
+        us = node('United States +1', bounds='[80,175][290,210]')
+        found = [bottom[0], us, node('Uruguay +598', bounds='[80,225][310,260]')]
+        confirmed = [node('Sign in or create account'), node('Enter mobile number or email'),
+                     node('US +1')]
+        for mode in ('create','login'):
+            state = RegistrationState(flow_mode=mode)
+            action = next(s.action for s in build_common_steps(self.phone, lambda _: None,
+                                                               registration=state)
+                          if s.name.startswith('b6'))
+            reads = iter([bottom, found, found, confirmed]); events = []
+            def read(*_a, **_k):
+                events.append('read'); return next(reads)
+            def adb(phone, *args, **_kwargs):
+                self.assertEqual(phone, self.phone)
+                self.assertEqual(args[:3], ('shell','input','swipe'))
+                self.assertEqual(args[-1], '650')
+                self.assertTrue(165 < int(args[4]) < int(args[6]) < 785)
+                self.assertEqual(int(args[6])-int(args[4]), 150)
+                events.append('reverse')
+            with self.subTest(mode=mode), \
+                 patch('amazon_android.account_flow._read_nodes', side_effect=read), \
+                 patch('amazon_android.account_flow.cloud_adb', side_effect=adb), \
+                 patch('amazon_android.account_flow.ui_backend.country_scroll',
+                       side_effect=AssertionError('No second native read before reverse')), \
+                 patch('amazon_android.account_flow._tap') as tap, \
+                 patch.object(self.stop, 'wait', return_value=False):
+                action(self.job, self.deadline, self.stop)
+            self.assertEqual(events, ['read','reverse','read','read','read'])
+            tap.assert_called_once_with(self.phone, us, self.deadline)
+            self.assertFalse(state.country_reverse_started)
+
+    def test_b6_stop_resume_keeps_reverse_direction_without_flinging_down_again(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(); other = RegistrationState()
+        target = node('United States +1')
+        def paused(_seconds):
+            self.stop.set(); return True
+        with patch('amazon_android.account_flow._read_nodes', return_value=[node('Åland Islands +358')]), \
+             patch('amazon_android.account_flow._scroll_up') as scroll, \
+             patch.object(self.stop, 'wait', side_effect=paused):
+            with self.assertRaisesRegex(ToolError,'Đã dừng'):
+                _find_scrolling(self.phone,'United States +1',self.deadline,self.stop,
+                                country_list=True,country_state=state)
+        self.assertTrue(state.country_reverse_started)
+        self.assertFalse(other.country_reverse_started)
+        self.stop.clear()
+        with patch('amazon_android.account_flow._read_nodes', side_effect=[
+                    [node('United Kingdom +44'),node('Uruguay +598')],[target]]), \
+             patch('amazon_android.account_flow._scroll_up') as scroll, \
+             patch.object(self.stop,'wait',return_value=False):
+            self.assertIs(_find_scrolling(self.phone,'United States +1',self.deadline,self.stop,
+                                         country_list=True,country_state=state),target)
+        scroll.assert_called_once()
+        self.assertEqual((scroll.call_args.kwargs['fling'],scroll.call_args.kwargs['reverse'],
+                          scroll.call_args.kwargs['force_adb']), (False,True,True))
+
+    def test_b6b_second_gentle_pull_then_reads_us(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(country_reverse_started=True,
+                                  country_reverse_swipes=1)
+        first = [node('Uruguay +598'), node('Vietnam +84')]
+        us = node('United States +1')
+        with patch('amazon_android.account_flow._read_nodes', return_value=[us]), \
+             patch('amazon_android.account_flow._scroll_up') as scroll, \
+             patch.object(self.stop, 'wait', return_value=False):
+            found = _find_scrolling(self.phone, 'United States +1', self.deadline,
+                                    self.stop, country_list=True, nodes=first,
+                                    country_state=state)
+        self.assertIs(found, us)
+        scroll.assert_called_once()
+        self.assertTrue(scroll.call_args.kwargs['gentle_reverse'])
+        self.assertEqual(state.country_reverse_swipes, 2)
+
+    def test_b6_bottom_nudges_before_selecting_us_at_top_edge(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState()
+        us = node('United States +1', bounds='[80,166][290,190]')
+        bottom = [node('Country/region code', bounds='[80,120][290,165]'), us,
+                  node('Vietnam +84', bounds='[80,600][290,640]')]
+        revealed = [node('Country/region code', bounds='[80,120][290,165]'),
+                    node('United States +1', bounds='[80,210][290,245]')]
+        with patch('amazon_android.account_flow._read_nodes', return_value=revealed), \
+             patch('amazon_android.account_flow._scroll_up') as scroll, \
+             patch.object(self.stop, 'wait', return_value=False):
+            result = _find_scrolling(self.phone, 'United States +1', self.deadline,
+                                     self.stop, country_list=True, nodes=bottom,
+                                     country_state=state)
+        self.assertEqual(result, revealed[1])
+        scroll.assert_called_once()
+        self.assertEqual((scroll.call_args.kwargs['fling'],
+                          scroll.call_args.kwargs['reverse'],
+                          scroll.call_args.kwargs['gentle_reverse']), (False, True, True))
+        self.assertTrue(state.country_reverse_started)
+
+    def test_b6_unreadable_country_pauses_after_three_reads_without_blind_swipes(self):
+        from amazon_android.account_flow import _UiReadIncomplete
+        from amazon_android.post_menu import PostMenuStep
+        action = next(s.action for s in build_common_steps(self.phone, lambda _: None)
+                      if s.name.startswith('b6'))
+        session = PostMenuSession(self.job.batch_id,self.job.index,'q1')
+        with patch('amazon_android.account_flow._read_nodes_once',
+                   side_effect=_UiReadIncomplete('UI unavailable')) as read, \
+             patch('amazon_android.account_flow._scroll_up') as scroll, \
+             patch.object(self.stop,'wait',return_value=False):
+            session.run(self.job,(PostMenuStep('b6 chọn US +1',action),),lambda *_:None,self.stop)
+        self.assertEqual(session.state,'PAUSED')
+        self.assertEqual(read.call_count,3)
+        self.assertIn('ba lần',session.last_error)
+        scroll.assert_not_called()
+
+    def test_b6_unchanged_after_native_reverse_uses_adb_on_fresh_read(self):
+        region = node("", bounds="[40,120][340,720]")
+        region["scrollable"] = "true"
+        vietnam = node("Vietnam +84", bounds="[50,650][300,690]")
+        with patch("amazon_android.isolated_reader.current", return_value=None), \
+             patch("amazon_android.account_flow.ui_backend.country_scroll") as native, \
+             patch("amazon_android.account_flow.cloud_adb") as adb:
+            _scroll_up(self.phone, [region, vietnam], self.deadline,
+                       country_list=True, reverse=True, gentle_reverse=True,
+                       force_adb=True)
+        native.assert_not_called()
+        self.assertEqual(adb.call_args.args[1:4], ("shell", "input", "swipe"))
 
     def test_phone_uses_input_digits_then_checks_us_national_number(self):
         self.assertEqual(_national_phone(self.job), "2025550123")
@@ -478,6 +700,119 @@ class Q1FlowTests(unittest.TestCase):
         self.assertEqual(statuses, ["Đang chờ mã"])
         read.assert_not_called()
 
+    def test_shared_steps_accept_direct_jump_from_b5_to_sms_without_earlier_taps(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState()
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone)]
+        steps = build_common_steps(self.phone, lambda _: None, registration=state)
+        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+             patch("amazon_android.account_flow._tap") as tap:
+            for step in steps[:8]:
+                step.action(self.job, self.deadline, self.stop)
+        tap.assert_not_called()
+        self.assertIsNotNone(state.sms_requested_at)
+        self.assertEqual(state.sms_tap_attempts, 0)
+
+    def test_direct_sms_jump_with_another_phone_stops_before_otp(self):
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node("12025559999")]
+        action = next(step.action for step in build_common_steps(self.phone, lambda _: None)
+                      if step.name.startswith("b10"))
+        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+             patch("amazon_android.account_flow._tap") as tap:
+            with self.assertRaisesRegex(ToolError, "không khớp"):
+                action(self.job, self.deadline, self.stop)
+        tap.assert_not_called()
+
+    def test_direct_sms_jump_accepts_phone_in_accessibility_description(self):
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               {"content-desc": f"US +1 {self.job.account.phone}",
+                "bounds": "[10,80][200,110]"}]
+        action = next(step.action for step in build_common_steps(self.phone, lambda _: None)
+                      if step.name.startswith("b10"))
+        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+             patch("amazon_android.account_flow._tap") as tap:
+            action(self.job, self.deadline, self.stop)
+        tap.assert_not_called()
+
+    def test_b7_accepts_direct_jump_to_whatsapp_after_continue(self):
+        identifier = [node("Sign in or create account"),
+                      node("Enter mobile number or email"), node("Continue"),
+                      node("US +1"), node(self.job.account.phone)]
+        whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS"),
+                    node(self.job.account.phone)]
+        action = next(step.action for step in build_common_steps(self.phone, lambda _: None)
+                      if step.name.startswith("b7"))
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[identifier, whatsapp]), \
+             patch("amazon_android.account_flow._tap_for_transition") as tap:
+            action(self.job, self.deadline, self.stop)
+        tap.assert_called_once()
+
+    def test_b6_stops_scrolling_when_android_jumps_to_sms(self):
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone)]
+        with patch("amazon_android.account_flow._read_nodes", side_effect=[
+                [node("Vietnam +84")], sms]), \
+             patch("amazon_android.account_flow._scroll_up") as scroll:
+            with self.assertRaises(RecoverableStepError):
+                _find_scrolling(self.phone, "United States +1", self.deadline,
+                                self.stop, country_list=True)
+        scroll.assert_called_once()
+
+    def test_b6_accepts_sms_while_country_picker_is_opening(self):
+        identifier = [node("Sign in or create account"),
+                      node("Enter mobile number or email"), node("Continue"),
+                      node("SG +65"), node(self.job.account.phone)]
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone)]
+        action = next(step.action for step in build_common_steps(self.phone, lambda _: None)
+                      if step.name.startswith("b6"))
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[identifier, sms]), \
+             patch("amazon_android.account_flow._tap_for_transition") as tap:
+            action(self.job, self.deadline, self.stop)
+        tap.assert_called_once()
+
+    def test_b10_retries_once_only_after_same_phone_stays_on_whatsapp(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState()
+        whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS"),
+                    node(self.job.account.phone)]
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone)]
+        action = next(step.action for step in build_common_steps(
+            self.phone, lambda _: None, registration=state)
+            if step.name.startswith("b10"))
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[whatsapp, whatsapp]), \
+             patch("amazon_android.account_flow._tap") as tap, \
+             patch("amazon_android.account_flow._wait_screen",
+                   side_effect=[_ScreenWaitExpired("still WhatsApp"), sms]):
+            action(self.job, self.deadline, self.stop)
+        self.assertEqual(tap.call_count, 2)
+        self.assertEqual(state.sms_tap_attempts, 2)
+
+    def test_b10_never_taps_a_third_time_after_two_uncertain_attempts(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState()
+        whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS"),
+                    node(self.job.account.phone)]
+        action = next(step.action for step in build_common_steps(
+            self.phone, lambda _: None, registration=state)
+            if step.name.startswith("b10"))
+        with patch("amazon_android.account_flow._read_nodes", return_value=whatsapp), \
+             patch("amazon_android.account_flow._tap") as tap, \
+             patch("amazon_android.account_flow._wait_screen",
+                   side_effect=_ScreenWaitExpired("still WhatsApp")):
+            with self.assertRaisesRegex(ToolError, "hai lần"):
+                action(self.job, self.deadline, self.stop)
+            with self.assertRaisesRegex(ToolError, "hai lần"):
+                action(self.job, self.deadline, self.stop)
+        self.assertEqual(tap.call_count, 2)
+        self.assertEqual(state.sms_tap_attempts, 2)
+
     def test_sms_is_not_sent_twice_after_uncertain_transition(self):
         steps = build_q1_steps(self.phone, lambda code: None)
         send_sms = next(step.action for step in steps if step.name.startswith("b10"))
@@ -489,16 +824,61 @@ class Q1FlowTests(unittest.TestCase):
                    side_effect=ToolError("slow screen")):
             with self.assertRaises(ToolError):
                 send_sms(self.job, self.deadline, self.stop)
-            with self.assertRaisesRegex(ToolError, "Đã bấm gửi SMS"):
+            with self.assertRaisesRegex(ToolError, "slow screen"):
                 send_sms(self.job, self.deadline, self.stop)
         tap.assert_called_once()
+
+    def test_b10_stalled_whatsapp_pauses_only_affected_phone(self):
+        whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS")]
+        sms = [node("Verify mobile number"), node("Enter security code")]
+        first = PostMenuSession("batch", 0, "q1")
+        second = PostMenuSession("batch", 1, "q2")
+        first_step = next(step for step in build_common_steps(
+            self.phone, lambda _: None, registration=first.registration)
+            if step.name.startswith("b10"))
+        second_phone = CloudPhone("127.0.0.1:5002")
+        second_step = next(step for step in build_common_steps(
+            second_phone, lambda _: None, registration=second.registration)
+            if step.name.startswith("b10"))
+        second_job = RunJob(1, "batch", None, account=AccountData(
+            "12025550124", "Second User", "Example456!",
+            "https://apifc.net/smsrecord?token=q2"))
+        events = []
+        def read(phone, *_args):
+            return whatsapp if phone.serial == self.phone.serial else sms
+        with patch("amazon_android.account_flow._read_nodes", side_effect=read), \
+             patch("amazon_android.account_flow._check_summary"), \
+             patch("amazon_android.account_flow._tap") as tap, \
+             patch("amazon_android.account_flow._wait_screen",
+                   side_effect=ToolError("Chưa thấy màn nhập mã SMS")):
+            first.run(self.job, (first_step,), lambda *event: events.append(event), self.stop)
+            second.run(second_job, (second_step,), lambda *event: events.append(event), self.stop)
+            self.assertEqual((first.state, first.next_step), ("PAUSED", 0))
+            self.assertEqual((second.state, second.next_step), ("DONE", 1))
+            first.run(self.job, (first_step,), lambda *event: events.append(event), self.stop)
+        tap.assert_called_once()
+        self.assertEqual((first.state, first.next_step), ("PAUSED", 0))
+        self.assertTrue(any("Chưa thấy màn nhập mã SMS" in event[1] for event in events))
+        self.assertIsNotNone(first.registration.sms_requested_at)
+        self.assertIsNotNone(second.registration.sms_requested_at)
+
+    def test_wait_screen_stops_after_bounded_sms_observation(self):
+        from amazon_android.account_flow import _wait_screen
+        whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS")]
+        with patch("amazon_android.account_flow._read_nodes", return_value=whatsapp), \
+             patch("amazon_android.account_flow.cloud_adb") as adb:
+            with self.assertRaisesRegex(ToolError, "kiểm tra máy này"):
+                _wait_screen(self.phone, {"SMS"}, AttemptDeadline(None), self.stop,
+                             max_wait=0, timeout_message="Chưa thấy SMS; kiểm tra máy này")
+        adb.assert_not_called()
 
     def test_sms_tap_timeout_checks_next_screen_without_resending(self):
         error = ToolError("ADB timeout")
         error.__cause__ = TimeoutExpired("adb", 6)
         whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS"),
                     node(self.job.account.phone)]
-        sms = [node("Verify mobile number"), node("Enter security code")]
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone)]
         send_sms = next(step.action for step in build_common_steps(self.phone, lambda _: None)
                         if step.name.startswith("b10"))
         with patch("amazon_android.account_flow._read_nodes",
@@ -523,7 +903,8 @@ class Q1FlowTests(unittest.TestCase):
         send_sms = next(step.action for step in build_common_steps(
             self.phone, lambda code: None, statuses.append)
             if step.name.startswith("b10"))
-        sms = [node("Verify mobile number"), node("Enter security code")]
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone)]
         with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
              patch("amazon_android.account_flow._tap") as tap:
             send_sms(self.job, self.deadline, self.stop)
@@ -626,6 +1007,335 @@ class Q1FlowTests(unittest.TestCase):
             create(self.job, AttemptDeadline(30), self.stop)
         tap.assert_called_once()
 
+    def test_after_sms_waits_through_slow_sms_blank_and_loading(self):
+        from amazon_android.account_flow import _wait_after_sms
+        elapsed = [0]
+        screens = iter([[node("Verify mobile number"), node("Enter security code")],
+                        [], [node("Amazon")], [node("Shop by category")]])
+        def read(*_args):
+            elapsed[0] += 8
+            return next(screens)
+        with patch("amazon_android.account_flow.time.monotonic", side_effect=lambda: elapsed[0]), \
+             patch("amazon_android.account_flow._read_nodes", side_effect=read) as reader, \
+             patch.object(AttemptDeadline, "allowance", side_effect=lambda seconds: seconds), \
+             patch.object(self.stop, "wait", return_value=False), \
+             patch("amazon_android.account_flow._tap") as tap:
+            self.assertTrue(_wait_after_sms(self.phone, self.deadline, self.stop))
+        self.assertEqual(reader.call_count, 4)
+        self.assertEqual(elapsed[0], 32)
+        tap.assert_not_called()
+
+    def test_after_sms_still_accepts_stop_while_waiting(self):
+        from amazon_android.account_flow import _wait_after_sms
+        with patch("amazon_android.account_flow._read_nodes", return_value=[]), \
+             patch.object(self.stop, "wait", return_value=True):
+            with self.assertRaisesRegex(ToolError, "Đã dừng"):
+                _wait_after_sms(self.phone, self.deadline, self.stop)
+
+    def test_after_sms_timeout_is_45_seconds_without_repeating_confirmation(self):
+        from amazon_android.account_flow import _wait_after_sms
+        elapsed = [0]
+        def read(*_args):
+            elapsed[0] += 15
+            return [node("Verify mobile number"), node("Enter security code")]
+        with patch("amazon_android.account_flow.time.monotonic", side_effect=lambda: elapsed[0]), \
+             patch("amazon_android.account_flow._read_nodes", side_effect=read) as reader, \
+             patch.object(AttemptDeadline, "allowance", side_effect=lambda seconds: seconds), \
+             patch.object(self.stop, "wait", return_value=False), \
+             patch("amazon_android.account_flow._tap") as tap:
+            self.assertFalse(_wait_after_sms(self.phone, self.deadline, self.stop))
+        self.assertEqual(elapsed[0], 45)
+        self.assertEqual(reader.call_count, 3)
+        tap.assert_not_called()
+
+    def test_login_jump_verifies_sms_without_pressing_create(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState()
+        steps = build_common_steps(self.phone, lambda _: None, registration=state)
+        send_sms = next(step.action for step in steps if step.name.startswith("b10"))
+        finish = steps[-1].action
+        otp = node("222222", kind="android.widget.EditText",
+                   bounds="[25,100][335,140]")
+        verify = node("Verify mobile number", bounds="[25,155][335,195]")
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone), otp, verify]
+        menu = [node("Shop by category")]
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[sms, sms, menu]), \
+             patch("amazon_android.account_flow._tap") as tap, \
+             patch("amazon_android.account_flow._visual_form_button") as visual:
+            send_sms(self.job, self.deadline, self.stop)
+            finish(self.job, self.deadline, self.stop)
+        self.assertTrue(state.login_jump_seen)
+        self.assertTrue(state.login_verify_pressed)
+        self.assertFalse(state.create_pressed)
+        tap.assert_called_once_with(self.phone, verify, self.deadline)
+        visual.assert_not_called()
+
+    def test_login_otp_uses_visual_readback_then_verify_without_retyping(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, sms_requested_at=1.0)
+        statuses = []
+        codes = []
+        steps = build_common_steps(self.phone, codes.append, statuses.append,
+                                   registration=state)
+        enter = next(step.action for step in steps if step.name == "b11 nhập OTP")
+        finish = steps[-1].action
+        blank = [node("Verify mobile number"), node("Enter security code"),
+                 node(self.job.account.phone),
+                 node("", kind="android.widget.EditText",
+                      bounds="[25,100][335,140]")]
+        visual = blank[:-1] + [node("222222", kind="android.widget.EditText",
+                                    bounds="[25,100][335,140]"),
+                               node("Verify mobile number", bounds="[25,155][335,195]")]
+        menu = [node("Shop by category")]
+        tapped = False
+
+        def read(*_args):
+            return menu if tapped else blank
+
+        def type_then_lose_readback(*_args, **kwargs):
+            kwargs["before_input"]()
+            raise ToolError("Chưa xác nhận được nội dung ô 'Enter security code'")
+
+        def tap(*_args):
+            nonlocal tapped
+            tapped = True
+
+        with patch("amazon_android.account_flow._read_nodes", side_effect=read), \
+             patch("amazon_android.account_flow._read_login_sms_visual",
+                   return_value=visual) as visual_read, \
+             patch("amazon_android.account_flow.wait_for_new_otp",
+                   return_value="222222"), \
+             patch("amazon_android.account_flow._type_field",
+                   side_effect=type_then_lose_readback) as typed, \
+             patch("amazon_android.account_flow._tap", side_effect=tap) as pressed:
+            enter(self.job, self.deadline, self.stop)
+            finish(self.job, self.deadline, self.stop)
+        typed.assert_called_once()
+        self.assertEqual(visual_read.call_count, 2)
+        pressed.assert_called_once()
+        self.assertIs(pressed.call_args.args[1], visual[-1])
+        self.assertTrue(state.login_otp_input_attempted)
+        self.assertTrue(state.login_verify_pressed)
+        self.assertFalse(state.create_pressed)
+        self.assertEqual(codes, ["222222"])
+        self.assertEqual(statuses, ["Đã nhập mã"])
+
+    def test_login_otp_resume_does_not_type_again_when_readback_is_unclear(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, login_otp_input_attempted=True,
+                                  sms_requested_at=1.0, code="222222")
+        enter = next(step.action for step in build_common_steps(
+            self.phone, lambda _: None, registration=state)
+            if step.name == "b11 nhập OTP")
+        blank = [node("Verify mobile number"), node("Enter security code"),
+                 node(self.job.account.phone),
+                 node("", kind="android.widget.EditText",
+                      bounds="[25,100][335,140]")]
+        with patch("amazon_android.account_flow._read_nodes", return_value=blank), \
+             patch("amazon_android.account_flow._read_login_sms_visual",
+                   return_value=blank), \
+             patch("amazon_android.account_flow._type_field") as typed, \
+             patch("amazon_android.account_flow.wait_for_new_otp") as provider:
+            with self.assertRaisesRegex(ToolError, "không gõ lặp"):
+                enter(self.job, self.deadline, self.stop)
+        typed.assert_not_called()
+        provider.assert_not_called()
+
+    def test_create_otp_never_uses_login_visual_readback(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(create_flow_seen=True, sms_requested_at=1.0)
+        enter = next(step.action for step in build_common_steps(
+            self.phone, lambda _: None, registration=state)
+            if step.name == "b11 nhập OTP")
+        blank = [node("Verify mobile number"), node("Enter security code"),
+                 node(self.job.account.phone),
+                 node("", kind="android.widget.EditText",
+                      bounds="[25,100][335,140]")]
+        with patch("amazon_android.account_flow._read_nodes", return_value=blank), \
+             patch("amazon_android.account_flow.wait_for_new_otp",
+                   return_value="222222"), \
+             patch("amazon_android.account_flow._type_field") as typed, \
+             patch("amazon_android.account_flow._read_login_sms_visual") as visual_read:
+            enter(self.job, self.deadline, self.stop)
+        typed.assert_called_once()
+        self.assertNotIn("before_input", typed.call_args.kwargs)
+        visual_read.assert_not_called()
+        self.assertFalse(state.login_otp_input_attempted)
+
+    def test_login_jump_without_visible_verify_does_not_guess_create(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, code="222222")
+        finish = build_common_steps(self.phone, lambda _: None,
+                                    registration=state)[-1].action
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone),
+               node("222222", kind="android.widget.EditText",
+                    bounds="[25,100][335,140]")]
+        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+             patch("amazon_android.account_flow._tap") as tap, \
+             patch("amazon_android.account_flow._visual_form_button",
+                   side_effect=ToolError("Chưa xác định được nút Verify mobile number")) as visual:
+            with self.assertRaisesRegex(ToolError, "Verify mobile number"):
+                finish(self.job, self.deadline, self.stop)
+        self.assertFalse(state.login_verify_pressed)
+        tap.assert_not_called()
+        visual.assert_called_once_with(self.phone, sms, "Verify mobile number",
+                                       sms[-1], self.deadline, min_coverage=0.5)
+
+    def test_login_uses_one_yellow_button_when_webview_omits_its_label(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, code="222222")
+        finish = build_common_steps(self.phone, lambda _: None,
+                                    registration=state)[-1].action
+        otp = node("222222", kind="android.widget.EditText",
+                   bounds="[25,100][335,140]")
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone), otp]
+        yellow = node("", bounds="[25,155][335,195]")
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[sms, [node("Shop by category")]]), \
+             patch("amazon_android.account_flow._visual_form_button",
+                   return_value=yellow) as visual, \
+             patch("amazon_android.account_flow._tap") as tap:
+            finish(self.job, self.deadline, self.stop)
+        visual.assert_called_once_with(self.phone, sms, "Verify mobile number",
+                                       otp, self.deadline, min_coverage=0.5)
+        tap.assert_called_once_with(self.phone, yellow, self.deadline)
+        self.assertTrue(state.login_verify_pressed)
+        self.assertFalse(state.create_pressed)
+
+    def test_login_continue_retries_visible_verify_once_after_uncertain_tap(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, code="222222")
+        finish = build_common_steps(self.phone, lambda _: None,
+                                    registration=state)[-1].action
+        otp = node("222222", kind="android.widget.EditText",
+                   bounds="[25,100][335,140]")
+        verify = node("Verify mobile number", bounds="[25,155][335,195]")
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone), otp, verify]
+        menu = [node("Shop by category")]
+        taps = []
+
+        def read(*_args):
+            return menu if len(taps) == 2 else sms
+
+        with patch("amazon_android.account_flow._read_nodes", side_effect=read), \
+             patch("amazon_android.account_flow._tap",
+                   side_effect=lambda *_args: taps.append(verify)), \
+             patch.object(AttemptDeadline, "allowance", side_effect=[0, 10]):
+            with self.assertRaisesRegex(ToolError, "màn SMS chưa đổi"):
+                finish(self.job, self.deadline, self.stop)
+            self.assertEqual(state.login_verify_attempts, 1)
+            finish(self.job, self.deadline, self.stop)
+        self.assertEqual(taps, [verify, verify])
+        self.assertEqual(state.login_verify_attempts, 2)
+        self.assertFalse(state.create_pressed)
+
+    def test_login_continue_stops_after_two_verify_attempts(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, code="222222",
+                                  login_verify_pressed=True,
+                                  login_verify_attempts=2)
+        finish = build_common_steps(self.phone, lambda _: None,
+                                    registration=state)[-1].action
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone),
+               node("222222", kind="android.widget.EditText",
+                    bounds="[25,100][335,140]"),
+               node("Verify mobile number", bounds="[25,155][335,195]")]
+        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+             patch("amazon_android.account_flow._tap") as tap:
+            with self.assertRaisesRegex(ToolError, "hai lần"):
+                finish(self.job, self.deadline, self.stop)
+        tap.assert_not_called()
+        self.assertFalse(state.create_pressed)
+
+    def test_explicit_modes_bind_distinct_final_actions_and_recover_create_marker(self):
+        from amazon_android.post_menu import RegistrationState
+        create_state = RegistrationState(flow_mode="create", create_flow_seen=True)
+        login_state = RegistrationState(flow_mode="login")
+        create_steps = build_common_steps(self.phone, lambda _: None,
+                                          registration=create_state)
+        login_steps = build_common_steps(self.phone, lambda _: None,
+                                         registration=login_state)
+        self.assertEqual(create_steps[-1].action.__name__, "finish_create")
+        self.assertEqual(login_steps[-1].action.__name__, "finish_login")
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node("Create your Amazon account"), node(self.job.account.phone)]
+        with patch("amazon_android.account_flow._read_nodes", return_value=sms), \
+             patch("amazon_android.account_flow._tap") as tap:
+            login_steps[5].action(self.job, self.deadline, self.stop)
+            self.assertTrue(login_state.login_jump_seen)
+            create_state.create_flow_seen = False
+            create_steps[7].action(self.job, self.deadline, self.stop)
+            self.assertTrue(create_state.create_flow_seen)
+            self.assertFalse(create_state.login_jump_seen)
+        tap.assert_not_called()
+
+    def test_create_b10_sends_sms_from_matching_whatsapp_without_old_marker(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(flow_mode="create")
+        send_sms = next(step.action for step in build_common_steps(
+            self.phone, lambda _: None, registration=state)
+            if step.name.startswith("b10"))
+        whatsapp = [node("Verify with WhatsApp"), node("Send code by SMS"),
+                    node(self.job.account.phone)]
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node("Create your Amazon account"), node(self.job.account.phone)]
+        with patch("amazon_android.account_flow._read_nodes", return_value=whatsapp), \
+             patch("amazon_android.account_flow._wait_screen", return_value=sms), \
+             patch("amazon_android.account_flow._tap_for_transition") as tap:
+            send_sms(self.job, self.deadline, self.stop)
+        tap.assert_called_once()
+        self.assertFalse(state.login_jump_seen)
+        self.assertEqual(state.sms_tap_attempts, 1)
+
+    def test_existing_auto_session_keeps_visible_create_fallback(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(login_jump_seen=True, code="222222")
+        finish = build_common_steps(self.phone, lambda _: None,
+                                    registration=state)[-1].action
+        create = node("Create your Amazon account",
+                      bounds="[25,155][335,195]")
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone),
+               node("222222", kind="android.widget.EditText",
+                    bounds="[25,100][335,140]"), create]
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[sms, sms, [node("Next page")]]), \
+             patch("amazon_android.account_flow._tap") as tap:
+            finish(self.job, self.deadline, self.stop)
+        tap.assert_called_once_with(self.phone, create, self.deadline)
+        self.assertTrue(state.create_pressed)
+        self.assertFalse(state.login_verify_pressed)
+
+    def test_create_flow_keeps_create_action_even_after_sms(self):
+        from amazon_android.post_menu import RegistrationState
+        state = RegistrationState(create_flow_seen=True)
+        steps = build_common_steps(self.phone, lambda _: None, registration=state)
+        send_sms = next(step.action for step in steps if step.name.startswith("b10"))
+        finish = steps[-1].action
+        otp = node("222222", kind="android.widget.EditText",
+                   bounds="[25,100][335,140]")
+        sms = [node("Verify mobile number"), node("Enter security code"),
+               node(self.job.account.phone), otp]
+        create = node("Create your Amazon account", bounds="[25,155][335,195]")
+        with patch("amazon_android.account_flow._read_nodes",
+                   side_effect=[sms, sms, [node("Next page")]]), \
+             patch("amazon_android.account_flow._tap") as tap, \
+             patch("amazon_android.account_flow._visual_form_button",
+                   return_value=create) as visual:
+            send_sms(self.job, self.deadline, self.stop)
+            finish(self.job, self.deadline, self.stop)
+        self.assertFalse(state.login_jump_seen)
+        self.assertFalse(state.login_verify_pressed)
+        self.assertTrue(state.create_pressed)
+        tap.assert_called_once_with(self.phone, create, self.deadline)
+        visual.assert_called_once()
+
     def test_visual_fallback_accepts_one_yellow_form_button_and_rejects_two(self):
         field = node("", bounds="[25,100][335,140]")
         with Image.new("RGB", (360, 640), "white") as image:
@@ -639,6 +1349,17 @@ class Q1FlowTests(unittest.TestCase):
                 _yellow_form_button(image, field)
             self.assertEqual(_yellow_form_button(image, field, labels=((140, 342, 220, 358),)),
                              result)
+
+    def test_login_yellow_button_survives_text_splitting_the_color_band(self):
+        field = node("", bounds="[24,230][360,279]")
+        with Image.new("RGB", (386, 481), "white") as image:
+            draw = ImageDraw.Draw(image)
+            draw.rounded_rectangle((28,290,357,332), radius=20, fill="#ffd814")
+            draw.rectangle((120,309,250,316), fill="black")
+            with self.assertRaises(ToolError):
+                _yellow_form_button(image, field)
+            self.assertEqual(_yellow_form_button(image, field, min_coverage=0.5)["bounds"],
+                             "[24,290][360,333]")
 
     def test_create_uses_visual_fallback_only_for_matching_phone_and_taps_once(self):
         create = build_common_steps(self.phone, lambda _: None)[-1].action

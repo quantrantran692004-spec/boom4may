@@ -26,7 +26,7 @@ def current(serial):
 
 def _serve(connection, serial):
     from .cloud import CloudPhone
-    from .account_flow import _read_nodes_once
+    from .account_flow import _read_nodes_once, _read_visual_nodes
     from .post_menu import AttemptDeadline
     from . import ui_backend
     from . import vision
@@ -43,6 +43,17 @@ def _serve(connection, serial):
                 if operation == 'read':
                     deadline = AttemptDeadline(budget, visual_until=visual_until)
                     result = _read_nodes_once(phone, deadline, threading.Event())
+                elif operation == 'visual':
+                    deadline = AttemptDeadline(budget, visual_until=visual_until)
+                    result = _read_visual_nodes(phone, deadline, threading.Event())
+                elif operation == 'visual_text':
+                    deadline = AttemptDeadline(budget, visual_until=visual_until)
+                    result = _read_visual_nodes(phone, deadline, threading.Event(),
+                                                crop=options['crop'], text_only=True)
+                elif operation == 'navigation':
+                    from .marketplace_flow import _read_navigation_nodes
+                    deadline = AttemptDeadline(budget, visual_until=visual_until)
+                    result = _read_navigation_nodes(phone, deadline, threading.Event())
                 elif operation == 'scroll':
                     result = ui_backend.country_scroll(phone, **options)
                 else:

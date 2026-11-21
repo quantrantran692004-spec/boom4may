@@ -20,6 +20,8 @@ Theo yêu cầu mới, ba lượt chỉ bấm/vuốt trong vùng danh mục theo
 
 Chạy `.venv\Scripts\python.exe -m unittest discover -s tests -q` với thư mục tạm trong repository: **289/289 PASS**. Test b6 xác nhận chưa đảo chiều tại Wallis, tiếp tục fling khi thấy Zimbabwe, chỉ đảo chiều khi các hàng cuối đứng yên; phép vuốt ngược dùng khoảng cách bốn hàng và giới hạn trong vùng danh sách cho cả Android native và ADB dự phòng. Đây là kiểm thử mô phỏng; chưa thao tác trên Swarmote thật.
 
+**Cập nhật 18/11:** 465 unittest toàn dự án PASS. Test b6 mới dùng đúng các hàng trong ảnh Uruguay–Åland: một cú ADB ngược tối đa một hàng/650 ms rồi chọn US, cả Tạo và Đăng nhập; giữ pha ngược qua Dừng/Tiếp tục và tách trạng thái giữa máy. Bộ đọc lỗi ba lần chuyển PAUSED, không tự phục hồi vô hạn. OCR thật trên ảnh mới nhận COUNTRY và tính thử cú (152,432) → (152,482), 50 px, trong hộp; chỉ lập kế hoạch với ADB mock, chưa vuốt/chọn trên thiết bị thật.
+
 ## Lỗi chạy song song q3 Terminal trùng / q1 chưa thấy menu — 14/11/2026
 
 Hai ảnh người dùng báo q3 dừng "có nhiều nút Terminal đang hiện" và q1 dừng "Amazon chưa hiện menu ba gạch". Các ảnh thông báo không chứa ảnh Android hiện hành hoặc cây UIA nên chưa thể quy kết mọi trường hợp cụ thể. Đối chiếu mã tìm thấy hai điểm dừng quyết định bằng dấu hiệu thiếu: open_adb_shell đếm từng Text Terminal chứ không đếm Group cha duy nhất; open_home_menu chỉ nhận heading Shop by category và chỉ bấm Browse menu một lần.
@@ -122,6 +124,7 @@ Người dùng yêu cầu tiếp tục từ NEXT_SESSION_HANDOFF.md và chỉ ki
 - Settings có tùy chọn lưu qua phiên `Ẩn cửa sổ Swarmote khi tạo Profile`, mặc định tắt để các mẻ cũ giữ nguyên cách chạy. Khi bật, chỉ cửa sổ quản lý được ẩn trong `create_profile` và được hiện lại bằng `SW_SHOWNA` ở cả nhánh thành công lẫn lỗi. Cửa sổ điện thoại Running không bị ẩn.
 - Đã thử thật trên Swarmote đang mở: ẩn cửa sổ quản lý, đọc được 264 UIA nodes qua handle; kích hoạt `New Profile` khi cửa sổ ẩn, thấy form `Create`, bấm `Cancel` và khôi phục cửa sổ. q11/q12 vẫn visible trong lúc cửa sổ quản lý ẩn. Không tạo Profile mới trong phép thử này.
 - Settings dialog dựng được ở chế độ ẩn (kích thước yêu cầu 427 px, cửa sổ đặt 450 px). `python -m unittest discover -s tests -q`: 69/69 PASS.
+- Cập nhật 18/11: Settings có công tắc Đăng nhập Amazon, tắt là Tạo tài khoản; mặc định Tạo và lưu qua `settings.json`. Test xác nhận chế độ được gắn riêng cho máy khi bắt đầu, luồng đăng nhập dùng Verify còn luồng tạo giữ Create. Chưa mở lại GUI đang chạy để thử công tắc bằng chuột vì dữ liệu mẻ nằm trong RAM.
 
 ## q8/q9 ADB và màn xác minh — 2026-11-13
 
@@ -226,6 +229,7 @@ Trên `Amazon 01`, công cụ mở ADB Shell bằng UIA nền, xác nhận Andro
 - PASS: OCR cục bộ trên phần điện thoại trong ảnh lỗi b8 người dùng gửi: nhận `CREATE_FORM`, một ô tên trống, bounds `[26,120][303,156]`. Ảnh chỉ được xử lý trong RAM, không lưu bản cắt và không ghi chữ riêng tư ra log.
 - PASS: cài dependencies vào `.venv` bằng `pip install -e .`, `pip check` không báo xung đột; `_runtime_imports_work()` của bộ cài thành công. Đã ghi dấu môi trường sẵn sàng của bộ cài. Launcher `.pyw` dùng Python trong `.venv` ở lần mở sau; hai bài kiểm tra launcher dùng mock tiến trình, không mở GUI thật.
 - NOT TESTED: tốc độ và thao tác b4–b11 của bản này trên q1/q2 đang chạy. Phiên q1 được giữ nguyên, không khởi động lại tool hay bấm/gõ trên máy thật. Không dùng kết quả trên ảnh tĩnh để khẳng định đã thao tác thành công trên thiết bị.
+- Cập nhật 18/11: `onnxruntime` 1.32.0 và bản thử 1.23.2 lỗi access violation khi import trên máy này; 1.20.1 đã chạy OCR thật trên ảnh OTP đăng nhập người dùng gửi. Bộ đọc xác định một ô chứa sáu ký tự và nút `Verify mobile number` dưới ô; mô phỏng hành động đăng nhập trên các node ảnh đã chọn đúng nút một lần rồi sang màn sau giả lập, không dùng ADB. `pip check` sạch, 396 unittest mô phỏng PASS. Chưa bấm Verify trên Swarmote thật; không in mã hoặc SĐT từ ảnh. B12–b15 đã kiểm tra mở menu, chờ SMS/loading, mục mới ngoài ảnh, né Trang chủ, 12 máy khác chuỗi và 12 worker tranh lựa chọn cuối đồng thời. Thêm kiểm tra chọn mục con b1–b3, xem đủ cả ba lượt kể cả sang trang khác và chốt b4; b13–b15 mở lại menu sau trang con. Thêm test sau b11 còn SMS → trống → Loading → menu sau 32 giây, hết hạn 45 giây và Dừng khi chờ; không chạm xác nhận lặp. Báo cáo luồng Tạo chưa chạy b12–b15 đã có test phiên b11b → b15 trên 12 factory thật với UI/ADB giả: Create một lần, ba lần mở Browse (khi trang đổi), ba lựa chọn ngẫu nhiên, trạng thái DONE chỉ sau b15. Chưa đọc được trạng thái phiên thật do quyền Computer Use/foreground window; chưa xác định nguyên nhân trên máy người dùng. Nhịp b12–b15 đã kiểm tra 2 giây cho menu, 3–5 giây cho mỗi mục và giữ thời gian còn lại khi dựng lại bước sau Dừng/Tiếp tục. Theo ảnh Máy 3 chờ chuẩn bị: test Tiếp tục khởi chạy ngay khi batch vẫn bận, giữ một worker/máy, nối ADB từ MENU_OPEN và giữ queue cũ khi Làm lại. Chưa kiểm GUI thật sau sửa. Thêm test Tiếp tục sau sửa tay: đọc UI thật giả lập rồi thực hiện nút xác nhận và b12–b15 ở cả chế độ Tạo/Đăng nhập, không gõ OTP lại; Trang chủ sau xác nhận tới b12, US đã chọn tới Continue, giữ chốt SĐT và ba lượt ngẫu nhiên. Kiểm tra mới b13/b14/b15 mỗi bước 12 worker chọn đồng thời có 12 nhãn khác nhau, hết mục đang hiện thì cuộn đọc lại và không bấm trùng, khôi phục sổ theo lựa chọn riêng của máy/mẻ. Kiểm tra điểm nối chung `build_post_auth_steps` cho cả hai chế độ trên 12 factory: thêm bước kiểm tra trong test sau b15 xuất hiện đúng một lần và giữ đúng serial/trạng thái; không có b16 tự đặt trong luồng thật. B16–b22 đã có 16 bài test mới với 24 tổ hợp Tạo/Đăng nhập × 12 máy. OCR thật trên 7 ảnh mới nhận đúng loại màn, chọn đúng EN/Country/Region/United States/Done. Các bài mới kiểm tra chờ màn tải khác nhau, Retry, sai trang trở về, giữ Done khi Tiếp tục, không nhầm US ở Previously visited, Stop và khóa đúng máy. Chưa bấm/đổi marketplace trên Swarmote thật. Đã tái hiện nguyên nhân b16 trực tiếp bằng ADB read-only trên hai serial online: `window windows` không có focus; full `window` và `activity activities` có Amazon ở trước và display phụ null. Guard mới nhận đúng cả hai, OCR ảnh menu mới ra MENU; test b16 từ menu thực hiện đúng một cú chạm hình người rồi nhận ACCOUNT. Không thực hiện cú chạm trên thiết bị thật; không restart phiên RAM.
 
 ## B6 cuộn quốc gia và chọn lại — 13/11/2026
 
@@ -273,4 +277,14 @@ Hai ảnh q1 mới xác nhận hàng United States +1 đã nhìn thấy nhưng p
 Nút trong khung chi tiết đặt cờ riêng theo máy, không đặt cờ dừng cả mẻ. Runner kiểm tra cờ ở ranh giới tạo Profile, Start, cài Amazon, nối ADB và mở menu; phiên b1–b11 kiểm tra trước bước kế tiếp và ở ranh giới thử lại khi bước lỗi. Test mô phỏng dừng q2 khi chờ slot, q3 vẫn tự Start; dừng một phiên sau b1, phiên khác vẫn hoàn tất và phiên đã dừng tiếp tục từ b2. Chưa thử GUI/Swarmote thật; tiến trình tool đang mở không tự nạp mã mới.
 
 `python -m unittest discover -s tests -q`: **305/305 PASS**.
+
+## Trạng thái Máy 1–12 do người dùng báo — 17/11/2026
+
+Máy 1–6: b1–b3 ngẫu nhiên đã ổn. Máy 7: thử kỹ thuật riêng và dừng tại b4;
+chưa có thông báo/màn hiện tại để chẩn đoán b4. Máy 8–12: người dùng xác nhận
+chưa có b1–b3 và chưa nối b4–b11 trong phiên họ đang dùng. Kiểm tra mã checkout
+thấy slot 8–12 có `build_random_steps` và `build_common_steps`; unittest mô
+phỏng từ `_start_post_menu` xác nhận năm serial và `RegistrationState` riêng.
+`python -m unittest discover -s tests -q`: 340/340 PASS. Chưa chạy thử các
+máy 8–12 thật, chưa xác nhận phiên tool đang dùng đã nạp mã checkout này.
 

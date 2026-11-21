@@ -17,7 +17,7 @@ from typing import Callable
 
 from PIL import Image
 
-from .cloud import CloudPhone, cloud_adb, cloud_screenshot
+from .cloud import CloudPhone, cloud_adb, cloud_screenshot, amazon_is_foreground
 from .core import AMAZON_PACKAGE, ToolError
 from .otp import wait_for_new_otp
 from .post_menu import (AttemptDeadline, PostMenuSession, PostMenuStep,
@@ -32,6 +32,7 @@ SIZE = re.compile(r"(?:Physical|Override) size:\s*(\d+)x(\d+)")
 PHONE_FIELD = "Enter mobile number or email"
 NAME_FIELD = "First and last name"
 OTP_FIELD = "Enter security code"
+LOGIN_VERIFY_LABEL = "Verify mobile number"
 MENU_CARD_LABELS = frozenset({
     "gifting", "deals & savings", "be inspired, save more",
     "groceries and drinks", "health and personal care", "pets",
@@ -99,7 +100,8 @@ def screen(nodes: list[dict[str, str]]) -> str:
             (_has(nodes, "Sign In") and _has(nodes, "Customer Service")) or
             len(visible_cards) >= 3):
         return "MENU"
-    return "UNKNOWN"
+    from .marketplace_flow import marketplace_screen
+    return marketplace_screen(nodes)
 
 
 def menu_layout(nodes: list[dict[str, str]]) -> str:
@@ -131,7 +133,7 @@ class _UiReadIncomplete(RecoverableStepError):
 
 
 def _read_nodes(phone: CloudPhone, deadline: AttemptDeadline,
-                stop: threading.Event) -> list[dict[str, str]]:
+                stop: threading.Event, *, max_attempts: int | None = None) -> list[dict[str, str]]:
     attempt = 0
     while True:
         if stop.is_set():
@@ -142,6 +144,8 @@ def _read_nodes(phone: CloudPhone, deadline: AttemptDeadline,
         except ToolError as exc:
             if (not isinstance(exc, _UiReadIncomplete) and
                     not isinstance(exc.__cause__, TimeoutExpired)):
+                raise
+            if max_attempts is not None and attempt + 1 >= max_attempts:
                 raise
         attempt += 1
         if attempt == 1 or attempt % 5 == 0:
@@ -229,23 +233,22 @@ def _read_hierarchy(phone: CloudPhone, deadline: AttemptDeadline,
 
 
 def _read_visual_nodes(phone: CloudPhone, deadline: AttemptDeadline,
-                       stop: threading.Event) -> list[dict[str, str]]:
+                       stop: threading.Event, *, crop=None,
+                       text_only=False) -> list[dict[str, str]]:
     if stop.is_set():
         raise ToolError("Đã dừng máy này")
     try:
         # OCR mode must also verify the foreground app; a similar browser form
         # or a system dialog is not evidence that Amazon is ready for a tap.
-        focus = cloud_adb(phone, "shell", "dumpsys", "window", "windows",
-                          timeout=max(1, math.ceil(min(4, deadline.remaining()))),
-                          check=False)
-        if not any("mCurrentFocus=" in line and AMAZON_PACKAGE in line
-                   for line in focus.stdout.splitlines()):
+        if not amazon_is_foreground(phone,
+                timeout=max(1, math.ceil(min(4, deadline.remaining()))), adb=cloud_adb):
             raise _UiReadIncomplete("Chưa xác nhận Amazon đang ở phía trước")
         screenshot = cloud_screenshot(
             phone, timeout=max(1, math.ceil(min(6, deadline.remaining()))))
         from .vision import ocr_nodes
 
-        return ocr_nodes(screenshot, stop=stop, remaining=deadline.remaining)
+        return ocr_nodes(screenshot, stop=stop, remaining=deadline.remaining,
+                         crop=crop, text_only=text_only)
     except ImportError as exc:
         raise ToolError("Amazon cần OCR để đọc WebView; cài dependencies dự án rồi mở lại tool") from exc
     except _UiReadIncomplete:
@@ -254,6 +257,17 @@ def _read_visual_nodes(phone: CloudPhone, deadline: AttemptDeadline,
         raise _UiReadIncomplete("Lần đọc ảnh Amazon chưa thành công; đang thử lại") from exc
     except Exception as exc:
         raise _UiReadIncomplete("Chữ trên ảnh Amazon chưa đọc được; đang thử lại") from exc
+
+
+def _read_login_sms_visual(phone: CloudPhone, deadline: AttemptDeadline,
+                           stop: threading.Event) -> list[dict[str, str]]:
+    """Ask the phone's own OCR worker when WebView hides the OTP readback."""
+    from .isolated_reader import current
+
+    reader = current(phone.serial)
+    if reader is not None:
+        return reader.call("visual", min(35, deadline.remaining()), stop)
+    return _read_visual_nodes(phone, deadline, stop)
 
 
 def _parse_ui_nodes(xml: str) -> list[dict[str, str]]:
@@ -326,6 +340,12 @@ class _ActionNotResolved(RecoverableStepError):
     pass
 
 
+class _ScreenWaitExpired(ToolError):
+    """An observed transition did not reach its target within a bounded wait."""
+
+    pass
+
+
 def _button(nodes: list[dict[str, str]], label: str,
             *, below: dict[str, str] | None = None) -> dict[str, str]:
     """Select the visible action control, not a hidden duplicate label."""
@@ -380,7 +400,8 @@ def _button(nodes: list[dict[str, str]], label: str,
 
 
 def _yellow_form_button(image: Image.Image, field: dict[str, str], *,
-                        labels: tuple[tuple[int, int, int, int], ...] = ()) -> dict[str, str]:
+                        labels: tuple[tuple[int, int, int, int], ...] = (),
+                        min_coverage: float = 0.75) -> dict[str, str]:
     """Find one wide yellow action aligned below the verified input field."""
     left, top, right, bottom = _bounds(field)
     width = right - left
@@ -395,7 +416,7 @@ def _yellow_form_button(image: Image.Image, field: dict[str, str], *,
             r, g, b = pixels[x, y]
             if r >= 230 and 160 <= g <= 239 and r > g and b <= 95:
                 yellow += 3
-        if yellow >= width * 0.75:
+        if yellow >= width * min_coverage:
             rows.append(y)
     bands = []
     for y in rows:
@@ -415,13 +436,15 @@ def _yellow_form_button(image: Image.Image, field: dict[str, str], *,
 
 def _visual_form_button(phone: CloudPhone, nodes: list[dict[str, str]], label: str,
                         field: dict[str, str],
-                        deadline: AttemptDeadline) -> dict[str, str]:
+                        deadline: AttemptDeadline, *,
+                        min_coverage: float = 0.75) -> dict[str, str]:
     labels = tuple(_bounds(node) for node in nodes if _visible(node) and _has([node], label))
     timeout = max(1, math.ceil(min(6, deadline.remaining())))
     try:
         screenshot = cloud_screenshot(phone, timeout=timeout)
         with Image.open(BytesIO(screenshot)) as image:
-            return _yellow_form_button(image, field, labels=labels)
+            return _yellow_form_button(image, field, labels=labels,
+                                       min_coverage=min_coverage)
     except _ActionNotResolved:
         raise
     except ToolError as exc:
@@ -440,7 +463,9 @@ def _form_action(phone: CloudPhone, nodes: list[dict[str, str]], label: str,
 
 def _wait_screen(phone: CloudPhone, expected: set[str],
                  deadline: AttemptDeadline, stop: threading.Event,
-                 *, seconds: float = 20) -> list[dict[str, str]]:
+                 *, seconds: float = 20, max_wait: float | None = None,
+                 timeout_message: str = "") -> list[dict[str, str]]:
+    started = time.monotonic()
     next_notice = time.monotonic() + seconds
     unknown_since = None
     last_screen = "UNKNOWN"
@@ -465,10 +490,16 @@ def _wait_screen(phone: CloudPhone, expected: set[str],
                         getattr(deadline, "pending_screens", frozenset())):
                     raise ToolError(
                         f"Màn {last_screen} không thuộc kết quả chờ {sorted(expected)}")
-                if unknown_since is None:
-                    unknown_since = time.monotonic()
-                elif time.monotonic() - unknown_since >= 8:
-                    raise ToolError("Màn UNKNOWN chưa rõ sau 8 giây; giữ nguyên bước")
+                if last_screen == "UNKNOWN":
+                    if unknown_since is None:
+                        unknown_since = time.monotonic()
+                    elif time.monotonic() - unknown_since >= 8:
+                        raise ToolError("Màn UNKNOWN chưa rõ sau 8 giây; giữ nguyên bước")
+                else:
+                    unknown_since = None
+        if max_wait is not None and time.monotonic() - started >= max_wait:
+            raise _ScreenWaitExpired(timeout_message or
+                                     f"Chưa thấy màn {sorted(expected)}; màn cuối là {last_screen}")
         if time.monotonic() >= next_notice:
             deadline.recovering(f"Màn đang chuyển chậm ({last_screen}) · tiếp tục đọc, không bấm lặp")
             next_notice = time.monotonic() + max(3, seconds)
@@ -535,30 +566,37 @@ def route_list_menu(phone: CloudPhone, steps: tuple[PostMenuStep, ...],
 
 def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
                deadline: AttemptDeadline, *, country_list: bool = False,
-               fling: bool = False, reverse: bool = False) -> None:
+               fling: bool = False, reverse: bool = False,
+               gentle_reverse: bool = False, force_adb: bool = False,
+               first_reverse_triple: bool = False) -> None:
     start, end, duration = (0.72, 0.32, "300")
     if country_list:
         deadline.remaining()
         from .isolated_reader import current
         reader = current(phone.serial)
-        if reader is not None:
+        scroll_options = {"fling": fling, "reverse": reverse}
+        if gentle_reverse:
+            scroll_options["gentle"] = True
+        if force_adb:
+            attempted = False  # A fresh unchanged screen warrants a short ADB gesture.
+        elif reader is not None:
             try:
                 attempted = reader.call('scroll', min(15, deadline.remaining()),
-                                        reader.stop, fling=fling, reverse=reverse)
+                                        reader.stop, **scroll_options)
             except ToolError:
                 # Delivery may be uncertain. Read again before another gesture;
                 # never issue an ADB swipe as a second input for this request.
                 deadline.recovering('Đang đọc lại sau thao tác cuộn chưa xác nhận')
                 return
         else:
-            attempted = ui_backend.country_scroll(phone, fling=fling, reverse=reverse)
+            attempted = ui_backend.country_scroll(phone, **scroll_options)
         if attempted:
             return
         if fling:
             start, end, duration = (0.96, 0.04, "65")
         elif reverse:
             start, end = (0.30, 0.70)
-            duration = "280"
+            duration = "650" if gentle_reverse else "280"
         else:
             start, end, duration = (0.60, 0.40, "280")
         scroll_regions = {_bounds(node) for node in nodes
@@ -584,7 +622,9 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
                 centers = [(_bounds(node)[1] + _bounds(node)[3]) // 2
                            for node in nodes if _visible(node) and re.fullmatch(
                                r"[a-zå][a-zå .()'-]*\s*\+\d{1,4}", _text(node))]
-                y1, y2 = ui_backend.country_reverse_points(top, bottom, centers)
+                y1, y2 = ui_backend.country_reverse_points(
+                    top, bottom, centers, gentle=gentle_reverse,
+                    distance_multiplier=3 if first_reverse_triple else 1)
             else:
                 y1 = top + int(height * start)
                 y2 = top + int(height * end)
@@ -608,7 +648,10 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
         if not found:
             raise ToolError("Không xác định được kích thước màn hình máy này")
         width, height = map(int, found.groups())
-    if fling:
+    if gentle_reverse:
+        start, end = (0.20, 0.80) if first_reverse_triple else (0.40, 0.60)
+        duration = "650"
+    elif fling:
         start, end = 0.90, 0.14
     cloud_adb(phone, "shell", "input", "swipe", str(width // 2),
               str(int(height * start)), str(width // 2),
@@ -616,25 +659,64 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
               timeout=max(1, math.ceil(min(6, deadline.remaining()))))
 
 
+class _CountryReadStop(ToolError):
+    terminal = True
+
+
+def _country_nodes(phone, deadline, stop):
+    """Read after each b6 gesture without entering an unbounded UI retry."""
+    for attempt in range(3):
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        try:
+            return _read_nodes(phone, AttemptDeadline(min(12, deadline.remaining())),
+                               stop, max_attempts=1)
+        except ToolError as exc:
+            if stop.is_set():
+                raise
+            if attempt == 2:
+                raise _CountryReadStop('b6: đọc danh sách lỗi ba lần; giữ bước máy này') from exc
+            deadline.recovering(f'b6: đọc lại danh sách sau cuộn ({attempt + 1}/3)')
+            if stop.wait(0.4):
+                raise ToolError('Đã dừng máy này')
+
+
 def _find_scrolling(phone: CloudPhone, label: str,
                     deadline: AttemptDeadline, stop: threading.Event,
                     *, starts: bool = False,
                     menu_action: bool = False,
                     country_list: bool = False,
-                    nodes: list[dict[str, str]] | None = None) -> dict[str, str]:
+                    nodes: list[dict[str, str]] | None = None,
+                    country_state: RegistrationState | None = None) -> dict[str, str]:
     previous = None
-    reverse = False
+    reverse = bool(country_list and country_state is not None and
+                   country_state.country_reverse_started)
+    reverse_swipes = (country_state.country_reverse_swipes
+                      if country_list and country_state is not None else 0)
+    forward_swipes = 0
     attempt = 0
     while attempt < (40 if country_list else 30):
         if stop.is_set():
             raise ToolError("Đã dừng máy này")
         deadline.remaining()
         if nodes is None:
-            nodes = _read_nodes(phone, deadline, stop)
+            nodes = (_country_nodes(phone, deadline, stop) if country_list else
+                     _read_nodes(phone, deadline, stop))
+        if country_list and screen(nodes) in {"IDENTIFIER", "NEW_ACCOUNT",
+                                              "CREATE_FORM", "WHATSAPP", "SMS"}:
+            raise RecoverableStepError("Màn đã đổi trong khi tìm US +1; đọc lại bước hiện tại")
+        visible = tuple(_text(node) for node in nodes if _visible(node) and _text(node))
+        country_labels = tuple(value.rsplit("+", 1)[0].strip() for value in visible
+                               if re.fullmatch(r"[a-zå][a-zå .()'-]*\s*\+\d{1,4}", value)) if country_list else ()
+        bottom_visible = country_list and any(value.startswith((
+            "vietnam", "viet nam", "việt nam", "zimbabwe", "åland islands",
+            "aland islands")) for value in visible)
         target = label.casefold()
         matches = [node for node in nodes if _visible(node) and
                    (_text(node).startswith(target) if starts else _text(node) == target)]
-        if matches:
+        # b6a: after reaching the bottom, pull down gently once before tapping
+        # a US row that may still be partly hidden under the picker header.
+        if matches and not (country_list and bottom_visible and not reverse):
             if menu_action:
                 try:
                     return _button(nodes, label)
@@ -648,26 +730,45 @@ def _find_scrolling(phone: CloudPhone, label: str,
                         return _button(nodes, label, below=anchors[0])
                     raise
             return _unique(matches, label, starts=starts)
-        visible = tuple(_text(node) for node in nodes if _visible(node) and _text(node))
-        country_labels = tuple(value.rsplit("+", 1)[0].strip() for value in visible
-                               if re.fullmatch(r"[a-zå][a-zå .()'-]*\s*\+\d{1,4}", value)) if country_list else ()
         signature = country_labels if country_list else visible
         stalled = signature == previous
         if stalled and not country_list:
             break
         fling = False
+        gentle_reverse = False
         if country_list:
-            end_marker = any(value.startswith(("zimbabwe", "åland islands", "aland islands"))
-                             for value in country_labels)
             if not reverse:
-                # Seeing a last row is not enough: fling once more and reverse
-                # only when the final rows no longer move.
-                reverse = end_marker and stalled
-                fling = not reverse
+                # Known bottom rows need no duplicate read before reversing.
+                # Unchanged rows remain a fallback if OCR misses the landmarks.
+                if bottom_visible or (stalled and country_labels and forward_swipes):
+                    reverse = True
+                    if country_state is not None:
+                        country_state.country_reverse_started = True
+                else:
+                    fling = True
+                    forward_swipes += 1
+            if reverse:
+                # b6a and b6b are the first two short downward pulls.
+                # Read after each; further short pulls remain available if needed.
+                deadline.recovering('b6a: đã tới đáy · vuốt nhẹ từ trên xuống' if
+                                    reverse_swipes == 0 else
+                                    'b6b: chưa thấy US +1 · vuốt nhẹ thêm một lần' if
+                                    reverse_swipes == 1 else
+                                    f'b6: chưa thấy US +1 · vuốt ngược nhẹ lần {reverse_swipes + 1}')
+                gentle_reverse = True
         previous = signature
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
         _scroll_up(phone, nodes, deadline, country_list=country_list,
-                   fling=fling, reverse=reverse)
-        pause = (0.25 if fling else 0.15) if country_list else 0.12
+                   fling=fling, reverse=reverse or gentle_reverse,
+                   gentle_reverse=gentle_reverse,
+                   force_adb=bool(country_list and reverse),
+                   first_reverse_triple=bool(country_list and reverse and reverse_swipes == 0))
+        if country_list and reverse:
+            reverse_swipes += 1
+            if country_state is not None:
+                country_state.country_reverse_swipes = reverse_swipes
+        pause = (0.45 if fling else 0.35) if country_list else 0.12
         stop.wait(deadline.allowance(pause))
         nodes = None
         attempt += 1
@@ -806,7 +907,8 @@ def _tap_input(phone: CloudPhone, field: dict[str, str],
 
 def _type_field(phone: CloudPhone, label: str, value: str,
                 deadline: AttemptDeadline, stop: threading.Event, *,
-                nodes: list[dict[str, str]] | None = None) -> list[dict[str, str]]:
+                nodes: list[dict[str, str]] | None = None,
+                before_input: Callable[[], None] | None = None) -> list[dict[str, str]]:
     if nodes is None:
         nodes = _read_nodes(phone, deadline, stop)
     for recovery in range(3):
@@ -858,6 +960,8 @@ def _type_field(phone: CloudPhone, label: str, value: str,
                        timeout=max(1, math.ceil(min(4, deadline.remaining()))))
         input_error = None
         try:
+            if before_input is not None:
+                before_input()
             type_characters(phone, value[len(current):], deadline, stop)
         except ToolError as exc:
             if stop.is_set():
@@ -907,16 +1011,114 @@ def _national_phone(job: RunJob) -> str:
 
 def _check_summary(nodes: list[dict[str, str]], job: RunJob) -> None:
     digits_on_screen = "".join(re.findall(r"\d", " ".join(
-        node.get("text", "") for node in nodes)))
+        node.get(attribute, "") for node in nodes
+        for attribute in ("text", "content-desc"))))
     if _national_phone(job) not in digits_on_screen:
         raise ToolError("SĐT trên Amazon không khớp hàng của máy này")
 
 
+FINAL_SMS_STEP = "b11b hoàn tất xác minh SMS"
+POST_SMS_WAIT_SECONDS = 45
+
+
+def _wait_after_sms(phone: CloudPhone, deadline: AttemptDeadline,
+                    stop: threading.Event, *,
+                    nodes: list[dict[str, str]] | None = None) -> bool:
+    """Allow slow verification/loading to settle without sending another tap."""
+    until = time.monotonic() + deadline.allowance(POST_SMS_WAIT_SECONDS)
+    deadline.recovering("Đã bấm xác nhận OTP · đang chờ Amazon chuyển màn")
+    while time.monotonic() < until:
+        if stop.is_set():
+            raise ToolError("Đã dừng máy này")
+        if nodes is None:
+            nodes = _read_nodes(phone, deadline, stop)
+        if nodes and screen(nodes) != "SMS" and not all(
+                _text(node) in {"", "amazon", "loading", "loading…", "loading..."}
+                for node in nodes):
+            return True
+        if stop.wait(0.5):
+            raise ToolError("Đã dừng máy này")
+        nodes = None
+    return False
+
+
 def resume_common_index(phone: CloudPhone, steps: tuple[PostMenuStep, ...],
                         current: int, deadline: AttemptDeadline,
-                        stop: threading.Event) -> int:
-    """Rewind a paused phone to its observed shared screen, never skip ahead."""
-    if current >= len(steps) - 1:  # A prior Create tap must never be repeated.
+                        stop: threading.Event,
+                        registration: RegistrationState | None = None,
+                        job: RunJob | None = None) -> int:
+    """Resume common form steps from live, row-checked UI after manual repair."""
+    create = next((index for index, step in enumerate(steps)
+                   if step.name == FINAL_SMS_STEP), len(steps) - 1)
+    # At the login b11b -> b12 boundary, Verify may have left the SMS form on
+    # screen. Recheck that one boundary before trusting the saved next step.
+    if (registration is not None and current == create + 1 and
+            current < len(steps) and steps[current].name.startswith("b12 ") and
+            registration.flow_mode != "create" and
+            registration.login_jump_seen and not registration.create_flow_seen and
+            registration.login_verify_pressed):
+        nodes = _read_nodes(phone, deadline, stop)
+        if screen(nodes) == "SMS":
+            if job is not None:
+                _check_summary(nodes, job)
+            return create  # Bounded second Verify attempt stays on this phone.
+    # Beyond that boundary, the saved step is authoritative. A native dump can
+    # block or misclassify a WebView and must not rewind b13–b38.
+    if current > create:
+        return current
+    if registration is not None and job is not None:
+        first = next((i for i, step in enumerate(steps) if step.name == "b4 Sign In"), 0)
+        if current < first:
+            return current  # All three random views must still finish.
+        nodes = _read_nodes(phone, deadline, stop)
+        kind = screen(nodes)
+        tail = next((i for i, step in enumerate(steps) if step.name.startswith("b12 ")), None)
+        browse = {node.get("bounds") for node in nodes if _visible(node) and
+                  node.get("content-desc", "").casefold().startswith("browse menu tab")}
+        sms_context = (registration.sms_requested_at is not None or
+                       registration.create_pressed or registration.login_verify_pressed)
+        if (tail is not None and current <= create and sms_context and
+                (kind == "MENU" or home_visible(nodes) or len(browse) == 1)):
+            registration.manual_sms_completed = True
+            return tail  # Manual verification advanced this phone past b11.
+        if kind in {"COUNTRY", "NEW_ACCOUNT", "CREATE_FORM", "WHATSAPP", "SMS"}:
+            if kind != "COUNTRY":
+                _check_summary(nodes, job)
+            if kind in {"NEW_ACCOUNT", "CREATE_FORM"} and registration.flow_mode != "login":
+                registration.create_flow_seen = True
+            if kind == "SMS" and _has(nodes, "Create your Amazon account"):
+                registration.create_flow_seen = True
+            if (kind in {"WHATSAPP", "SMS"} and not registration.create_flow_seen and
+                    registration.flow_mode != "create"):
+                registration.login_jump_seen = True
+        if kind == "SMS":
+            try:
+                value = _field(nodes, OTP_FIELD).get("text", "")
+            except ToolError:
+                value = ""
+            if re.fullmatch(r"[0-9]{6}", value):
+                registration.code = value  # Adopt the user's repaired code on this row only.
+                registration.login_otp_confirmed = bool(
+                    registration.login_jump_seen and not registration.create_flow_seen)
+                return min(current, create) if current > create else create
+        if current >= create and (registration.create_pressed or registration.login_verify_pressed):
+            return current
+        target_name = {"MENU": "b4 Sign In", "IDENTIFIER": "b4 Sign In",
+                       "COUNTRY": "b6 chọn US +1", "NEW_ACCOUNT": "b8 Proceed to create an account",
+                       "CREATE_FORM": "b9 nhập tên", "WHATSAPP": "b10 Send code by SMS",
+                       "SMS": "b10 Send code by SMS"}.get(kind)
+        if kind == "IDENTIFIER":
+            try:
+                value = _field(nodes, PHONE_FIELD).get("text", "")
+            except ToolError:
+                value = ""
+            digits = re.sub(r"\D", "", value)
+            if digits in {_national_phone(job), "1" + _national_phone(job)}:
+                target_name = "b7 Continue" if _has(nodes, "US +1") else "b6 chọn US +1"
+            elif not value.strip():
+                target_name = "b4a chạm ô SĐT"
+        return next((i for i, step in enumerate(steps) if step.name == target_name), current)
+    if current >= create:
         return current
     target_name = {
         "MENU": "b4 Sign In",
@@ -941,6 +1143,9 @@ def build_common_steps(phone: CloudPhone,
                        ) -> tuple[PostMenuStep, ...]:
     """Build b4–b11 once for any machine, with OTP state local to this phone."""
     state = registration if registration is not None else RegistrationState()
+    mode = state.flow_mode
+    if mode not in {"auto", "create", "login"}:
+        raise ValueError("Unknown Amazon flow mode")
 
     def sign_in(job: RunJob, deadline: AttemptDeadline,
                 stop: threading.Event) -> None:
@@ -974,7 +1179,7 @@ def build_common_steps(phone: CloudPhone,
 
     def country(job: RunJob, deadline: AttemptDeadline,
                 stop: threading.Event) -> None:
-        nodes = _registration_nodes(phone, deadline, stop)
+        nodes = _country_nodes(phone, deadline, stop)
         unclosed_taps = 0
         while not stop.is_set():
             deadline.remaining()
@@ -988,17 +1193,26 @@ def build_common_steps(phone: CloudPhone,
                 if len(candidates) != 1:
                     raise ToolError("Không xác định được ô chọn mã quốc gia")
                 if _has(candidates, "US +1"):
+                    state.country_reverse_started = False
+                    state.country_reverse_swipes = 0
                     return
+                state.country_reverse_started = False  # Opening a fresh picker.
+                state.country_reverse_swipes = 0
                 _tap_for_transition(phone, candidates[0], deadline)
-                nodes = _wait_screen(phone, {"COUNTRY"}, deadline, stop)
+                nodes = _wait_screen(phone, {"COUNTRY", "NEW_ACCOUNT", "CREATE_FORM",
+                                             "WHATSAPP", "SMS"}, deadline, stop,
+                                     max_wait=15,
+                                     timeout_message="Hộp quốc gia chưa mở; đọc lại máy này")
+                if _at_or_after(nodes, "NEW_ACCOUNT"):
+                    return
             elif kind != "COUNTRY":
                 raise ToolError("Máy này chưa ở danh sách mã quốc gia")
 
             target = _find_scrolling(phone, "United States +1", deadline, stop,
-                                     country_list=True, nodes=nodes)
+                                     country_list=True, nodes=nodes, country_state=state)
             if stop.wait(deadline.allowance(0.15)):
                 break
-            nodes = _read_nodes(phone, deadline, stop)
+            nodes = _country_nodes(phone, deadline, stop)
             current = [node for node in nodes if _visible(node) and
                        _text(node) == "united states +1"]
             current = list({node["bounds"]: node for node in current}.values())
@@ -1008,7 +1222,7 @@ def build_common_steps(phone: CloudPhone,
             _tap_for_transition(phone, current[0], deadline)
             if stop.wait(deadline.allowance(0.8)):
                 break
-            nodes = _read_nodes(phone, deadline, stop)
+            nodes = _country_nodes(phone, deadline, stop)
             if screen(nodes) == "COUNTRY":
                 visible_us = [node for node in nodes if _visible(node) and
                               _text(node) == "united states +1"]
@@ -1019,7 +1233,7 @@ def build_common_steps(phone: CloudPhone,
                                         deadline)
                     if stop.wait(deadline.allowance(0.8)):
                         break
-                    nodes = _read_nodes(phone, deadline, stop)
+                    nodes = _country_nodes(phone, deadline, stop)
             if screen(nodes) == "COUNTRY":
                 unclosed_taps += 1
                 if unclosed_taps >= 4:
@@ -1037,11 +1251,15 @@ def build_common_steps(phone: CloudPhone,
             raise ToolError("Máy này chưa xác nhận số điện thoại US +1")
         _check_summary(nodes, job)
         _tap_for_transition(phone, _button(nodes, "Continue"), deadline)
-        _wait_screen(phone, {"NEW_ACCOUNT", "CREATE_FORM"}, deadline, stop)
+        _wait_screen(phone, {"NEW_ACCOUNT", "CREATE_FORM", "WHATSAPP", "SMS"},
+                     deadline, stop, max_wait=20,
+                     timeout_message="Continue chưa chuyển màn; đọc lại máy này")
 
     def proceed(job: RunJob, deadline: AttemptDeadline,
                 stop: threading.Event) -> None:
         nodes = _registration_nodes(phone, deadline, stop)
+        if screen(nodes) in {"NEW_ACCOUNT", "CREATE_FORM"}:
+            state.create_flow_seen = True
         if _at_or_after(nodes, "CREATE_FORM"):
             return
         if screen(nodes) != "NEW_ACCOUNT":
@@ -1050,9 +1268,19 @@ def build_common_steps(phone: CloudPhone,
         _tap_for_transition(phone, _button(nodes, "Proceed to create an account"), deadline)
         _wait_screen(phone, {"CREATE_FORM", "WHATSAPP", "SMS"}, deadline, stop)
 
+    def skip_creation_for_login(job: RunJob, deadline: AttemptDeadline,
+                                stop: threading.Event) -> None:
+        nodes = _registration_nodes(phone, deadline, stop)
+        if screen(nodes) not in {"WHATSAPP", "SMS"}:
+            raise ToolError("Chế độ Đăng nhập chưa tới màn xác minh; kiểm tra số hoặc chọn Tạo tài khoản cho mẻ mới")
+        _check_summary(nodes, job)
+        state.login_jump_seen = True
+
     def name(job: RunJob, deadline: AttemptDeadline,
              stop: threading.Event) -> None:
         nodes = _registration_nodes(phone, deadline, stop)
+        if screen(nodes) == "CREATE_FORM":
+            state.create_flow_seen = True
         if _at_or_after(nodes, "WHATSAPP"):
             return
         if screen(nodes) != "CREATE_FORM" or job.account is None:
@@ -1085,32 +1313,66 @@ def build_common_steps(phone: CloudPhone,
     def send_sms(job: RunJob, deadline: AttemptDeadline,
                  stop: threading.Event) -> None:
         nodes = _registration_nodes(phone, deadline, stop)
+        if screen(nodes) == "SMS" and _has(nodes, "Create your Amazon account"):
+            state.create_flow_seen = True
+        if (screen(nodes) in {"WHATSAPP", "SMS"} and not state.create_flow_seen and
+                mode != "create"):
+            state.login_jump_seen = True
         if screen(nodes) == "SMS":
+            _check_summary(nodes, job)
             if state.sms_requested_at is None:
                 state.sms_requested_at = time.monotonic()
-            on_status("Đang chờ mã")
-            return
-        if state.sms_requested_at is not None:
-            try:
-                _wait_screen(phone, {"SMS"}, deadline, stop)
-            except ToolError as exc:
-                raise ToolError("Đã bấm gửi SMS nhưng chưa xác nhận màn nhập mã; kiểm tra máy này") from exc
             on_status("Đang chờ mã")
             return
         if screen(nodes) != "WHATSAPP" or job.account is None:
             raise ToolError("Máy này chưa ở màn chọn gửi mã bằng SMS")
         _check_summary(nodes, job)
-        button = _button(nodes, "Send code by SMS")
-        _bounds(button)
-        # Record dispatch intent before ADB; transport errors can arrive after
-        # Android received the tap. Only observing SMS confirms the result.
-        state.sms_requested_at = time.monotonic()
-        try:
+        while state.sms_tap_attempts < 2:
+            if stop.is_set():
+                raise ToolError("Đã dừng máy này")
+            if state.sms_tap_attempts:
+                # A prior tap may have reached Amazon. Observe before any
+                # second tap, including when this machine was paused/resumed.
+                elapsed = time.monotonic() - state.sms_requested_at
+                try:
+                    observed = _wait_screen(phone, {"SMS"}, deadline, stop,
+                                            max_wait=max(0, 20 - elapsed))
+                    _check_summary(observed, job)
+                    if _has(observed, "Create your Amazon account"):
+                        state.create_flow_seen = True
+                    on_status("Đang chờ mã")
+                    return
+                except _ScreenWaitExpired:
+                    nodes = _registration_nodes(phone, deadline, stop)
+                    if screen(nodes) == "SMS":
+                        _check_summary(nodes, job)
+                        if _has(nodes, "Create your Amazon account"):
+                            state.create_flow_seen = True
+                        on_status("Đang chờ mã")
+                        return
+                    if screen(nodes) != "WHATSAPP":
+                        raise ToolError("Màn xác minh đã đổi; kiểm tra máy này")
+                    _check_summary(nodes, job)
+                    deadline.recovering("Nút SMS vẫn hiện sau 20 giây · thử chạm lại một lần")
+            button = _button(nodes, "Send code by SMS")
+            _bounds(button)
+            # Record intent before ADB: transport failure can arrive after a
+            # delivered tap. A second tap is allowed only after a fresh read
+            # still shows this phone's WhatsApp choice after 20 seconds.
+            state.sms_tap_attempts += 1
+            state.sms_requested_at = time.monotonic()
             _tap_for_transition(phone, button, deadline)
-        except ToolError:
-            pass
+        try:
+            observed = _wait_screen(phone, {"SMS"}, deadline, stop,
+                                    max_wait=max(0, 25 - (time.monotonic() - state.sms_requested_at)))
+        except _ScreenWaitExpired as exc:
+            raise ToolError("Nút Send code by SMS vẫn hiện sau hai lần chạm đã kiểm tra; "
+                            "dừng riêng máy này để kiểm tra") from exc
+        _check_summary(observed, job)
+        if _has(observed, "Create your Amazon account"):
+            state.create_flow_seen = True
         on_status("Đang chờ mã")
-        _wait_screen(phone, {"SMS"}, deadline, stop)
+        return
 
     def read_sms_form(job: RunJob, deadline: AttemptDeadline,
                       stop: threading.Event) -> list[dict[str, str]]:
@@ -1119,6 +1381,30 @@ def build_common_steps(phone: CloudPhone,
             raise ToolError("Máy này chưa ở màn nhập mã SMS")
         _check_summary(nodes, job)
         return nodes
+
+    def confirmed_login_otp_nodes(job: RunJob, code: str,
+                                  deadline: AttemptDeadline,
+                                  stop: threading.Event, *,
+                                  nodes: list[dict[str, str]] | None = None) -> list[dict[str, str]]:
+        nodes = nodes if nodes is not None else read_sms_form(job, deadline, stop)
+        field = _field(nodes, OTP_FIELD)
+        current = field.get("text", "")
+        if current == code:
+            return nodes
+        if re.fullmatch(r"[0-9]{6}", current) and current != code:
+            raise ToolError("Ô OTP đăng nhập khác mã của máy này; sửa trên máy rồi Tiếp tục")
+        try:
+            visual = _read_login_sms_visual(phone, deadline, stop)
+        except ToolError as exc:
+            raise ToolError("Đã gõ OTP đăng nhập nhưng chưa đọc được ảnh ô mã; "
+                            "giữ nguyên mã, không gõ lặp") from exc
+        if screen(visual) != "SMS":
+            raise ToolError("Màn SMS đăng nhập đã đổi khi xác nhận OTP; kiểm tra máy này")
+        _check_summary(visual, job)
+        if _field(visual, OTP_FIELD).get("text", "") != code:
+            raise ToolError("Đã gõ OTP đăng nhập nhưng ảnh chưa xác nhận đủ mã; "
+                            "giữ nguyên mã, không gõ lặp")
+        return visual
 
     def focus_otp(job: RunJob, deadline: AttemptDeadline,
                   stop: threading.Event) -> None:
@@ -1130,9 +1416,23 @@ def build_common_steps(phone: CloudPhone,
                   stop: threading.Event) -> None:
         nodes = read_sms_form(job, deadline, stop)
         current = _field(nodes, OTP_FIELD).get("text", "")
+        login = mode == "login" or (mode == "auto" and
+                                      state.login_jump_seen and not state.create_flow_seen)
         if re.fullmatch(r"[0-9]{6}", current):
+            if login and state.code and current != state.code:
+                raise ToolError("Ô OTP đăng nhập khác mã của máy này; sửa trên máy rồi Tiếp tục")
             state.code = current
+            if login:
+                state.login_otp_confirmed = True
             on_otp(current)
+            on_status("Đã nhập mã")
+            return
+        if login and state.login_otp_input_attempted:
+            if not state.code:
+                raise ToolError("Chưa giữ được OTP đăng nhập đã gõ; kiểm tra máy này")
+            confirmed_login_otp_nodes(job, state.code, deadline, stop, nodes=nodes)
+            state.login_otp_confirmed = True
+            on_otp(state.code)
             on_status("Đã nhập mã")
             return
         if state.sms_requested_at is None:
@@ -1149,18 +1449,76 @@ def build_common_steps(phone: CloudPhone,
                     on_status("Không đọc được mã SMS")
                     raise
                 on_status("Chưa lấy được mã · tự mở lại trình duyệt")
-        _type_field(phone, OTP_FIELD, code, deadline, stop,
-                    nodes=read_sms_form(job, deadline, stop))
+        if login:
+            state.code = code
+            def mark_login_input() -> None:
+                state.login_otp_input_attempted = True
+            try:
+                _type_field(phone, OTP_FIELD, code, deadline, stop,
+                            nodes=read_sms_form(job, deadline, stop),
+                            before_input=mark_login_input)
+            except ToolError as exc:
+                if "Chưa xác nhận được nội dung ô" not in str(exc):
+                    raise
+                confirmed_login_otp_nodes(job, code, deadline, stop)
+        else:
+            _type_field(phone, OTP_FIELD, code, deadline, stop,
+                        nodes=read_sms_form(job, deadline, stop))
         state.code = code
+        if login:
+            state.login_otp_confirmed = True
         on_otp(code)
         on_status("Đã nhập mã")
 
-    def create_account(job: RunJob, deadline: AttemptDeadline,
-                       stop: threading.Event) -> None:
+    def finish_login(job: RunJob, deadline: AttemptDeadline,
+                     stop: threading.Event) -> None:
+        nodes = (_read_nodes(phone, deadline, stop) if state.login_verify_pressed
+                 else _registration_nodes(phone, deadline, stop))
+        if mode == "auto" and _has(nodes, "Create your Amazon account"):
+            finish_create(job, deadline, stop)
+            return
+        if screen(nodes) != "SMS" and state.login_verify_pressed:
+            if _wait_after_sms(phone, deadline, stop, nodes=nodes):
+                return
+            raise ToolError("Amazon vẫn đang tải sau xác nhận OTP; kiểm tra máy này")
+        if screen(nodes) != "SMS":
+            raise ToolError("Máy này chưa ở màn SMS để xác minh đăng nhập")
+        _check_summary(nodes, job)
+        if state.code:
+            nodes = confirmed_login_otp_nodes(
+                job, state.code, deadline, stop, nodes=nodes)
+        field = _field(nodes, OTP_FIELD)
+        value = field.get("text", "")
+        if not re.fullmatch(r"[0-9]{6}", value):
+            raise ToolError("Máy này chưa nhập đủ OTP đăng nhập")
+        if state.code and value != state.code:
+            raise ToolError("Mã đăng nhập đang hiện khác mã đã xác nhận trên máy này")
+        attempts = max(state.login_verify_attempts,
+                       int(state.login_verify_pressed))
+        if attempts >= 2:
+            raise ToolError("Verify đăng nhập đã thử hai lần nhưng màn SMS vẫn còn; kiểm tra máy này")
+        try:
+            button = _button(nodes, LOGIN_VERIFY_LABEL, below=field)
+        except _ActionNotResolved:
+            button = _visual_form_button(
+                phone, nodes, LOGIN_VERIFY_LABEL, field, deadline,
+                min_coverage=0.5)
+        _bounds(button)
+        state.login_verify_pressed = True
+        state.login_verify_attempts = attempts + 1
+        _tap_for_transition(phone, button, deadline)
+        if _wait_after_sms(phone, deadline, stop):
+            return  # The next step must still identify Browse menu.
+        raise ToolError("Đã bấm Verify đăng nhập nhưng màn SMS chưa đổi; kiểm tra máy này")
+
+    def finish_create(job: RunJob, deadline: AttemptDeadline,
+                      stop: threading.Event) -> None:
         nodes = (_read_nodes(phone, deadline, stop) if state.create_pressed else
                  _registration_nodes(phone, deadline, stop))
         if screen(nodes) != "SMS" and state.create_pressed:
-            return
+            if _wait_after_sms(phone, deadline, stop, nodes=nodes):
+                return
+            raise ToolError("Amazon vẫn đang tải sau xác nhận OTP; kiểm tra máy này")
         if screen(nodes) != "SMS":
             raise ToolError("Máy này không còn ở màn SMS; kiểm tra trước khi tạo tài khoản")
         value = _field(nodes, OTP_FIELD).get("text", "")
@@ -1178,12 +1536,21 @@ def build_common_steps(phone: CloudPhone,
                 _tap_for_transition(phone, button, deadline)
             except ToolError:
                 pass
-        until = time.monotonic() + deadline.allowance(10)
-        while time.monotonic() < until:
-            if screen(_read_nodes(phone, deadline, stop)) != "SMS":
-                return  # A later screenshot is needed to classify the result.
-            stop.wait(0.25)
+        if _wait_after_sms(phone, deadline, stop):
+            return  # A later screenshot is needed to classify the result.
         raise ToolError("Đã bấm Create nhưng Amazon vẫn ở màn OTP; kiểm tra máy này")
+
+    def finish_auto(job: RunJob, deadline: AttemptDeadline,
+                    stop: threading.Event) -> None:
+        if state.login_jump_seen and not state.create_flow_seen:
+            finish_login(job, deadline, stop)
+        else:
+            finish_create(job, deadline, stop)
+
+    create_only = skip_creation_for_login if mode == "login" else proceed
+    name_action = skip_creation_for_login if mode == "login" else name
+    final_action = {"login": finish_login, "create": finish_create,
+                    "auto": finish_auto}[mode]
 
     return (
         PostMenuStep("b4 Sign In", sign_in),
@@ -1191,11 +1558,11 @@ def build_common_steps(phone: CloudPhone,
         PostMenuStep("b5 nhập SĐT", phone_number),
         PostMenuStep("b6 chọn US +1", country),
         PostMenuStep("b7 Continue", continue_number),
-        PostMenuStep("b8 Proceed to create an account", proceed),
-        PostMenuStep("b9 nhập tên", name),
+        PostMenuStep("b8 Proceed to create an account", create_only),
+        PostMenuStep("b9 nhập tên", name_action),
         PostMenuStep("b10 Send code by SMS", send_sms),
         PostMenuStep("b11a chạm ô OTP", focus_otp),
         PostMenuStep("b11 nhập OTP", enter_otp),
-        PostMenuStep("b11 bấm Create your Amazon account", create_account,
+        PostMenuStep(FINAL_SMS_STEP, final_action,
                      within_attempt=False),
     )

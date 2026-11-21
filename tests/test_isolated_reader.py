@@ -26,6 +26,10 @@ def production_worker_with_fake_android(connection, serial):
     from amazon_android.isolated_reader import _serve
     with patch('amazon_android.account_flow._read_nodes_once',
                side_effect=lambda phone, deadline, stop: [{'serial': phone.serial}]), \
+         patch('amazon_android.account_flow._read_visual_nodes',
+               side_effect=lambda phone, deadline, stop: [{'visual_serial': phone.serial}]), \
+         patch('amazon_android.marketplace_flow._read_navigation_nodes',
+               side_effect=lambda phone, deadline, stop: [{'navigation_serial': phone.serial}]), \
          patch('amazon_android.ui_backend.country_scroll', return_value=True):
         _serve(connection, serial)
 
@@ -35,6 +39,10 @@ class IsolationTests(unittest.TestCase):
         reader = PhoneReader('127.0.0.1:5003', target=production_worker_with_fake_android)
         try:
             self.assertEqual(reader.call('read', 15, threading.Event()), [{'serial': reader.serial}])
+            self.assertEqual(reader.call('visual', 15, threading.Event()),
+                             [{'visual_serial': reader.serial}])
+            self.assertEqual(reader.call('navigation', 15, threading.Event()),
+                             [{'navigation_serial': reader.serial}])
             self.assertTrue(reader.call('scroll', 5, threading.Event(), fling=True, reverse=False))
         finally:
             reader.close()

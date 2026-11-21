@@ -12,8 +12,9 @@ class SettingsTests(unittest.TestCase):
             path = Path(directory) / "settings.json"
             self.assertEqual(load_settings(path).start_group_size, 1)
             self.assertFalse(load_settings(path).hide_profile_creation)
-            save_settings(AppSettings(12, True), path)
-            self.assertEqual(load_settings(path), AppSettings(12, True))
+            self.assertEqual(load_settings(path).account_flow_mode, "create")
+            save_settings(AppSettings(12, True, "login"), path)
+            self.assertEqual(load_settings(path), AppSettings(12, True, "login"))
 
     def test_old_settings_file_keeps_creation_window_visible(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -27,6 +28,8 @@ class SettingsTests(unittest.TestCase):
                 AppSettings(value)
         with self.assertRaises(ToolError):
             AppSettings(2, "yes")
+        with self.assertRaises(ToolError):
+            AppSettings(2, False, "both")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,12 @@
 import unittest
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from amazon_android.core import ToolError
 from amazon_android.swarmote_desktop import (
     ProfileCreateNotSubmitted, ProfileNotFound, ProxyConfig,
-    _create_profile_form, _open_profiles, profile_status, visible_profile_names,
+    _activate_manager, _create_profile_form, _open_profiles, profile_status, visible_profile_names,
 )
 
 
@@ -14,6 +15,23 @@ def control(name, kind):
 
 
 class ProfilesNavigationTests(unittest.TestCase):
+    def test_transient_foreground_denial_retries_same_manager(self):
+        handle = 42
+        calls = []
+        def foreground(target):
+            calls.append(target)
+            if len(calls) == 1:
+                raise RuntimeError('Windows denied focus once')
+        gui = SimpleNamespace(IsWindowVisible=lambda _: True, IsIconic=lambda _: False,
+                              SetForegroundWindow=foreground,
+                              GetForegroundWindow=lambda: handle if len(calls) > 1 else 0)
+        window = SimpleNamespace(handle=handle, set_focus=lambda: self.fail('fallback not needed'))
+        with patch.dict(sys.modules, {'win32gui': gui, 'win32con': SimpleNamespace()}), \
+             patch('amazon_android.swarmote_desktop.time.sleep') as sleep:
+            _activate_manager(window)
+        self.assertEqual(calls, [handle, handle])
+        sleep.assert_called_once_with(0.25)
+
     def test_visible_names_reads_table_without_typing_into_search(self):
         rows = [control("q5", "DataItem"), control("q6", "DataItem"),
                 control("Profile 3", "DataItem")]
@@ -95,6 +113,37 @@ class ProfilesNavigationTests(unittest.TestCase):
         self.assertTrue(result["created"])
         self.assertEqual(calls, ["New Profile", "Test Proxy", "Create"])
         set_value.assert_any_call(window, "Profile Name", "Edit", "q4")
+
+    def test_retry_closes_form_with_old_proxy_result(self):
+        window = object()
+        state = {"form": True, "result": "Test Failed"}
+        calls = []
+        def descendants(_window):
+            if not state["form"]:
+                return [control("New Profile", "Button")]
+            return [control("Create", "Button"), control("Single Create", "RadioButton"),
+                    control("Profile Name", "Edit"), control("ip/Host", "Edit"),
+                    control(state["result"], "Text")]
+        def invoke(_window, name):
+            calls.append(name)
+            if name == "Cancel":
+                state["form"] = False
+            elif name == "New Profile":
+                state["form"] = True
+                state["result"] = ""
+            elif name == "Test Proxy":
+                state["result"] = "Test Passed"
+        with patch("amazon_android.swarmote_desktop._main_window", return_value=window), \
+             patch("amazon_android.swarmote_desktop._descendants", side_effect=descendants), \
+             patch("amazon_android.swarmote_desktop._open_profiles"), \
+             patch("amazon_android.swarmote_desktop._activate_manager"), \
+             patch("amazon_android.swarmote_desktop._invoke", side_effect=invoke), \
+             patch("amazon_android.swarmote_desktop._wait_for"), \
+             patch("amazon_android.swarmote_desktop._select_radio"), \
+             patch("amazon_android.swarmote_desktop._set_value"):
+            result = _create_profile_form("q4", ProxyConfig("socks5", "proxy.example", 1001))
+        self.assertTrue(result["created"])
+        self.assertEqual(calls, ["Cancel", "New Profile", "Test Proxy", "Create"])
 
     def test_new_profile_noop_stops_before_typing_in_search(self):
         window = object()

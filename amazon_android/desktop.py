@@ -13,7 +13,7 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image
 
-from .bulk_input import MAX_PROFILES, parse_column, parse_records, validate_card
+from .bulk_input import MAX_PROFILES, parse_bulk_payload, parse_column, parse_records, validate_card
 from .batch_state import BatchDraft
 from .core import ToolError
 from .otp import extract_otp, otp_token, validate_otp_url
@@ -27,7 +27,7 @@ from .windows_identity import set_process_identity, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
 from .registration import PHONE
-from .runner import AccountData, RunJob, run_batch
+from .runner import AccountData, RunJob, run_batch, retry_preparation
 from .settings import AppSettings, load_settings, save_settings
 from .swarmote_desktop import (
     ProxyConfig, open_adb_shell, profile_status,
@@ -70,6 +70,7 @@ FIELD_KEYS = (
     "host", "port", "username", "proxy_password",
     "full_name", "phone", "amazon_password", "profile_name", "card", "otp_url",
 )
+REPAIR_KEYS = tuple(key for key in FIELD_KEYS if key != "profile_name")
 
 POST_MENU_STEP_FACTORIES = {index: build_random_steps for index in range(12)}
 POST_MENU_STEP_FACTORIES[6] = build_q7_pilot_steps
@@ -121,9 +122,11 @@ class Window:
         self.post_menu_sessions: dict[int, PostMenuSession] = {}
         self.post_menu_stops: dict[int, threading.Event] = {}
         self.phone_stop_after_step: dict[int, threading.Event] = {}
+        self.post_menu_resume_after_stop: set[int] = set()
         self.post_menu_workers: dict[int, threading.Thread] = {}
         self.menu_opened_at: dict[int, float] = {}
         self.phone_serials: dict[int, str] = {}
+        self.proxy_postal_prefixes: dict[int, str] = {}
         self.attach_in_progress = False
         self.attaching_index = 0
         self.attach_events: queue.Queue[tuple[str, AccountData | None, str | None]] = queue.Queue()
@@ -141,6 +144,8 @@ class Window:
         self.attach_worker = None
         self._draining_workers = []
         self._pending_retries: set[int] = set()
+        self._edited_locked_rows: set[int] = set()
+        self.preparation_retry_workers: dict[int, threading.Thread] = {}
         self.cancel = threading.Event()
         self.events: queue.Queue[tuple[int, str, str, str | None]] = queue.Queue()
         self.otp_events: queue.Queue[tuple[str, int, str]] = queue.Queue()
@@ -181,6 +186,7 @@ class Window:
                     )
         self.devices: list[ctk.CTkButton] = []
         self.row_buttons: list[ctk.CTkButton] = []
+        self.row_stop_buttons: list[ctk.CTkButton] = []
         self.bulk_boxes: dict[str, ctk.CTkEntry] = {}
         self.bulk_feedback: dict[str, ctk.CTkLabel] = {}
         self.detail_entries: dict[str, ctk.CTkEntry] = {}
@@ -190,9 +196,10 @@ class Window:
         self._build()
         if self.restored_batch:
             self._set_editing(False)
-        for row in self.values:
-            for value in row.values():
-                value.trace_add("write", lambda *_: self._schedule_refresh())
+        for index, row in enumerate(self.values):
+            for key, value in row.items():
+                value.trace_add("write", lambda *_, i=index, k=key:
+                                self._on_row_value_changed(i, k))
         self._refresh_devices()
         self._select(0)
         if self.registry_error:
@@ -391,9 +398,11 @@ class Window:
         self.account_detail_heading.grid(
             row=3, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 8))
 
-        self._label(detail_card, "Dán 1–12 proxy để tự điền", 13,
-                    color=INK, weight="bold").grid(
-                         row=8, column=0, columnspan=2, sticky="w", padx=20)
+        self.proxy_paste_heading = self._label(
+            detail_card, "Dán 1–12 proxy để tự điền", 13,
+            color=INK, weight="bold")
+        self.proxy_paste_heading.grid(
+            row=8, column=0, columnspan=2, sticky="w", padx=20)
         self.proxy_line = ctk.CTkEntry(
             detail_card, placeholder_text="host:port:user:password",
             height=44, corner_radius=8, border_color=FIELD_BORDER,
@@ -404,9 +413,13 @@ class Window:
                              sticky="ew", padx=20, pady=(5, 6))
         self.proxy_line.bind("<Control-v>", self._paste_single_proxy, add="+")
         self.proxy_line.bind("<Return>", lambda _: self._split_single_proxy())
-        self._label(detail_card, "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
-                     11, wraplength=305, justify="left").grid(row=10, column=0, columnspan=2, sticky="w",
-                             padx=20, pady=(0, 12))
+        self.proxy_line.bind("<FocusIn>", lambda _: self._begin_locked_repair(), add="+")
+        self.proxy_paste_hint = self._label(
+            detail_card,
+            "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
+            11, wraplength=305, justify="left")
+        self.proxy_paste_hint.grid(row=10, column=0, columnspan=2, sticky="w",
+                                   padx=20, pady=(0, 12))
 
         fields = [
             ("Tên Amazon", "full_name", 4, 0, False),
@@ -438,6 +451,8 @@ class Window:
             entry.pack(fill="x")
             if key == "profile_name":
                 entry.configure(state="disabled")
+            else:
+                entry.bind("<FocusIn>", lambda _: self._begin_locked_repair(), add="+")
             self.detail_entries[key] = entry
         self.detail_entries["host"].bind("<Control-v>", self._paste_host, add="+")
         for key, kind in (
@@ -483,7 +498,7 @@ class Window:
         self.attach_profile_button.grid(row=16, column=0, columnspan=2,
                                    sticky="ew", padx=20, pady=(0, 17))
         self.stop_selected_button = ctk.CTkButton(
-            detail_card, text="Dừng Máy 1 sau bước hiện tại", height=40,
+            detail_card, text="Dừng Máy 1", height=40,
             corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
             state="disabled", command=self._request_stop_selected,
@@ -618,15 +633,26 @@ class Window:
                     label.bind("<Button-1>", lambda _event, i=index: self._select(i))
                 cells[key] = label
             self.table_rows.append(cells)
+            actions = ctk.CTkFrame(table, fg_color="transparent")
+            actions.grid(row=index + 2, column=4, padx=(3, 12), pady=2)
             button = ctk.CTkButton(
-                table, text="Tiếp tục", width=78, height=36, corner_radius=8,
+                actions, text="Tiếp tục", width=78, height=28, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=INK, border_width=1, border_color=FIELD_BORDER,
                 font=ctk.CTkFont("Segoe UI Variable", 12, weight="bold"),
                 command=lambda i=index: self._continue_profile(i),
             )
-            button.grid(row=index + 2, column=4, padx=(3, 12), pady=2)
+            button.pack(pady=(0, 2))
             self.row_buttons.append(button)
+            stop_button = ctk.CTkButton(
+                actions, text="Dừng", width=78, height=28, corner_radius=8,
+                fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
+                text_color=RED, border_width=1, border_color=FIELD_BORDER,
+                font=ctk.CTkFont("Segoe UI Variable", 12, weight="bold"),
+                state="disabled", command=lambda i=index: self._request_stop_phone(i),
+            )
+            stop_button.pack()
+            self.row_stop_buttons.append(stop_button)
         ctk.CTkFrame(table, fg_color="transparent", height=5).grid(
             row=MAX_PROFILES + 2, column=0, columnspan=5)
 
@@ -679,7 +705,9 @@ class Window:
         self._apply_bulk_text(kind, copied)
 
     def _apply_account_text(self, copied: str) -> None:
-        records = parse_records(copied, account_table=True)
+        self._apply_account_records(parse_records(copied, account_table=True))
+
+    def _apply_account_records(self, records) -> None:
         self.draft.replace("account", len(records))
         for target in self.values:
             for key in ("phone", "amazon_password", "full_name", "card", "otp_url"):
@@ -713,35 +741,39 @@ class Window:
         try:
             if self.draft.locked:
                 raise ToolError("Mẻ đã chạy; bấm Mẻ mới để nhập dữ liệu khác")
-            if kind == "account":
-                self._apply_account_text(content)
-                return
-            parsed = parse_column(kind, content)
-            self.draft.replace("proxy", len(parsed))
+            proxies, accounts = parse_bulk_payload(content)
         except (ToolError, ValueError) as exc:
             self.bulk_feedback[kind].configure(text=str(exc), text_color=RED)
             self.run_note.configure(text=str(exc), text_color=RED)
             return
-        for target in self.values:
-            for key in ("host", "port", "username", "proxy_password"):
-                target[key].set("")
-        for index, value in enumerate(parsed[:MAX_PROFILES]):
-            target = self.values[index]
-            target["host"].set(value.host)
-            target["port"].set(str(value.port))
-            target["username"].set(value.username)
-            target["proxy_password"].set(value.password)
-        if kind == "proxy":
-            self.proxy_fallbacks = parsed[MAX_PROFILES:]
+        if proxies:
+            self.draft.replace("proxy", len(proxies))
+            for target in self.values:
+                for key in ("host", "port", "username", "proxy_password"):
+                    target[key].set("")
+            for index, value in enumerate(proxies[:MAX_PROFILES]):
+                target = self.values[index]
+                target["host"].set(value.host)
+                target["port"].set(str(value.port))
+                target["username"].set(value.username)
+                target["proxy_password"].set(value.password)
+            self.proxy_fallbacks = proxies[MAX_PROFILES:]
+            self.bulk_feedback["proxy"].configure(
+                text=f"✓ {min(len(proxies), MAX_PROFILES)} máy · {len(self.proxy_fallbacks)} dự phòng",
+                text_color=GREEN)
+        if accounts:
+            self._apply_account_records(accounts)
+        if kind == "proxy" and not proxies:
+            self.bulk_feedback["proxy"].configure(
+                text="Đã chuyển vào Thông tin Amazon", text_color=GREEN)
+        elif kind == "account" and not accounts:
+            self.bulk_feedback["account"].configure(
+                text="Đã chuyển vào Proxy", text_color=GREEN)
         self.count.set(str(self.draft.count))
         self._refresh_devices()
-        self.bulk_feedback[kind].configure(
-            text=(f"✓ {min(len(parsed), MAX_PROFILES)} máy · "
-                  f"{max(0, len(parsed) - MAX_PROFILES)} dự phòng"
-                  if kind == "proxy" else f"✓ {len(parsed)} máy"),
+        self.run_note.configure(
+            text=f"Đã nhận {len(proxies)} proxy, {len(accounts)} hàng Amazon hợp lệ",
             text_color=GREEN)
-        self.run_note.configure(text=f"Đã gán {len(parsed)} proxy vào mẻ",
-                                text_color=GREEN)
         self.bulk_boxes[kind].delete(0, "end")
         self._maybe_show_preview()
 
@@ -766,12 +798,17 @@ class Window:
         return None
 
     def _paste_detail_column(self, kind: str) -> str | None:
-        if self.draft.locked:
-            return "break"
         try:
             copied = self.root.clipboard_get()
         except tk.TclError:
             return None
+        if self.draft.locked:
+            if "\n" in copied or "\r" in copied:
+                self.run_note.configure(
+                    text=f"Mẻ đã chạy; chỉ dán một giá trị vào Máy {self.selected + 1}",
+                    text_color=RED)
+                return "break"
+            return None  # Let the entry paste one value into the selected row.
         if "\n" not in copied and "\r" not in copied:
             return None
         try:
@@ -806,7 +843,26 @@ class Window:
     def _accept_proxy_text(self, raw: str) -> None:
         try:
             if self.draft.locked:
-                raise ToolError("Mẻ đã chạy; bấm Mẻ mới để nhập dữ liệu khác")
+                if not self._can_edit_locked_row(self.selected):
+                    raise ToolError("Máy này đã có Profile hoặc đang chạy; không thể đổi proxy ở bước này")
+                parsed = parse_column("proxy", raw)
+                if len(parsed) != 1:
+                    raise ToolError(f"Mẻ đã chạy; chỉ dán 1 proxy cho Máy {self.selected + 1}")
+                self._mark_locked_row_dirty(self.selected)
+                proxy = parsed[0]
+                row = self.values[self.selected]
+                for key, value in (
+                    ("host", proxy.host), ("port", str(proxy.port)),
+                    ("username", proxy.username),
+                    ("proxy_password", proxy.password),
+                ):
+                    row[key].set(value)
+                self.proxy_line.delete(0, "end")
+                self.run_note.configure(
+                    text=f"Đã sửa proxy Máy {self.selected + 1}; bấm Tiếp tục để tạo lại Profile",
+                    text_color=GREEN)
+                self._refresh_devices()
+                return
             parsed = parse_column("proxy", raw)
             if len(parsed) > 1:
                 self.draft.replace("proxy", len(parsed))
@@ -839,6 +895,29 @@ class Window:
         if self._refresh_after_id is None:
             self._refresh_after_id = self.root.after(40, self._delayed_refresh)
 
+    def _on_row_value_changed(self, index: int, key: str) -> None:
+        if (self.draft.locked and key in REPAIR_KEYS and
+                index == self.selected and self._can_edit_locked_row(index)):
+            self._mark_locked_row_dirty(index)
+        self._schedule_refresh()
+
+    def _mark_locked_row_dirty(self, index: int) -> None:
+        self._edited_locked_rows.add(index)
+        if index in self._pending_retries:
+            self._pending_retries.discard(index)
+            self.status[index] = (
+                f"Máy {index + 1} đã sửa dữ liệu · bấm Tiếp tục để tạo lại Profile",
+                "error")
+            self.run_note.configure(
+                text=f"Đã hủy lượt tạo lại đang chờ của Máy {index + 1}; bấm Tiếp tục sau khi sửa xong",
+                text_color=BLUE)
+
+    def _begin_locked_repair(self) -> None:
+        if (self.draft.locked and self.selected in self._pending_retries and
+                self._can_edit_locked_row(self.selected)):
+            self._mark_locked_row_dirty(self.selected)
+            self._refresh_devices()
+
     def _delayed_refresh(self) -> None:
         self._refresh_after_id = None
         self._refresh_devices()
@@ -851,7 +930,9 @@ class Window:
             return
         active = int(self.count.get())
         post_busy = any(session.state == "RUNNING"
-                        for session in self.post_menu_sessions.values())
+                        for session in self.post_menu_sessions.values()) or any(
+                            worker.is_alive() for worker in
+                            getattr(self, "preparation_retry_workers", {}).values())
         has_post_menu = bool(self.post_menu_sessions)
         partial_jobs = self.draft.locked and any(
             index not in self.jobs for index in range(active))
@@ -877,20 +958,9 @@ class Window:
             text_color=MUTED if self.running or self.attach_in_progress or post_busy or has_post_menu or partial_jobs or issue else WHITE,
         )
         self.stop_button.configure(state="normal" if self.running or post_busy else "disabled")
-        selected_stop = getattr(self, "phone_stop_after_step", {}).get(self.selected)
-        selected_session = self.post_menu_sessions.get(self.selected)
-        selected_state = self.status[self.selected][1]
-        batch_active_for_selected = (self.running and selected_session is None and
-                                     selected_state in {"idle", "running", "created",
-                                                        "started", "installed", "queued"})
-        can_stop_selected = (self.selected in self.jobs and
-                             (batch_active_for_selected or
-                              (selected_session is not None and selected_session.state == "RUNNING")) and
-                             not self.cancel.is_set() and
-                             not (selected_stop is not None and selected_stop.is_set()))
         self.stop_selected_button.configure(
-            text=f"Dừng Máy {self.selected + 1} sau bước hiện tại",
-            state="normal" if can_stop_selected else "disabled")
+            text=f"Dừng Máy {self.selected + 1}",
+            state="normal" if self._can_stop_phone(self.selected) else "disabled")
         self.reset_button.configure(state="disabled" if (self.running or post_busy or
                                     self.attach_in_progress) and not self.cancel.is_set() else "normal")
         self.attach_profile_button.configure(
@@ -919,7 +989,7 @@ class Window:
                 "post_running": "Đang tự động hóa",
                 "post_paused": "Lỗi · sửa rồi tiếp tục",
                 "post_stopped": "Đã dừng riêng",
-                "post_done": "Đã xong bước q1",
+                "post_done": "Đã xong b22",
             }.get(state, text) if state != "idle" else (
                 "Proxy sẵn sàng" if has_proxy else
                 "Đã nhập thông tin" if has_account else "Chưa nhập")
@@ -944,7 +1014,10 @@ class Window:
             may_continue = self._may_continue(i, state, bool(issue))
             self.row_buttons[i].configure(
                 state="normal" if i < active and may_continue else "disabled")
+            self.row_stop_buttons[i].configure(
+                state="normal" if i < active and self._can_stop_phone(i) else "disabled")
         self._refresh_table()
+        self._set_editing(not self.draft.locked)
 
     def _input_issue(self) -> str:
         if self.registry is None:
@@ -954,7 +1027,9 @@ class Window:
         active = int(self.count.get())
         if self.draft.proxy_count and self.draft.proxy_count < active:
             return f"Cần ít nhất {active} proxy; hiện có {self.draft.proxy_count}"
-        if self.draft.account_count not in {0, active}:
+        if self.draft.account_count == 0:
+            return "Chưa có hàng Amazon nào; dán đủ thông tin cho mọi máy trước khi Chạy mẻ"
+        if self.draft.account_count != active:
             return f"Thông tin Amazon có {self.draft.account_count} hàng, cần {active}"
         for index in range(active):
             row = self.values[index]
@@ -971,12 +1046,12 @@ class Window:
         account_rows = [any(self.values[i][key].get() for key in
                             (*required_account_keys, "card"))
                         for i in range(active)]
-        if any(account_rows) and not all(
+        if not all(
             all(self.values[i][key].get() for key in required_account_keys)
             for i in range(active)
         ):
             return "Thông tin Amazon chưa đủ cho mọi máy trong mẻ"
-        if any(account_rows):
+        if all(account_rows):
             tokens = []
             for index in range(active):
                 row = self.values[index]
@@ -1023,7 +1098,7 @@ class Window:
                           "done": "Đã tới menu",
                           "post_running": "Đang tự động hóa",
                           "post_paused": "Lỗi · bấm xem",
-                          "post_done": "Đã bấm Create",
+                          "post_done": "Đã xong luồng",
                           "error": "Lỗi · bấm xem", "uncertain": "Chưa rõ · xem",
                           "stopped": "Đã dừng"}.get(
                               self.status[index][1], self.status[index][0])
@@ -1066,11 +1141,14 @@ class Window:
 
     def _reset(self) -> None:
         busy = self.running or self.attach_in_progress or any(session.state == "RUNNING"
-                               for session in self.post_menu_sessions.values())
+                               for session in self.post_menu_sessions.values()) or any(
+                                   worker.is_alive() for worker in
+                                   getattr(self, "preparation_retry_workers", {}).values())
         if busy and not self.cancel.is_set():
             return
         workers = [getattr(self, "batch_worker", None), getattr(self, "attach_worker", None),
-                   *self.post_menu_workers.values()]
+                   *self.post_menu_workers.values(),
+                   *getattr(self, "preparation_retry_workers", {}).values()]
         self._draining_workers = [worker for worker in
             [*getattr(self, "_draining_workers", []), *workers]
             if worker is not None and worker.is_alive()]
@@ -1079,6 +1157,8 @@ class Window:
         self.batch_worker = self.attach_worker = None
         self.cancel = threading.Event()
         self._pending_retries = set()
+        self._edited_locked_rows = set()
+        self.preparation_retry_workers = {}
         # Old workers retain their old queues/dictionaries. Late results must
         # never enter a new draft or attach a serial to the new machine rows.
         self.events = queue.Queue()
@@ -1093,10 +1173,12 @@ class Window:
         self.post_menu_sessions = {}
         self.post_menu_stops = {}
         self.phone_stop_after_step = {}
+        self.post_menu_resume_after_stop = set()
         self.post_menu_workers = {}
         self.post_menu_steps = {}
         self.menu_opened_at = {}
         self.phone_serials = {}
+        self.proxy_postal_prefixes = {}
         self.proxy_fallbacks.clear()
         for row in self.values:
             for value in row.values():
@@ -1125,21 +1207,57 @@ class Window:
             return False
         session = self.post_menu_sessions.get(index)
         if session is not None:
-            return session.state == "PAUSED"
+            if index in self.post_menu_resume_after_stop:
+                return False
+            event = self.phone_stop_after_step.get(index)
+            return (session.state == "PAUSED" or
+                    (session.state == "RUNNING" and not self.cancel.is_set() and
+                     event is not None and event.is_set()))
         if self.draft.locked:
+            worker = getattr(self, "preparation_retry_workers", {}).get(index)
+            if worker is not None and worker.is_alive():
+                event = self.phone_stop_after_step.get(index)
+                return event is not None and event.is_set()
             return index in self.jobs and state != "menu_only" and (
                 not self.running or state in {"error", "uncertain", "stopped", "retry_queued"})
         return not self.running and not issue
 
+    def _can_edit_locked_row(self, index: int) -> bool:
+        if not self.draft.locked or index not in self.jobs:
+            return False
+        if self.status[index][1] not in {"error", "stopped", "retry_queued"}:
+            return False
+        if index in self.phone_serials or index in self.post_menu_sessions:
+            return False
+        worker = self.preparation_retry_workers.get(index)
+        if worker is not None and worker.is_alive():
+            return False
+        if self.registry is None:
+            return False
+        item = self.registry.get(self.jobs[index].batch_id, index)
+        return (isinstance(item, dict) and item.get("stage") == "RESERVED" and
+                item.get("state") in {"ERROR", "STOPPED"} and
+                not item.get("device_id"))
+
     def _set_editing(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
+        repairing = not enabled and self._can_edit_locked_row(self.selected)
+        detail_state = "normal" if (enabled or repairing) else "disabled"
         for box in self.bulk_boxes.values():
             box.configure(state=state)
         for key, entry in self.detail_entries.items():
             if key != "profile_name":
-                entry.configure(state=state)
-        self.proxy_line.configure(state=state)
+                entry.configure(state=detail_state)
+        self.proxy_line.configure(state=detail_state)
         self.count_menu.configure(state=state)
+        if hasattr(self, "proxy_paste_heading"):
+            self.proxy_paste_heading.configure(
+                text=(f"Dán 1 proxy cho Máy {self.selected + 1}" if repairing else
+                      "Dán 1–12 proxy để tự điền"))
+            self.proxy_paste_hint.configure(
+                text=("Chỉ sửa máy này; nhập xong bấm Tiếp tục để tạo lại Profile."
+                      if repairing else
+                      "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12."))
 
     def _open_settings(self) -> None:
         current = getattr(self, "settings_window", None)
@@ -1149,7 +1267,7 @@ class Window:
         dialog = ctk.CTkToplevel(self.root, fg_color=BG)
         self.settings_window = dialog
         dialog.title("Settings · Swarmote")
-        dialog.geometry("480x450+120+100")
+        dialog.geometry("480x530+120+100")
         dialog.resizable(False, False)
         # Map the window before building its controls so the click gets
         # immediate visual feedback even on a busy Tk event loop.
@@ -1186,13 +1304,24 @@ class Window:
         ).pack(anchor="w", padx=22, pady=(14, 3))
         self._label(card, "Các điện thoại Running vẫn hiện bình thường.",
                     12, color=MUTED).pack(anchor="w", padx=22)
+        login_mode = tk.BooleanVar(value=self.settings.account_flow_mode == "login")
+        ctk.CTkSwitch(
+            card, text="Đăng nhập Amazon (tắt = Tạo tài khoản)",
+            variable=login_mode, onvalue=True, offvalue=False,
+            text_color=INK, fg_color=SECONDARY,
+            progress_color=BLUE, button_color=WHITE,
+            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+        ).pack(anchor="w", padx=22, pady=(18, 3))
+        self._label(card, "Áp dụng cho các máy bắt đầu luồng Amazon sau khi lưu.",
+                    12, color=MUTED).pack(anchor="w", padx=22)
 
         def save() -> None:
             if self.running:
                 messagebox.showerror("Mẻ đang chạy", "Đổi Settings sau khi mẻ kết thúc")
                 return
             try:
-                updated = AppSettings(int(group_size.get()), hide_creation.get())
+                updated = AppSettings(int(group_size.get()), hide_creation.get(),
+                                      "login" if login_mode.get() else "create")
                 save_settings(updated)
             except (ToolError, OSError, ValueError) as exc:
                 messagebox.showerror("Không lưu được Settings", str(exc))
@@ -1200,7 +1329,8 @@ class Window:
             self.settings = updated
             dialog.destroy()
             self.run_note.configure(
-                text=f"Đã lưu: tối đa {updated.start_group_size} máy Running",
+                text=(f"Đã lưu: tối đa {updated.start_group_size} máy Running · "
+                      f"{'Đăng nhập' if updated.account_flow_mode == 'login' else 'Tạo tài khoản'}"),
                 text_color=GREEN,
             )
 
@@ -1210,12 +1340,59 @@ class Window:
                       font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
                       command=save).pack(anchor="e", padx=22, pady=(8, 18))
 
+    def _sync_edited_locked_row(self, index: int) -> None:
+        if index not in self._edited_locked_rows:
+            return
+        if not self._can_edit_locked_row(index):
+            raise ToolError(f"Máy {index + 1} đang chạy hoặc đã có Profile; chưa áp dụng dữ liệu sửa")
+        row = self.values[index]
+        try:
+            proxy = ProxyConfig("socks5", row["host"].get().strip(),
+                                int(row["port"].get()), row["username"].get(),
+                                row["proxy_password"].get())
+        except (ToolError, ValueError) as exc:
+            raise ToolError(f"Máy {index + 1}: proxy chưa hợp lệ") from exc
+        previous = self.jobs[index]
+        account = (self._account_for_profile(index)
+                   if previous.account is not None or
+                   any(row[key].get() for key in
+                       ("phone", "amazon_password", "full_name", "card", "otp_url"))
+                   else None)
+        if account is not None:
+            token = otp_token(account.otp_url)
+            if any(other.index != index and other.account is not None and
+                   otp_token(other.account.otp_url) == token
+                   for other in self.jobs.values()):
+                raise ToolError(f"Máy {index + 1}: URL OTP trùng máy khác")
+        self.jobs[index] = replace(
+            previous, proxy=proxy,
+            proxy_fallbacks=(() if proxy != previous.proxy else previous.proxy_fallbacks),
+            account=account)
+        self._edited_locked_rows.discard(index)
+
     def _continue_profile(self, index: int) -> None:
         if self._previous_work_busy():
             self.run_note.configure(text="Đang chờ tác vụ mẻ cũ dừng hẳn", text_color=MUTED)
             return
+        if index in getattr(self, "_edited_locked_rows", set()):
+            try:
+                self._sync_edited_locked_row(index)
+            except ToolError as exc:
+                self.run_note.configure(text=str(exc), text_color=RED)
+                self.status[index] = (str(exc), "error")
+                self._refresh_devices()
+                return
         session = self.post_menu_sessions.get(index)
         if session is not None:
+            event = self.phone_stop_after_step.get(index)
+            if (session.state == "RUNNING" and event is not None and
+                    event.is_set() and not self.cancel.is_set()):
+                self.post_menu_resume_after_stop.add(index)
+                self.status[index] = (
+                    f"Máy {index + 1} sẽ tiếp tục ngay sau khi dừng an toàn",
+                    "resume_queued")
+                self._refresh_devices()
+                return
             if session.state == "PAUSED":
                 if (session.last_error.startswith("b11 nhập OTP:") and
                         "Không đọc được OTP bằng trình duyệt" in session.last_error):
@@ -1224,14 +1401,83 @@ class Window:
                 self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
                 self._start_post_menu(index)
             return
-        if self.running:
-            if not hasattr(self, "_pending_retries"):
-                self._pending_retries = set()
-            self._pending_retries.add(index)
-            self.status[index] = ("Đã nhận Tiếp tục · chờ lượt chuẩn bị hiện tại kết thúc", "retry_queued")
-            self._refresh_devices()
+        if index in self.phone_serials and index in self.jobs:
+            self._start_post_menu(index)
+            return
+        item = (self.registry.get(self.jobs[index].batch_id, index)
+                if index in self.jobs and self.registry is not None else None)
+        if (item is not None and item.get("stage") == "RESERVED" and
+                item.get("state") == "ERROR" and not item.get("device_id")):
+            if self.running:
+                self._pending_retries.add(index)
+                self.status[index] = (
+                    f"Máy {index + 1} chờ tạo lại Profile sau mẻ hiện tại",
+                    "retry_queued")
+                self._refresh_devices()
+                return
+            self._launch([index])
+            return
+        if self.running or index in getattr(self, "preparation_retry_workers", {}):
+            self._start_preparation_retry(index)
             return
         self._launch([index])
+
+    def _start_preparation_retry(self, index: int) -> None:
+        if self.cancel.is_set():
+            return
+        if index in getattr(self, "_edited_locked_rows", set()):
+            try:
+                self._sync_edited_locked_row(index)
+            except ToolError as exc:
+                self.status[index] = (str(exc), "error")
+                self._refresh_devices()
+                return
+        workers = getattr(self, "preparation_retry_workers", None)
+        if workers is None:
+            self.preparation_retry_workers = workers = {}
+        worker = workers.get(index)
+        if worker is not None and worker.is_alive():
+            event = self.phone_stop_after_step.get(index)
+            if event is not None and event.is_set() and not self.cancel.is_set():
+                self.root.after(100, lambda: self._start_preparation_retry(index))
+            return
+        job = self.jobs.get(index)
+        if job is None or self.registry is None:
+            self.status[index] = ("Chưa có dữ liệu Profile của máy này để nối lại", "error")
+            self._refresh_devices()
+            return
+        self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
+        self._pending_retries.discard(index)
+        self.status[index] = (f"Máy {index + 1} đang tiếp tục ngay", "running")
+        context = {"registry": self.registry, "events": self.events, "stop": self.cancel,
+                   "serials": self.phone_serials, "opened": self.menu_opened_at,
+                   "phone_stop": self.phone_stop_after_step[index]}
+        worker = threading.Thread(target=self._run_preparation_retry,
+                                  args=(job, context), daemon=True)
+        workers[index] = worker
+        self._refresh_devices()
+        worker.start()
+
+    def _run_preparation_retry(self, job, context):
+        import pythoncom
+        pythoncom.CoInitializeEx(pythoncom.COINIT_MULTITHREADED)
+        try:
+            def emit(index, message, state, name):
+                if state == "done":
+                    context["opened"].setdefault(index, time.monotonic())
+                context["events"].put((index, message, state, name))
+            retry_preparation(job, context["registry"], emit, context["stop"],
+                menu_ready=lambda index, _name, _device, serial:
+                    context["serials"].__setitem__(index, serial),
+                stop_after_step=context["phone_stop"])
+        except Exception as exc:
+            stopped = context["stop"].is_set() or context["phone_stop"].is_set()
+            reason = str(exc) if isinstance(exc, ToolError) else type(exc).__name__
+            context["events"].put((job.index,
+                "Đã dừng nối lại máy" if stopped else f"Không nối lại được máy: {reason}",
+                "stopped" if stopped else "error", None))
+        finally:
+            pythoncom.CoUninitialize()
 
     def _read_browser_otp(self, index: int) -> bool:
         job = self.jobs[index]
@@ -1272,24 +1518,44 @@ class Window:
     def _request_stop(self) -> None:
         self.cancel.set()
         getattr(self, "_pending_retries", set()).clear()
+        self.post_menu_resume_after_stop.clear()
         for event in self.post_menu_stops.values():
             event.set()
         self.run_note.configure(text="Đã yêu cầu dừng · có thể bấm Làm lại để nhập mẻ mới", text_color=MUTED)
         self._refresh_devices()
 
     def _request_stop_selected(self) -> None:
-        index = self.selected
+        self._request_stop_phone(self.selected)
+
+    def _can_stop_phone(self, index: int) -> bool:
         session = self.post_menu_sessions.get(index)
         state = self.status[index][1]
-        if (index not in self.jobs or self.cancel.is_set() or
-                not ((self.running and session is None and
-                      state in {"idle", "running", "created", "started", "installed", "queued"}) or
-                     (session is not None and session.state == "RUNNING"))):
+        event = self.phone_stop_after_step.get(index)
+        return (index in self.jobs and not self.cancel.is_set() and
+                not (event is not None and event.is_set()) and
+                ((session is None and state == "menu_only") or
+                 (self.running and state == "retry_queued" and
+                  index in self._pending_retries) or
+                 (self.running and session is None and
+                  state in {"idle", "running", "created", "started", "installed", "queued"}) or
+                 (session is None and getattr(self, "preparation_retry_workers", {}).get(index)
+                  is not None and self.preparation_retry_workers[index].is_alive()) or
+                 (session is not None and session.state == "RUNNING")))
+
+    def _request_stop_phone(self, index: int) -> None:
+        if not self._can_stop_phone(index):
             return
+        queued_retry = self.status[index][1] == "retry_queued"
         event = self.phone_stop_after_step.setdefault(index, threading.Event())
         event.set()
         self._pending_retries.discard(index)
-        self.status[index] = (f"Máy {index + 1} sẽ dừng sau bước hiện tại", "stop_requested")
+        if self.status[index][1] == "menu_only" and index not in self.post_menu_sessions:
+            self.status[index] = (f"Máy {index + 1} đã dừng riêng tại menu", "stopped")
+            self.run_note.configure(text=f"Đã dừng riêng Máy {index + 1} tại menu", text_color=MUTED)
+            self._refresh_devices()
+            return
+        self.status[index] = (f"Máy {index + 1} đã hủy lượt Tiếp tục", "stopped") if queued_retry else (
+            f"Máy {index + 1} đang dừng ở điểm an toàn", "stop_requested")
         self.run_note.configure(text=f"Đã yêu cầu dừng riêng Máy {index + 1}", text_color=MUTED)
         self._refresh_devices()
 
@@ -1379,6 +1645,11 @@ class Window:
             index, PostMenuSession(job.batch_id, index,
                                    self.values[index]["profile_name"].get(),
                                    self.menu_opened_at.get(index)))
+        prefix = getattr(self, 'proxy_postal_prefixes', {}).get(index)
+        if prefix and session.registration.create_address_prefix is None:
+            session.registration.create_address_proxy_prefix = prefix
+        if session.state == "READY" and session.attempts == 0:
+            session.registration.flow_mode = self.settings.account_flow_mode
         if session.state not in {"READY", "PAUSED"}:
             return
         worker = self.post_menu_workers.get(index)
@@ -1400,6 +1671,9 @@ class Window:
         stop = threading.Event()
         self.post_menu_stops[index] = stop
         after_step = self.phone_stop_after_step.setdefault(index, threading.Event())
+        if index in self.post_menu_resume_after_stop:
+            after_step.clear()
+            self.post_menu_resume_after_stop.discard(index)
         worker = threading.Thread(target=self._run_post_menu,
                                   args=(session, job, steps, stop), daemon=True,
                                   kwargs={"context": {"serials": self.phone_serials,
@@ -1434,7 +1708,8 @@ class Window:
                 nonlocal steps
                 phone = CloudPhone(context["serials"][active_job.index])
                 target = resume_common_index(phone, steps, current,
-                                             deadline, active_stop)
+                                             deadline, active_stop,
+                                             session.registration, active_job)
                 if target == current and session.bound_serial == phone.serial:
                     return None
                 factory = context["factories"][job.index]
@@ -1498,6 +1773,9 @@ class Window:
                 self._set_editing(False)
             if any(index not in self.jobs for index in indices):
                 raise ToolError("Máy này chưa được nối vào mẻ đang thử q1")
+            for index in indices:
+                if index in self._edited_locked_rows:
+                    self._sync_edited_locked_row(index)
             jobs = [self.jobs[index] for index in indices]
         except (ToolError, ValueError) as exc:
             messagebox.showerror("Dữ liệu chưa hợp lệ", str(exc))
@@ -1516,6 +1794,7 @@ class Window:
         self.run_note.configure(text="Đang tạo Profile và mở máy song song...", text_color=BLUE)
         context = {"registry": self.registry, "events": self.events,
                    "stop": self.cancel, "serials": self.phone_serials,
+                   "proxy_prefixes": self.proxy_postal_prefixes,
                    "opened": self.menu_opened_at, "group": self.run_group_size,
                    "hide": self.run_hide_profile_creation,
                    "phone_stops": self.phone_stop_after_step}
@@ -1526,6 +1805,7 @@ class Window:
         context = context if context is not None else {
             "registry": self.registry, "events": self.events, "stop": self.cancel,
             "serials": self.phone_serials, "opened": self.menu_opened_at,
+            "proxy_prefixes": getattr(self, 'proxy_postal_prefixes', {}),
             "group": self.run_group_size, "hide": self.run_hide_profile_creation,
             "phone_stops": self.phone_stop_after_step}
         initialized = False
@@ -1548,6 +1828,8 @@ class Window:
                 hide_profile_creation=context["hide"],
                 menu_ready=lambda index, _name, _device_id, serial:
                     context["serials"].__setitem__(index, serial),
+                proxy_prefix_ready=lambda index, prefix:
+                    context.setdefault("proxy_prefixes", {}).__setitem__(index, prefix),
                 stop_after_step=context.get("phone_stops"),
             )
             message = (f"Mẻ kết thúc: {summary['menu_open']} tới menu · "
@@ -1614,6 +1896,33 @@ class Window:
                 else:
                     if name:
                         self.values[index]["profile_name"].set(name)
+                    session = self.post_menu_sessions.get(index)
+                    stop_request = self.phone_stop_after_step.get(index)
+                    if state == "menu_only" and stop_request is not None and stop_request.is_set():
+                        continue  # A late menu event must not undo this phone's stop.
+                    if state in {"post_stopped", "post_paused", "post_done"} and \
+                            session is not None and \
+                            session.state == "RUNNING" and \
+                            (stop_request is None or not stop_request.is_set()):
+                        continue  # An older terminal event arrived after this phone resumed.
+                    if (state == "post_stopped" and
+                            index in self.post_menu_resume_after_stop and
+                            not self.cancel.is_set()):
+                        self.status[index] = (
+                            f"Máy {index + 1} đang nối lại từ điểm dừng",
+                            "resume_queued")
+                        self._refresh_devices()
+                        self._start_post_menu(index)
+                        continue
+                    if state in {"post_paused", "post_done"}:
+                        self.post_menu_resume_after_stop.discard(index)
+                    if state == "post_running" and stop_request is not None and \
+                            stop_request.is_set():
+                        message = (f"Máy {index + 1} sẽ tiếp tục sau khi dừng an toàn"
+                                   if index in self.post_menu_resume_after_stop else
+                                   f"Máy {index + 1} đang dừng ở điểm an toàn")
+                        state = ("resume_queued" if index in self.post_menu_resume_after_stop
+                                 else "stop_requested")
                     self.status[index] = (message, state)
                     if self.selected == index:
                         self.detail_status.configure(text=message)

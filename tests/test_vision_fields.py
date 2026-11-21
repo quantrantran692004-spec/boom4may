@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
-from amazon_android.vision import _input_box, ocr_nodes
+from amazon_android.vision import _input_box, _single_input_border, ocr_nodes
 
 
 def detection(text, box, index=0):
@@ -40,6 +40,15 @@ class VisionFieldTests(unittest.TestCase):
                 self.assertIsNotNone(found)
                 for actual, wanted in zip(found, expected):
                     self.assertLessEqual(abs(actual - wanted), 3 * scale)
+
+    def test_login_verify_button_keeps_otp_field_detection(self):
+        image, expected, label, items = self._form(value="222222")
+        items[0]["text"] = "Enter security code"
+        items[1]["text"] = "Verify mobile number"
+        found = _input_box(image, label, 0, items)
+        self.assertIsNotNone(found)
+        for actual, wanted in zip(found, expected):
+            self.assertLessEqual(abs(actual - wanted), 3)
 
     def _nodes(self, image, items):
         buffer = io.BytesIO()
@@ -84,6 +93,15 @@ class VisionFieldTests(unittest.TestCase):
         self.assertIsNotNone(found)
         self.assertLessEqual(abs(found[0] - box[0]), 2)
         self.assertLessEqual(abs(found[2] - box[2]), 2)
+
+    def test_nested_focused_outlines_are_one_otp_field(self):
+        self.assertEqual(_single_input_border({
+            (23, 229, 358, 282), (26, 229, 362, 282),
+            (23, 229, 362, 282),
+        }), (23, 229, 362, 282))
+        self.assertIsNone(_single_input_border({
+            (23, 229, 362, 282), (23, 330, 362, 382),
+        }))
 
     def test_outer_form_card_sides_do_not_make_input_border_ambiguous(self):
         image = Image.new("RGB", (327, 559), "white")

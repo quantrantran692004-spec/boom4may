@@ -1,13 +1,183 @@
 import unittest
-from unittest.mock import Mock
+import threading
+from unittest.mock import Mock, patch
 
-from amazon_android.bulk_input import parse_column, parse_records, validate_card
+from amazon_android.bulk_input import parse_bulk_payload, parse_column, parse_records, validate_card
 from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
-from amazon_android.desktop import Window
+from amazon_android.desktop import GREEN, Window
+from amazon_android.runner import AccountData, RunJob
+from amazon_android.swarmote_desktop import ProxyConfig
+
+
+class Value:
+    def __init__(self, value=""):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
 
 
 class BulkInputTests(unittest.TestCase):
+    def locked_window(self):
+        window = Window.__new__(Window)
+        window.draft = BatchDraft(proxy_count=2, account_count=2, locked=True)
+        window.selected = 1
+        window.status = [("Máy 1 đã có Profile", "created"),
+                         ("Máy 2 tạo Profile lỗi", "error")]
+        window.registry = Mock()
+        window.registry.get.return_value = {"stage": "RESERVED", "state": "ERROR",
+                                            "device_id": None}
+        window.phone_serials = {}
+        window.post_menu_sessions = {}
+        window.preparation_retry_workers = {}
+        window._pending_retries = set()
+        window._edited_locked_rows = set()
+        window.running = True
+        window.jobs = {}
+        window.values = []
+        for index in range(2):
+            proxy = ProxyConfig("socks5", f"old{index}.example", 1000 + index,
+                                "user", "password")
+            account = AccountData(f"1202555012{index}", f"Example {index}",
+                                  "ExamplePass1!",
+                                  f"https://apifc.net/smsrecord?token=machine{index}")
+            window.jobs[index] = RunJob(index, window.draft.batch_id, proxy,
+                                        (), account)
+            window.values.append({
+                "host": Value(proxy.host), "port": Value(str(proxy.port)),
+                "username": Value(proxy.username),
+                "proxy_password": Value(proxy.password),
+                "phone": Value(account.phone),
+                "amazon_password": Value(account.password),
+                "full_name": Value(account.full_name),
+                "card": Value(""), "otp_url": Value(account.otp_url),
+                "profile_name": Value(f"q{index + 1}"),
+            })
+        window.proxy_line = Mock()
+        window.run_note = Mock()
+        window._refresh_devices = Mock()
+        window._previous_work_busy = Mock(return_value=False)
+        return window
+
+    def test_locked_failed_machine_paste_only_changes_selected_proxy(self):
+        window = self.locked_window()
+        window._pending_retries.add(1)
+        window.status[1] = ("Chờ tạo lại", "retry_queued")
+        window._accept_proxy_text("new.example:2002:newuser:newpass")
+        self.assertEqual(window.values[0]["host"].get(), "old0.example")
+        self.assertEqual(window.values[1]["host"].get(), "new.example")
+        self.assertEqual(window.jobs[1].proxy.host, "old1.example")
+        self.assertEqual(window._pending_retries, set())
+        self.assertEqual(window.status[1][1], "error")
+        self.assertEqual(window._edited_locked_rows, {1})
+
+    def test_continue_uses_repaired_proxy_and_account_for_only_failed_machine(self):
+        window = self.locked_window()
+        original_first = window.jobs[0]
+        window._accept_proxy_text("new.example:2002:newuser:newpass")
+        window.values[1]["full_name"].set("Repaired Person")
+        window.values[1]["phone"].set("12025550999")
+        window.values[1]["otp_url"].set(
+            "https://apifc.net/smsrecord?token=repaired")
+        window._continue_profile(1)
+        self.assertIs(window.jobs[0], original_first)
+        self.assertEqual(window.jobs[1].proxy.host, "new.example")
+        self.assertEqual(window.jobs[1].account.phone, "12025550999")
+        self.assertEqual(window.jobs[1].account.full_name, "Repaired Person")
+        self.assertEqual(window._edited_locked_rows, set())
+        self.assertEqual(window._pending_retries, {1})
+
+    def test_queued_retry_launch_receives_repaired_machine_job(self):
+        window = self.locked_window()
+        window._accept_proxy_text("new.example:2002:newuser:newpass")
+        window._continue_profile(1)
+        window.running = False
+        window.attach_in_progress = False
+        window.cancel = threading.Event()
+        window.settings = Mock(start_group_size=1, hide_profile_creation=True)
+        window.run_button = Mock()
+        window.settings_button = Mock()
+        window.stop_button = Mock()
+        window.reset_button = Mock()
+        window.phone_stop_after_step = {}
+        window.events = Mock()
+        window.phone_serials = {}
+        window.proxy_postal_prefixes = {}
+        window.menu_opened_at = {}
+        with patch("amazon_android.desktop.threading.Thread") as thread:
+            window._launch([1])
+        sent_jobs = thread.call_args.kwargs["args"][0]
+        self.assertEqual(len(sent_jobs), 1)
+        self.assertEqual(sent_jobs[0].proxy.host, "new.example")
+        self.assertEqual(sent_jobs[0].index, 1)
+
+    def test_locked_failed_machine_rejects_multi_proxy_paste(self):
+        window = self.locked_window()
+        window._accept_proxy_text("one.example:1001:u:p two.example:1002:u:q")
+        self.assertEqual(window.values[1]["host"].get(), "old1.example")
+        self.assertEqual(window._edited_locked_rows, set())
+
+    def test_only_failed_uncreated_profile_has_editable_detail_fields(self):
+        window = self.locked_window()
+        window.bulk_boxes = {"proxy": Mock(), "account": Mock()}
+        window.detail_entries = {"host": Mock(), "full_name": Mock(),
+                                 "profile_name": Mock()}
+        window.count_menu = Mock()
+        window.proxy_paste_heading = Mock()
+        window.proxy_paste_hint = Mock()
+        window._set_editing(False)
+        window.detail_entries["host"].configure.assert_called_with(state="normal")
+        window.detail_entries["full_name"].configure.assert_called_with(state="normal")
+        window.bulk_boxes["proxy"].configure.assert_called_with(state="disabled")
+        window.selected = 0
+        window._set_editing(False)
+        window.detail_entries["host"].configure.assert_called_with(state="disabled")
+        window.proxy_line.configure.assert_called_with(state="disabled")
+        window.selected = 1
+        window.status[1] = ("Create chưa chắc chắn", "uncertain")
+        window._set_editing(False)
+        window.detail_entries["host"].configure.assert_called_with(state="disabled")
+
+    def test_editing_queued_machine_cancels_old_retry_before_new_continue(self):
+        window = self.locked_window()
+        window._pending_retries.add(1)
+        window.status[1] = ("Chờ tạo lại", "retry_queued")
+        window._schedule_refresh = Mock()
+        window._on_row_value_changed(1, "full_name")
+        self.assertEqual(window._pending_retries, set())
+        self.assertEqual(window._edited_locked_rows, {1})
+        self.assertEqual(window.status[1][1], "error")
+
+    def test_focusing_proxy_field_cancels_queued_retry_before_paste(self):
+        window = self.locked_window()
+        window._pending_retries.add(1)
+        window.status[1] = ("Chờ tạo lại", "retry_queued")
+        window._begin_locked_repair()
+        self.assertEqual(window._pending_retries, set())
+        self.assertEqual(window._edited_locked_rows, {1})
+
+    def test_invalid_repair_keeps_old_job_and_does_not_queue_retry(self):
+        window = self.locked_window()
+        old_job = window.jobs[1]
+        window.values[1]["port"].set("invalid")
+        window._edited_locked_rows.add(1)
+        window._continue_profile(1)
+        self.assertIs(window.jobs[1], old_job)
+        self.assertEqual(window._pending_retries, set())
+        self.assertEqual(window.status[1][1], "error")
+
+    def test_locked_account_field_allows_one_value_paste_only(self):
+        window = self.locked_window()
+        window.root = Mock()
+        window.root.clipboard_get.return_value = "One Name"
+        self.assertIsNone(window._paste_detail_column("name"))
+        window.root.clipboard_get.return_value = "One Name\nOther Name"
+        self.assertEqual(window._paste_detail_column("name"), "break")
+
     def test_proxy_rows_map_in_order(self):
         found = parse_column("proxy", "one.example:1001:u:p\ntwo.example:1002:u:q\n")
         self.assertEqual([(x.host, x.port) for x in found],
@@ -204,6 +374,65 @@ class BulkInputTests(unittest.TestCase):
         with self.assertRaises(ToolError):
             validate_card("4000000000000001|12|2030|other")
 
+    def test_account_paste_discards_bad_card_and_extra_export_columns(self):
+        url = "https://apifc.net/smsrecord?token=synthetic"
+        rows = parse_records(
+            f"12025550123\tExample456!\tFirst\t4000000000000001|13|2030\tignored\t"
+            f"https://other.test/wrong\t{url}",
+            account_table=True)
+        self.assertEqual((rows[0].phone, rows[0].card, rows[0].otp_url),
+                         ("12025550123", "", url))
+
+    def test_either_paste_box_extracts_valid_proxy_and_account_rows(self):
+        url = "https://apifc.net/smsrecord?token=synthetic"
+        mixed = ("note to discard\n"
+                 "proxy.example:1001:user:secret\n"
+                 f"12025550123\tExample456!\tFirst\tbad card\t{url}\n"
+                 "broken.example:bad:user:secret\n")
+        proxies, accounts = parse_bulk_payload(mixed)
+        self.assertEqual([(item.host, item.port) for item in proxies],
+                         [("proxy.example", 1001)])
+        self.assertEqual([(item.profile_name, item.card, item.otp_url)
+                          for item in accounts], [("q1", "", url)])
+
+        window = Window.__new__(Window)
+        window.draft = BatchDraft()
+        window.values = [{key: Mock() for key in
+                          ("host", "port", "username", "proxy_password", "phone",
+                           "amazon_password", "full_name", "card", "otp_url")}
+                         for _ in range(12)]
+        window.count = Mock()
+        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
+        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
+        window.run_note = Mock()
+        window.proxy_fallbacks = []
+        window._refresh_devices = Mock()
+        window._refresh_otp_detail = Mock()
+        window._maybe_show_preview = Mock()
+        window._apply_bulk_text("proxy", mixed)
+        self.assertEqual((window.draft.proxy_count, window.draft.account_count), (1, 1))
+        window.values[0]["phone"].set.assert_called_with("12025550123")
+        window.values[0]["host"].set.assert_called_with("proxy.example")
+        window._apply_bulk_text("account", "other.example:1002:user:secret")
+        window.values[0]["host"].set.assert_called_with("other.example")
+        self.assertEqual(window.draft.account_count, 1)
+        window.bulk_feedback["account"].configure.assert_called_with(
+            text="Đã chuyển vào Proxy", text_color=GREEN)
+
+    def test_bulk_payload_skips_bad_rows_without_shifting_valid_phone_url_pairs(self):
+        first = "https://apifc.net/smsrecord?token=first"
+        second = "https://apifc.net/smsrecord?token=second"
+        pasted = (f"12025550123\tExample456!\tFirst\t{first}\n"
+                  "12025550124\tExample456!\tBroken\thttps://other.test/wrong\n"
+                  f"12025550125\tExample456!\tSecond\t{second}\n"
+                  f"12025550126\tExample456!\tDuplicate\t{first}")
+        proxies, accounts = parse_bulk_payload(pasted)
+        self.assertEqual(proxies, [])
+        self.assertEqual([(row.profile_name, row.phone, row.otp_url) for row in accounts], [
+            ("q1", "12025550123", first),
+            ("q2", "12025550125", second),
+        ])
+
     def test_bulk_account_rows_accept_missing_cards_and_mixed_rows(self):
         url1 = "https://apifc.net/smsrecord?token=synthetic-one"
         url2 = "https://apifc.net/smsrecord?token=synthetic-two"
@@ -233,6 +462,16 @@ class BulkInputTests(unittest.TestCase):
         window.values = [{key: SimpleNamespace(get=lambda value=value: value)
                           for key, value in values.items()}]
         self.assertEqual(window._input_issue(), "")
+
+    def test_batch_cannot_start_with_proxy_rows_but_no_amazon_rows(self):
+        from types import SimpleNamespace
+        window = Window.__new__(Window)
+        window.registry = object()
+        window.registry_error = ""
+        window.draft = BatchDraft(proxy_count=2, account_count=0)
+        window.jobs = {}
+        window.count = SimpleNamespace(get=lambda: "2")
+        self.assertIn("Chưa có hàng Amazon", window._input_issue())
 
 
 if __name__ == "__main__":

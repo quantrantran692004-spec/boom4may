@@ -67,6 +67,26 @@ KNOWN_LABELS = (
     "Try Prime",
     "United States +1",
     "US +1",
+    "Country/Region and Language",
+    "Country/Region & Language",
+    "Country/Region:",
+    "Language:",
+    "Currency:",
+    "Countries/Regions available in English",
+    "Countries/Regions available in other languages",
+    "United States",
+    "Singapore",
+    "English",
+    "Done",
+    "Your Orders",
+    "Orders",
+    "Account",
+    "Lists",
+    "EN",
+    "Amazon.com",
+    "Your Account Tab",
+    "Retry",
+    "Reload",
 )
 FIELD_LABELS = {
     "enter mobile number or email": "phone",
@@ -198,6 +218,27 @@ def _bounds(box) -> tuple[int, int, int, int]:
             max(0, int(points[:, 1].max())))
 
 
+def _single_input_border(candidates: set[tuple[int, int, int, int]]
+                         ) -> tuple[int, int, int, int] | None:
+    if len(candidates) == 1:
+        return next(iter(candidates))
+    if not candidates:
+        return None
+    # A focused field can expose nested grey and blue outlines a few pixels
+    # apart. They describe one control when every candidate almost overlaps.
+    boxes = list(candidates)
+    for first in boxes:
+        for second in boxes:
+            intersection = (max(0, min(first[2], second[2]) - max(first[0], second[0])) *
+                            max(0, min(first[3], second[3]) - max(first[1], second[1])))
+            area_first = (first[2] - first[0]) * (first[3] - first[1])
+            area_second = (second[2] - second[0]) * (second[3] - second[1])
+            if intersection / (area_first + area_second - intersection) < 0.9:
+                return None
+    return (min(box[0] for box in boxes), min(box[1] for box in boxes),
+            max(box[2] for box in boxes), max(box[3] for box in boxes))
+
+
 def _input_box(image: Image.Image, label_box: tuple[int, int, int, int],
                label_index: int, detections: list[dict]) -> tuple[int, int, int, int] | None:
     """Find a unique actual input border immediately below a known label."""
@@ -209,7 +250,7 @@ def _input_box(image: Image.Image, label_box: tuple[int, int, int, int],
         return None
     kind = FIELD_LABELS.get(_normalize(detections[label_index]["text"]))
     expected_actions = {"phone": {"continue"}, "name": {"continue"},
-                        "otp": {"create your amazon account"}}
+                        "otp": {"create your amazon account", "verify mobile number"}}
     actions = [item["box"] for item in detections
                if _normalize(item["text"]) in expected_actions.get(kind, set())
                and item["box"][1] > ly2]
@@ -291,7 +332,7 @@ def _input_box(image: Image.Image, label_box: tuple[int, int, int, int],
                     if not interior.size or (interior.min(axis=2) >= 235).mean() < 0.65:
                         continue
                     candidates.add((left, top, right, bottom))
-    return next(iter(candidates)) if len(candidates) == 1 else None
+    return _single_input_border(candidates)
 
 
 def _field_contents(box: tuple[int, int, int, int], label_index: int,
@@ -338,12 +379,21 @@ def _field_is_blank(image: Image.Image, box: tuple[int, int, int, int]) -> bool:
     return bool(columns.size and int(columns[-1] - columns[0] + 1) <= caret_width)
 
 
-def ocr_nodes(image_bytes: bytes, *, stop=None, remaining=None) -> list[dict[str, str]]:
+def ocr_nodes(image_bytes: bytes, *, stop=None, remaining=None,
+              crop: tuple[float, float] | None = None,
+              text_only: bool = False) -> list[dict[str, str]]:
     """Return sanitized-shape UI nodes; text remains only in caller memory."""
     import numpy as np
 
     with Image.open(io.BytesIO(image_bytes)) as source:
         image = source.convert("RGB")
+        offset_y = 0
+        if crop is not None:
+            if not text_only or not (0 <= crop[0] < crop[1] <= 1):
+                raise ValueError('Text-only OCR crop must be within the screenshot')
+            offset_y = int(image.height * crop[0])
+            image = image.crop((0, offset_y, image.width,
+                                min(image.height, int(image.height * crop[1]))))
         raw = np.asarray(image)[:, :, ::-1].copy()  # RapidOCR expects BGR arrays.
     result = _recognize(raw, stop=stop, remaining=remaining)
     boxes = getattr(result, "boxes", None)
@@ -356,7 +406,8 @@ def ocr_nodes(image_bytes: bytes, *, stop=None, remaining=None) -> list[dict[str
         text = str(text).strip()
         if not text or float(score) < 0.45:
             continue
-        bounds = _bounds(box)
+        x1, y1, x2, y2 = _bounds(box)
+        bounds = (x1, y1 + offset_y, x2, y2 + offset_y)
         detections.append({"text": _canonical_text(text), "raw": text,
                            "score": float(score), "box": bounds,
                            "index": index})
@@ -370,6 +421,9 @@ def ocr_nodes(image_bytes: bytes, *, stop=None, remaining=None) -> list[dict[str
                       "bounds": f"[{x1},{y1}][{x2},{y2}]",
                       "ui_id": f"ocr-text-{index}", "ui_parent": "",
                       "visible-to-user": "true", "vision": "true"})
+
+    if text_only:
+        return nodes
 
     for index, item in enumerate(detections):
         field_kind = FIELD_LABELS.get(_normalize(item["text"]))
