@@ -12,6 +12,14 @@
 - Điều khiển Swarmote bằng UI Automation nền; điều khiển điện thoại bằng ADB qua tunnel của Swarmote.
 - Mật khẩu chỉ giữ trong bộ nhớ phiên, không ghi SQLite hay log.
 
+## Định hướng ngôn ngữ nếu xây dựng lại — 23/11/2026
+
+- Tool hiện tại chủ yếu viết bằng Python. Đây là định hướng cho bản xây dựng lại, chưa phải quyết định chuyển mã hiện tại.
+- **C#/.NET là lựa chọn tổng thể cho tool Windows điều khiển nhiều máy Android:** phù hợp giao diện Windows, tác vụ song song và bảo trì lâu dài. [Microsoft khuyến nghị C# cho phần lớn ứng dụng Windows](https://learn.microsoft.com/en-au/windows/apps/get-started/windows-developer-faq).
+- **C++** phù hợp phần xử lý ảnh thật sự cần hiệu năng và kiểm soát tài nguyên sát hơn, nếu phép đo trên máy thật chứng minh cần. [Tài liệu Microsoft về Win32/C++](https://learn.microsoft.com/en-us/windows/win32/desktop-programming).
+- **Go** phù hợp điều phối nhiều công việc đồng thời nhờ goroutine nhẹ; với yêu cầu giao diện Windows của tool này, vẫn ưu tiên C#. [Tài liệu Go về goroutine](https://go.dev/tour/concurrency/1?m=text).
+- Nếu xây lại: dùng C# cho toàn bộ tool; chỉ dùng C++ cho phần xử lý ảnh nếu đo thực tế thấy cần. Việc đổi ngôn ngữ không thay thế sửa logic nhận diện ô, quản lý trạng thái và ánh xạ dữ liệu riêng từng máy. Không giả định mức tiết kiệm RAM hay tốc độ khi chưa đo cùng một luồng trên máy thật.
+
 ## Điều chưa xác minh
 
 - Biểu mẫu tên/mật khẩu của Amazon sau bước Continue chưa có thử nghiệm thật.

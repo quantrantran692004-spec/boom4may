@@ -47,6 +47,7 @@ Progress = Callable[[int, str, str, str | None], None]
 MenuReady = Callable[[int, str, str, str], None]
 _preparation_guard = threading.Lock()
 _preparation_locks: dict[tuple[str, int], threading.RLock] = {}
+_profile_creation_lock = threading.RLock()
 
 
 def _phone_preparation_lock(job):
@@ -390,10 +391,14 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                         registry.mark(job.batch_id, job.index, "RUNNING", stage="CREATING")
                         emit(job.index, f"Đang Test proxy và tạo {name}", "running", name)
                         try:
-                            if hide_profile_creation:
-                                created = create_profile(name, proxy, hide_window=True)
-                            else:
-                                created = create_profile(name, proxy)
+                            # Separate batch coordinators may resume a failed row while
+                            # the original batch is still creating other profiles.
+                            with _profile_creation_lock:
+                                if hide_profile_creation:
+                                    created = create_profile(name, proxy, hide_window=True)
+                                else:
+                                    created = create_profile(name, proxy)
+                                found = profile_status(name)
                             prefix = (created.get('address_search_prefix')
                                       if isinstance(created, dict) else None)
                             if (proxy_prefix_ready is not None and isinstance(prefix, str)
@@ -404,7 +409,6 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                                          'running', name)
                                 except Exception:
                                     pass  # Optional address hint must not stop Profile creation.
-                            found = profile_status(name)
                             break
                         except ProxyTestFailed as exc:
                             registry.mark(job.batch_id, job.index, "ERROR", stage="RESERVED",

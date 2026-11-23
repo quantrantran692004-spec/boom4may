@@ -15,7 +15,7 @@ Luồng bắt đầu ở `desktop.POST_MENU_STEP_FACTORIES`: 12 slot dùng `rand
 | b12–b15 chung | `random_prefix.py` | `tail_choices`, `tail_view_until`, `tail_viewed`, `tail_page_scrolled`, `tail_back_sent`, `tail_completed`; về menu rồi mới hoàn tất lượt | `test_random_prefix.py`, `test_resume_state.py` |
 | b16–b22 chung | `marketplace_flow.py` | `marketplace_completed` và các dấu Done; xác nhận United States và màn sau Done | `test_marketplace_flow.py` |
 | b23–b25 chỉ Tạo | `create_address_flow.py` | `create_address_completed`, `create_address_wait_until`; mở Your Addresses | `test_create_address_flow.py` |
-| b26–b31 chỉ Tạo | `create_address_detail_flow.py` | Dấu nhập/chọn gợi ý/lưu trong `RegistrationState`; b28 xác nhận focus Street trước khi gõ, b30 xác nhận đã lưu | `test_create_address_detail_flow.py` |
+| b26–b31 chỉ Tạo | `create_address_detail_flow.py` | Dấu nhập/chọn gợi ý/lưu trong `RegistrationState`; b27 bấm Enter an address manually xong chuyển ngay b28, b28 nhập số theo hàng máy rồi mới đọc gợi ý, b30 xác nhận đã lưu | `test_create_address_detail_flow.py` |
 | b32–b39 chỉ Tạo | `reload_payment_flow.py` | Sau b31 cuộn ngay, OCR chữ Reload Balance/Buy Now/mục thêm thẻ; b38 nhập ba ô theo đúng hàng máy rồi bấm Add and continue; b39 thấy Use this address thì bấm | `test_reload_payment_flow.py` |
 | Dừng/Tiếp tục và trạng thái máy | `post_menu.py`, `runner.py`, `desktop.py` | `PostMenuSession.next_step`, `RegistrationState`, serial và khóa riêng máy; không phát lại hành động đã xác nhận | `test_post_menu.py`, `test_resume_state.py`, `test_stop_reset.py`, `test_runner.py` |
 

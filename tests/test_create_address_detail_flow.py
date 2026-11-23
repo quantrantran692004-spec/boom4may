@@ -4,7 +4,7 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from amazon_android.cloud import CloudPhone
 from amazon_android.core import ToolError
@@ -26,7 +26,7 @@ class AddressDetailTests(unittest.TestCase):
         self.deadline = AttemptDeadline(190)
         text_reader = patch.object(
             flow, '_read_text_region',
-            side_effect=lambda phone, deadline, stop, crop:
+            side_effect=lambda phone, deadline, stop, crop, **_kwargs:
                 flow._read(phone, deadline, stop, visual=True))
         text_reader.start()
         self.addCleanup(text_reader.stop)
@@ -62,9 +62,8 @@ class AddressDetailTests(unittest.TestCase):
         def tap(_phone, target, _deadline):
             if stage[0] == 'suggestions':
                 stage[0] = 'populated'
-        with patch.object(flow, '_read_hierarchy', side_effect=lambda *_: screens[stage[0]]), \
-             patch.object(flow, '_street_focused', return_value=True), \
-             patch.object(flow, '_read', return_value=base + [street]), \
+        with patch.object(flow, '_read_hierarchy', side_effect=AssertionError('native read')) as native, \
+             patch.object(flow, '_read', side_effect=lambda *_a, **_k: screens[stage[0]]), \
              patch.object(flow, '_foreground'), \
              patch.object(flow, '_new_prefix', side_effect=AssertionError('random fallback')), \
              patch.object(flow, '_tap_for_transition', side_effect=tap), \
@@ -75,6 +74,7 @@ class AddressDetailTests(unittest.TestCase):
                 None, self.deadline, self.stop)
         self.assertEqual(typed, ['3654'])
         self.assertIn(28, self.state.create_address_completed)
+        native.assert_not_called()
 
     def test_b28_never_selects_unit_field_when_street_field_missing(self):
         from amazon_android import create_address_detail_flow as flow
@@ -103,30 +103,57 @@ class AddressDetailTests(unittest.TestCase):
         self.assertEqual(flow._street_tap_target(nodes, field)['bounds'],
                          '[199,199][201,201]')
 
-    def test_b28_waits_for_delayed_ocr_before_typing(self):
+    def test_b28_types_before_reading_delayed_suggestions(self):
         from amazon_android import create_address_detail_flow as flow
         self.state.create_address_completed.update({26, 27})
         self.state.create_address_proxy_prefix = '0218'
-        form = [item('Country/Region', 100), item('Street address', 130),
-                item('Street address or P.O. Box', 180, vision='true'),
-                item('Unit or suite number', 240)]
-        populated = form + [item('ZIP Code', 300), item('78232', 340), item('City', 380)]
-        typed = []
-        visual_reads = [[], form]
+        suggestions = [item('0218 Main St', 300, vision='true')]
+        events = []
+        visual_reads = [[], suggestions]
         def adb(_phone, *args, **_kwargs):
             if args[:3] == ('shell', 'input', 'text'):
-                typed.append(args[3])
+                events.append(('type', args[3]))
             return SimpleNamespace(stdout='')
-        with patch.object(flow, '_read_hierarchy', side_effect=lambda *_: populated if typed else form), \
-             patch.object(flow, '_read', side_effect=lambda *_a, **_k:
-                          visual_reads.pop(0) if visual_reads else form), \
+        def read(*_args, **_kwargs):
+            events.append(('read', None))
+            return visual_reads.pop(0)
+        with patch.object(flow, '_read_hierarchy', side_effect=AssertionError('native read')) as native, \
+             patch.object(flow, '_read_text_region', side_effect=read), \
              patch.object(flow, '_foreground'), patch.object(flow, '_tap') as tap, \
              patch.object(flow, 'cloud_adb', side_effect=adb), \
              patch.object(self.stop, 'wait', return_value=False):
             build_create_address_detail_steps(self.phone, self.state)[2].action(
                 None, self.deadline, self.stop)
         tap.assert_called_once()
-        self.assertEqual(typed, ['0218'])
+        self.assertEqual(events[0], ('type', '0218'))
+        self.assertEqual([kind for kind, _ in events], ['type', 'read', 'read'])
+        native.assert_not_called()
+
+    def test_b28_selects_cropped_suggestion_without_native_dump(self):
+        from amazon_android import create_address_detail_flow as flow
+        self.state.create_address_completed.update({26, 27})
+        self.state.create_address_proxy_prefix = '545'
+        form = [item('Street address', 220, vision='true'),
+                item('Street address or P.O. Box', 260, vision='true')]
+        suggestion = [item('545', 270, vision='true'),
+                      item('545 Lake Washington Blvd E', 330, vision='true')]
+        sent = []
+        def adb(_phone, *args, **_kwargs):
+            if args[:3] == ('shell', 'input', 'text'):
+                sent.append(args[3])
+            return SimpleNamespace(stdout='')
+        with patch.object(flow, '_read', return_value=form), \
+             patch.object(flow, '_read_text_region',
+                          side_effect=lambda *_a, **_k: suggestion if sent else []), \
+             patch.object(flow, '_read_hierarchy', side_effect=AssertionError('native dump')) as native, \
+             patch.object(flow, '_foreground'), patch.object(flow, '_tap') as tap, \
+             patch.object(flow, 'cloud_adb', side_effect=adb):
+            build_create_address_detail_steps(self.phone, self.state)[2].action(
+                None, self.deadline, self.stop)
+        self.assertEqual(sent, ['545'])
+        self.assertIn(28, self.state.create_address_completed)
+        self.assertEqual(tap.call_count, 1)
+        native.assert_not_called()
 
     def test_b27_uses_ocr_when_native_returns_partial_form(self):
         from amazon_android import create_address_detail_flow as flow
@@ -144,23 +171,65 @@ class AddressDetailTests(unittest.TestCase):
         self.assertTrue(ocr.called)
         tap.assert_not_called()
 
-    def test_b28_rejects_focus_in_unit_field_before_typing(self):
+    def test_b27_accepts_visible_street_without_other_form_labels(self):
+        from amazon_android import create_address_detail_flow as flow
+        self.state.create_address_completed.add(26)
+        visual = [item('Street address', 220, vision='true'),
+                  item('Street address or P.O. Box', 260, vision='true')]
+        with patch.object(flow, '_read_text_region', return_value=visual), \
+             patch.object(flow, '_read_hierarchy') as native, \
+             patch.object(flow, '_tap_for_transition') as tap:
+            build_create_address_detail_steps(self.phone, self.state)[1].action(
+                None, self.deadline, self.stop)
+        self.assertIn(27, self.state.create_address_completed)
+        native.assert_not_called()
+        tap.assert_not_called()
+
+    def test_b27_blue_manual_link_advances_directly_to_b28(self):
+        from amazon_android import create_address_detail_flow as flow
+        self.state.create_address_completed.add(26)
+        link = item('Enter an address manually', 320, vision='true')
+        with patch.object(flow, '_read_text_region', return_value=[link]) as read, \
+             patch.object(flow, '_read_hierarchy', side_effect=AssertionError('native read')) as native, \
+             patch.object(flow, '_foreground'), \
+             patch.object(flow, '_tap_for_transition') as tap:
+            build_create_address_detail_steps(self.phone, self.state)[1].action(
+                None, self.deadline, self.stop)
+        read.assert_called_once()
+        tap.assert_called_once()
+        native.assert_not_called()
+        self.assertIn(27, self.state.create_address_completed)
+
+    def test_b28_uncertain_input_is_not_sent_again_on_resume(self):
         from amazon_android import create_address_detail_flow as flow
         self.state.create_address_completed.update({26, 27})
-        self.state.create_address_proxy_prefix = '8853'
-        street = item('Street address or P.O. Box', 260)
-        native = [item('Country/Region', 120), item('Street address', 220), street,
-                  item('Unit or suite number', 310),
-                  item('', 335, **{'class': 'android.widget.EditText', 'focused': 'true'})]
-        with patch.object(flow, '_read_hierarchy', return_value=native), \
-             patch.object(flow, '_foreground'), \
-             patch.object(flow, '_read', return_value=[]), \
-             patch.object(flow, '_tap_for_transition'), \
-             patch.object(flow, 'cloud_adb') as adb:
-            with self.assertRaisesRegex(ToolError, 'ảnh chưa xác định được ô Street address'):
+        self.state.create_address_proxy_prefix = '545'
+        suggestion = [item('545 Main St', 300, vision='true')]
+        with patch.object(flow, 'cloud_adb', side_effect=ToolError('ADB timeout')) as adb, \
+             patch.object(flow, '_read_text_region') as read:
+            with self.assertRaisesRegex(ToolError, 'chưa rõ số đã được nhập'):
                 build_create_address_detail_steps(self.phone, self.state)[2].action(
                     None, self.deadline, self.stop)
-        adb.assert_not_called()
+        adb.assert_called_once()
+        read.assert_not_called()
+        self.assertTrue(self.state.create_address_prefix_sent)
+        with patch.object(flow, 'cloud_adb') as resumed_adb, \
+             patch.object(flow, '_read_text_region', return_value=suggestion), \
+             patch.object(flow, '_foreground'), patch.object(flow, '_tap') as tap:
+            build_create_address_detail_steps(self.phone, self.state)[2].action(
+                None, self.deadline, self.stop)
+        resumed_adb.assert_not_called()
+        tap.assert_called_once()
+        self.assertIn(28, self.state.create_address_completed)
+
+    def test_native_fallback_does_not_restart_phone_ocr_reader(self):
+        from amazon_android import create_address_detail_flow as flow
+        reader = SimpleNamespace(call=Mock(return_value=[]))
+        with patch('amazon_android.isolated_reader.current', return_value=reader), \
+             patch.object(flow, '_read_hierarchy', return_value=[]) as direct:
+            flow._bounded_native(self.phone, AttemptDeadline(30), self.stop)
+        reader.call.assert_not_called()
+        direct.assert_called_once()
 
     def test_b28_rejects_edit_box_that_overlaps_unit_row(self):
         from amazon_android import create_address_detail_flow as flow
@@ -168,114 +237,6 @@ class AddressDetailTests(unittest.TestCase):
                  {'text': '', 'bounds': '[20,270][380,340]',
                   'class': 'android.widget.EditText', 'focused': 'true'}]
         self.assertFalse(flow._street_focused(nodes))
-
-    def test_b28_does_not_type_over_existing_street_address(self):
-        from amazon_android import create_address_detail_flow as flow
-        self.state.create_address_completed.update({26, 27})
-        self.state.create_address_proxy_prefix = '0218'
-        native = [item('Country/Region', 120), item('Street address', 220),
-                  item('0218 Blackhawk Trl', 260,
-                       **{'class': 'android.widget.EditText'}),
-                  item('Unit or suite number', 310)]
-        with patch.object(flow, '_read_hierarchy', return_value=native), \
-             patch.object(flow, '_foreground'), \
-             patch.object(flow, 'cloud_adb') as adb, \
-             patch.object(flow, '_tap_for_transition') as tap:
-            with self.assertRaisesRegex(ToolError, 'Street address đã có địa chỉ'):
-                build_create_address_detail_steps(self.phone, self.state)[2].action(
-                    None, self.deadline, self.stop)
-        adb.assert_not_called()
-        tap.assert_not_called()
-
-    def test_b28_taps_current_street_even_when_it_is_focused(self):
-        from amazon_android import create_address_detail_flow as flow
-        self.state.create_address_completed.update({26, 27})
-        self.state.create_address_proxy_prefix = '0218'
-        focused = [item('Country/Region', 120), item('Street address', 220),
-                   item('Street address or P.O. Box', 260,
-                        **{'class': 'android.widget.EditText', 'focused': 'true'}),
-                   item('Unit or suite number', 310)]
-        populated = focused + [item('ZIP Code', 390), item('78232', 440),
-                               item('City', 490)]
-        typed = []
-        def adb(_phone, *args, **_kwargs):
-            if args[:3] == ('shell', 'input', 'text'):
-                typed.append(args[3])
-            return SimpleNamespace(stdout='')
-        with patch.object(flow, '_read_hierarchy',
-                          side_effect=lambda *_: populated if typed else focused), \
-             patch.object(flow, '_read', return_value=focused), \
-             patch.object(flow, '_foreground'), \
-             patch.object(flow, 'cloud_adb', side_effect=adb), \
-             patch.object(flow, '_tap') as tap, \
-             patch.object(self.stop, 'wait', return_value=False):
-            build_create_address_detail_steps(self.phone, self.state)[2].action(
-                None, self.deadline, self.stop)
-        tap.assert_called_once()
-        self.assertEqual(tap.call_args.args[1]['bounds'], '[199,279][201,281]')
-        self.assertEqual(typed, ['0218'])
-
-    def test_b28_uses_image_before_tap_if_native_focus_is_uncertain(self):
-        from amazon_android import create_address_detail_flow as flow
-        self.state.create_address_completed.update({26, 27})
-        self.state.create_address_proxy_prefix = '0218'
-        native = [item('Country/Region', 120), item('Street address', 220),
-                  item('Street address or P.O. Box', 260,
-                       **{'class': 'android.widget.EditText'}),
-                  item('Unit or suite number', 310)]
-        visual = [item('Street address', 220),
-                  item('Street address or P.O. Box', 260, vision='true'),
-                  item('Unit or suite number', 310)]
-        populated = native + [item('ZIP Code', 390), item('78232', 440),
-                              item('City', 490)]
-        typed = []; tapped = []
-        def adb(_phone, *args, **_kwargs):
-            if args[:3] == ('shell', 'input', 'text'):
-                typed.append(args[3])
-            return SimpleNamespace(stdout='')
-        with patch.object(flow, '_read_hierarchy',
-                          side_effect=lambda *_: populated if typed else native), \
-             patch.object(flow, '_street_focused', return_value=False), \
-             patch.object(flow, '_read', return_value=visual) as ocr, \
-             patch.object(flow, '_foreground'), \
-             patch.object(flow, 'cloud_adb', side_effect=adb), \
-             patch.object(flow, '_tap',
-                          side_effect=lambda _p, target, _d: tapped.append(target)), \
-             patch.object(self.stop, 'wait', return_value=False):
-            build_create_address_detail_steps(self.phone, self.state)[2].action(
-                None, self.deadline, self.stop)
-        self.assertEqual(len(tapped), 1)
-        self.assertTrue(ocr.called)
-        self.assertEqual(typed, ['0218'])
-
-    def test_b28_uses_visual_street_field_before_typing_prefix(self):
-        from amazon_android import create_address_detail_flow as flow
-        self.state.create_address_completed.update({26, 27})
-        self.state.create_address_proxy_prefix = '2748'
-        unit = item('', 335, **{'class': 'android.widget.EditText'})
-        native = [item('Country/Region', 120), item('Street address', 220),
-                  item('Unit or suite number', 310), unit]
-        visual_field = item('Street address or P.O. Box', 260, vision='true')
-        visual = [item('Country/Region', 120), item('Street address', 220), visual_field]
-        populated = native + [item('ZIP Code', 410), item('91730', 450), item('City', 490)]
-        typed = []; tapped = []
-        def adb(_phone, *args, **_kwargs):
-            if args[:3] == ('shell', 'input', 'text'):
-                typed.append(args[3])
-            return SimpleNamespace(stdout='')
-        with patch.object(flow, '_read_hierarchy',
-                          side_effect=lambda *_: populated if typed else native), \
-             patch.object(flow, '_street_focused', return_value=False), \
-             patch.object(flow, '_read', return_value=visual), \
-             patch.object(flow, '_tap',
-                          side_effect=lambda _p, target, _d: tapped.append(target)), \
-             patch.object(flow, '_foreground'), \
-             patch.object(flow, 'cloud_adb', side_effect=adb), \
-             patch.object(self.stop, 'wait', return_value=False):
-            build_create_address_detail_steps(self.phone, self.state)[2].action(
-                None, self.deadline, self.stop)
-        self.assertIn('bounds', tapped[0])
-        self.assertEqual(typed, ['2748'])
 
     def test_b26_to_b31_read_native_text_and_confirm_each_transition(self):
         from amazon_android import create_address_detail_flow as flow
@@ -331,7 +292,6 @@ class AddressDetailTests(unittest.TestCase):
                 step.action(None, self.deadline, self.stop)
         self.assertEqual(self.state.create_address_completed, set(range(23, 32)))
         self.assertEqual(taps, ['Add a new address', 'Enter an address manually',
-                                None,
                                 '545 N 78th St, Seattle, WA 98103',
                                 None,
                                 'Add address', 'Your Account Tab, 2 of 4'])

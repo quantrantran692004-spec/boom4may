@@ -505,6 +505,28 @@ class Window:
         )
         self.stop_selected_button.grid(row=17, column=0, columnspan=2,
                                        sticky="ew", padx=20, pady=(0, 17))
+        self._label(detail_card, "Dán 1 hàng Amazon cho máy đang chọn", 13,
+                    color=INK, weight="bold").grid(
+                        row=18, column=0, columnspan=2, sticky="w", padx=20)
+        self.single_account_line = ctk.CTkEntry(
+            detail_card, placeholder_text="SĐT | Mật khẩu | Tên | Thẻ | URL OTP",
+            height=42, corner_radius=8, border_color=FIELD_BORDER,
+            fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
+            font=ctk.CTkFont("Segoe UI Variable", 12), show="•")
+        self.single_account_line.grid(row=19, column=0, columnspan=2,
+                                      sticky="ew", padx=20, pady=(5, 8))
+        self.single_account_line.bind("<Return>", lambda _: self._apply_single_account_line())
+        self.apply_single_account_button = ctk.CTkButton(
+            detail_card, text="Điền vào Máy 1", height=38,
+            command=self._apply_single_account_line)
+        self.apply_single_account_button.grid(row=20, column=0, sticky="ew",
+                                              padx=(20, 8), pady=(0, 18))
+        self.clear_selected_button = ctk.CTkButton(
+            detail_card, text="Xóa dữ liệu Máy 1", height=38,
+            fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
+            text_color=INK, command=self._clear_selected_data)
+        self.clear_selected_button.grid(row=20, column=1, sticky="ew",
+                                        padx=(8, 20), pady=(0, 18))
 
     def _build_actions(self, parent) -> None:
         action = ctk.CTkFrame(parent, fg_color=SURFACE, corner_radius=10,
@@ -706,6 +728,61 @@ class Window:
 
     def _apply_account_text(self, copied: str) -> None:
         self._apply_account_records(parse_records(copied, account_table=True))
+
+    def _apply_single_account_line(self) -> None:
+        index = self.selected
+        if self.draft.locked and not self._can_edit_locked_row(index):
+            self.run_note.configure(text="Máy đã có Profile hoặc đang chạy; không thể thay hàng Amazon",
+                                    text_color=RED)
+            return
+        raw = self.single_account_line.get().strip()
+        if not raw or "\n" in raw or "\r" in raw:
+            self.run_note.configure(text="Chỉ dán một hàng Amazon của máy đang chọn", text_color=RED)
+            return
+        try:
+            record = parse_records(raw if raw.startswith("|") and raw.endswith("|")
+                                   else f"|{raw}|", account_table=True)[0]
+            token = otp_token(record.otp_url)
+            if any(other.index != index and other.account is not None and
+                   otp_token(other.account.otp_url) == token
+                   for other in self.jobs.values()):
+                raise ToolError("URL OTP trùng máy khác")
+        except (ToolError, ValueError) as exc:
+            self.run_note.configure(text=f"Máy {index + 1}: {exc}", text_color=RED)
+            return
+        if self.draft.locked:
+            self._mark_locked_row_dirty(index)
+        else:
+            self.draft.account_count = max(self.draft.account_count, index + 1)
+            self.count.set(str(max(int(self.count.get()), index + 1)))
+        row = self.values[index]
+        for key, value in (("phone", record.phone), ("amazon_password", record.password),
+                           ("full_name", record.full_name), ("card", record.card),
+                           ("otp_url", record.otp_url)):
+            row[key].set(value)
+        self.otp_codes[index] = ""
+        self.otp_status[index] = "Chưa yêu cầu mã"
+        self.single_account_line.delete(0, "end")
+        self.run_note.configure(text=f"Đã điền hàng Amazon vào Máy {index + 1}", text_color=GREEN)
+        self._refresh_devices()
+
+    def _clear_selected_data(self) -> None:
+        index = self.selected
+        if self.draft.locked and not self._can_edit_locked_row(index):
+            self.run_note.configure(text="Máy đã có Profile hoặc đang chạy; không thể xóa dữ liệu máy này",
+                                    text_color=RED)
+            return
+        if self.draft.locked:
+            self._mark_locked_row_dirty(index)
+        for key in REPAIR_KEYS:
+            self.values[index][key].set("")
+        self.otp_codes[index] = ""
+        self.otp_status[index] = "Chưa yêu cầu mã"
+        self.proxy_line.delete(0, "end")
+        self.single_account_line.delete(0, "end")
+        self.run_note.configure(text=f"Đã xóa dữ liệu riêng Máy {index + 1}; nhập lại rồi bấm Tiếp tục",
+                                text_color=BLUE)
+        self._refresh_devices()
 
     def _apply_account_records(self, records) -> None:
         self.draft.replace("account", len(records))
@@ -1128,6 +1205,7 @@ class Window:
         if index >= int(self.count.get()):
             return
         self.selected = index
+        self.single_account_line.delete(0, "end")
         if not self.draft.locked:
             self.proxy_line.delete(0, "end")
         for key, entry in self.detail_entries.items():
@@ -1136,6 +1214,8 @@ class Window:
         self.account_detail_heading.configure(
             text=f"Thông tin Amazon riêng · Máy {index + 1}")
         self.detail_status.configure(text=self.status[index][0])
+        self.apply_single_account_button.configure(text=f"Điền vào Máy {index + 1}")
+        self.clear_selected_button.configure(text=f"Xóa dữ liệu Máy {index + 1}")
         self._refresh_otp_detail()
         self._refresh_devices()
 
@@ -1249,6 +1329,9 @@ class Window:
             if key != "profile_name":
                 entry.configure(state=detail_state)
         self.proxy_line.configure(state=detail_state)
+        self.single_account_line.configure(state=detail_state)
+        self.apply_single_account_button.configure(state=detail_state)
+        self.clear_selected_button.configure(state=detail_state)
         self.count_menu.configure(state=state)
         if hasattr(self, "proxy_paste_heading"):
             self.proxy_paste_heading.configure(
@@ -1407,13 +1490,9 @@ class Window:
         item = (self.registry.get(self.jobs[index].batch_id, index)
                 if index in self.jobs and self.registry is not None else None)
         if (item is not None and item.get("stage") == "RESERVED" and
-                item.get("state") == "ERROR" and not item.get("device_id")):
+                item.get("state") in {"ERROR", "STOPPED"} and not item.get("device_id")):
             if self.running:
-                self._pending_retries.add(index)
-                self.status[index] = (
-                    f"Máy {index + 1} chờ tạo lại Profile sau mẻ hiện tại",
-                    "retry_queued")
-                self._refresh_devices()
+                self._start_profile_creation_retry(index)
                 return
             self._launch([index])
             return
@@ -1455,6 +1534,26 @@ class Window:
         worker = threading.Thread(target=self._run_preparation_retry,
                                   args=(job, context), daemon=True)
         workers[index] = worker
+        self._refresh_devices()
+        worker.start()
+
+    def _start_profile_creation_retry(self, index: int) -> None:
+        """Create one failed Profile now, sharing the manager lock with the batch."""
+        worker = self.preparation_retry_workers.get(index)
+        if worker is not None and worker.is_alive():
+            return
+        job = self.jobs[index]
+        self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
+        self.status[index] = (f"Máy {index + 1} đang tạo lại Profile", "running")
+        context = {"registry": self.registry, "events": self.events,
+                   "stop": self.cancel, "serials": self.phone_serials,
+                   "proxy_prefixes": self.proxy_postal_prefixes,
+                   "opened": self.menu_opened_at, "group": self.run_group_size,
+                   "hide": self.run_hide_profile_creation,
+                   "phone_stops": {index: self.phone_stop_after_step[index]},
+                   "final_index": -2}
+        worker = threading.Thread(target=self._run, args=([job], context), daemon=True)
+        self.preparation_retry_workers[index] = worker
         self._refresh_devices()
         worker.start()
 
@@ -1844,7 +1943,7 @@ class Window:
         finally:
             if initialized:
                 pythoncom.CoUninitialize()
-            context["events"].put((-1, message, final_state, None))
+            context["events"].put((context.get("final_index", -1), message, final_state, None))
 
     def _poll(self) -> None:
         try:
@@ -1878,6 +1977,11 @@ class Window:
         try:
             while True:
                 index, message, state, name = self.events.get_nowait()
+                if index == -2:
+                    self.run_note.configure(text=message,
+                                            text_color=RED if state == "error" else MUTED)
+                    self._refresh_devices()
+                    continue
                 if index == -1:
                     self.running = False
                     self.run_button.configure(state="normal")
@@ -1911,7 +2015,7 @@ class Window:
                         self.status[index] = (
                             f"Máy {index + 1} đang nối lại từ điểm dừng",
                             "resume_queued")
-                        self._refresh_devices()
+                        self._schedule_refresh()
                         self._start_post_menu(index)
                         continue
                     if state in {"post_paused", "post_done"}:
@@ -1926,7 +2030,7 @@ class Window:
                     self.status[index] = (message, state)
                     if self.selected == index:
                         self.detail_status.configure(text=message)
-                    self._refresh_devices()
+                    self._schedule_refresh()
                     if state == "done":
                         self._start_post_menu(index)
         except queue.Empty:

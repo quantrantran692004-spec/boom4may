@@ -21,6 +21,7 @@ class StopResetTests(unittest.TestCase):
         w.post_menu_steps={}; w.menu_opened_at={}; w.phone_serials={}; w.jobs={0:object()}
         w.batch_worker=Mock(is_alive=Mock(return_value=True)); w.attach_worker=None
         w._draining_workers=[]; w._pending_retries=set()
+        w._refresh_after_id=None
         w.registry=None; w.draft=BatchDraft(); w.draft.locked=True
         w.events=queue.Queue(); w.otp_events=queue.Queue(); w.otp_status_events=queue.Queue(); w.attach_events=queue.Queue()
         w.values=[]; w.proxy_fallbacks=[]; w.bulk_boxes={}
@@ -66,19 +67,18 @@ class StopResetTests(unittest.TestCase):
         retry.assert_called_once_with(0)
         launch.assert_not_called()
 
-    def test_uncreated_profile_continue_queues_creation_after_busy_batch(self):
+    def test_uncreated_profile_continue_creates_during_busy_batch(self):
         w = self.window()
         w.jobs = {0: RunJob(0, 'batch', None)}
         w.registry = Mock()
         w.registry.get.return_value = {'stage': 'RESERVED', 'state': 'ERROR',
                                        'device_id': None}
         w.status = [('focus failed', 'error')]
-        with patch.object(w, '_start_preparation_retry') as prepare, \
+        with patch.object(w, '_start_profile_creation_retry') as create, \
              patch.object(w, '_launch') as launch:
             w._continue_profile(0)
-        self.assertEqual(w._pending_retries, {0})
-        self.assertEqual(w.status[0][1], 'retry_queued')
-        prepare.assert_not_called()
+        self.assertEqual(w._pending_retries, set())
+        create.assert_called_once_with(0)
         launch.assert_not_called()
 
     def test_uncreated_profile_continue_restarts_creation_when_batch_idle(self):
@@ -94,6 +94,44 @@ class StopResetTests(unittest.TestCase):
             w._continue_profile(0)
         launch.assert_called_once_with([0])
         prepare.assert_not_called()
+
+    def test_single_row_paste_and_clear_touch_only_selected_failed_machine(self):
+        class Cell:
+            def __init__(self, value=''):
+                self.value = value
+            def get(self):
+                return self.value
+            def set(self, value):
+                self.value = value
+
+        w = self.window()
+        w.selected = 4
+        w.values = [{key: Cell('keep' if index != 4 else 'old')
+                     for key in ('host', 'port', 'username', 'proxy_password',
+                                 'phone', 'amazon_password', 'full_name', 'card',
+                                 'otp_url', 'profile_name')}
+                    for index in range(6)]
+        w.jobs = {}
+        w.otp_codes = ['old'] * 6
+        w.otp_status = ['old'] * 6
+        w.single_account_line = Mock()
+        w.single_account_line.get.return_value = (
+            '12025550123 | Example456! | Fifth | | '
+            'https://apifc.net/smsrecord?token=fifth')
+        w.proxy_line = Mock()
+        w._can_edit_locked_row = Mock(return_value=True)
+        w._mark_locked_row_dirty = Mock()
+        w._apply_single_account_line()
+        self.assertEqual(w.values[4]['phone'].get(), '12025550123')
+        self.assertEqual(w.values[0]['phone'].get(), 'keep')
+        self.assertEqual(w.values[5]['phone'].get(), 'keep')
+        w._clear_selected_data()
+        self.assertEqual(w.values[4]['phone'].get(), '')
+        self.assertEqual(w.values[4]['host'].get(), '')
+        self.assertEqual(w.values[4]['profile_name'].get(), 'old')
+        self.assertEqual(w.values[0]['host'].get(), 'keep')
+        self.assertEqual(w.otp_codes[4], '')
+        self.assertEqual(w.otp_codes[0], 'old')
 
     def test_retry_starts_while_batch_is_busy_and_double_continue_does_not_duplicate(self):
         w = self.window()

@@ -1,5 +1,7 @@
 # Ảnh hướng dẫn q1/q2 và menu chung lưu cục bộ
 
+Ảnh trạng thái [Máy 5 chờ tạo lại Profile sau mẻ](flow_images/shared/23nov_machine5_retry_wait.png) do người dùng gửi ngày 23/11/2026 chứng minh nhánh Tiếp tục cũ vẫn xếp hàng khi mẻ đang chạy; ảnh không cho biết Profile đã được tạo hay thao tác mới đã chạy thật.
+
 ## Video cuộn tay tới US +1 — 14/11/2026
 
 Video người dùng cung cấp đã sao chép từ `D:\cuonus1.mp4` vào [cuonus1.mp4](flow_images/shared/cuonus1.mp4) theo yêu cầu lưu toàn bộ minh chứng trên Git. Khoảng giây 1 hộp quốc gia ở đầu danh sách; giây 6–8 đã tới các hàng cuối gồm Zimbabwe và Åland Islands; sau một cú vuốt ngược ngắn, United States +1 hiện khoảng giây 9–10; chạm hàng US làm hộp đóng và form hiện US +1 khoảng giây 16. Đây là bằng chứng cho thao tác tay, chưa đo tốc độ hoặc xác nhận hành vi của tool đang chạy. Không ghi lại SĐT trong tài liệu.
@@ -153,8 +155,8 @@ Hai ảnh tiếp theo ngày 17/11 cho thấy **màn Android thật** của nhán
 - [03_b24_addresses.png](flow_images/shared/create_address/03_b24_addresses.png) và [14_b24_your_addresses_closeup.png](flow_images/shared/create_address/14_b24_your_addresses_closeup.png): Your Addresses đã hiện dưới Account settings; thấy đúng chữ thì chọn, không đòi thêm nhãn khác. Người dùng báo đôi khi quảng cáo chen vào sau b23 cần Back; chưa có ảnh quảng cáo riêng.
 - [04_b25_addresses.png](flow_images/shared/create_address/04_b25_addresses.png): Mục Your Addresses cần bấm ở b25; ảnh sau cú bấm là 05_b26_add_new_address.png.
 - [05_b26_add_new_address.png](flow_images/shared/create_address/05_b26_add_new_address.png): Trang Your Addresses; b26 chọn Add a new address.
-- [06_b27_enter_manually.png](flow_images/shared/create_address/06_b27_enter_manually.png): B27 chọn Enter an address manually.
-- [07_b28_street_form.png](flow_images/shared/create_address/07_b28_street_form.png): Form địa chỉ; b28 tìm ô Street address theo chữ trong cây Android.
+- [06_b27_enter_manually.png](flow_images/shared/create_address/06_b27_enter_manually.png): B27 chọn Enter an address manually. Ảnh chữ xanh mới ngày 23/11 xác nhận bấm `Enter an address manually` rồi bàn phím/form mở; b28 nhập số ngay, không đợi xác nhận focus bằng OCR/cây Android.
+- [07_b28_street_form.png](flow_images/shared/create_address/07_b28_street_form.png): Form địa chỉ sau b27; b28 hiện nhập số tìm địa chỉ ngay vào bàn phím đang mở, không đọc/kiểm ô Street trước khi nhập.
 - [08_b28_suggestions.png](flow_images/shared/create_address/08_b28_suggestions.png): Sau khi nhập số, thấy gợi ý địa chỉ thì chọn ngay một dòng, không đợi xác nhận ZIP.
 - [09_b29_default_address.png](flow_images/shared/create_address/09_b29_default_address.png) và [15_b29_empty_checkbox_closeup.png](flow_images/shared/create_address/15_b29_empty_checkbox_closeup.png): Sau khi chọn gợi ý, tìm chữ Make this my default address rồi bấm thẳng ô vuông bên trái một lần; ảnh cận cảnh cho thấy ô ban đầu trống. Không đọc trạng thái ô trước hoặc sau cú bấm.
 - [10_b30_add_address.png](flow_images/shared/create_address/10_b30_add_address.png) và [16_b30_add_address_closeup.png](flow_images/shared/create_address/16_b30_add_address_closeup.png): B30 cuộn khi chưa thấy Add address, thấy chữ thì bấm ngay; sau cú bấm mới đọc kết quả lưu.
@@ -167,7 +169,7 @@ Hai ảnh tiếp theo ngày 17/11 cho thấy **màn Android thật** của nhán
 - [02_b34_reload_product_top.png](flow_images/shared/reload_payment/02_b34_reload_product_top.png): Đầu trang Amazon Gift Card Balance Reload trước khi cuộn.
 - [03_b36_buy_now.png](flow_images/shared/reload_payment/03_b36_buy_now.png) và [12_b36_buy_now_closeup.png](flow_images/shared/reload_payment/12_b36_buy_now_closeup.png): Sau Reload Balance, vuốt ngắn ngay trên màn mới; thấy Buy Now thì bấm ngay, không đọc lại ở bước sau.
 - [04_b37_add_payment_method.png](flow_images/shared/reload_payment/04_b37_add_payment_method.png) và [13_b37_card_option_closeup.png](flow_images/shared/reload_payment/13_b37_card_option_closeup.png): Thấy Add a credit or debit card thì bấm ngay, không chọn Set up now.
-- [05_b38_card_form_empty.png](flow_images/shared/reload_payment/05_b38_card_form_empty.png): Form thẻ ba ô đang trống, nút Add and continue chưa hoạt động.
+- [05_b38_card_form_empty.png](flow_images/shared/reload_payment/05_b38_card_form_empty.png): Form thẻ ba ô đang trống, nút Add and continue chưa hoạt động. OCR vùng 5–58% của ảnh trống này nhận đủ ba ô; b38 xác định cả ba trước khi nhập.
 - [06_b38_add_and_continue.png](flow_images/shared/reload_payment/06_b38_add_and_continue.png): Form đã nhập, nút Add and continue sáng; ảnh mới cùng trạng thái đã được kiểm tra OCR vùng nút và không lưu thêm vì chứa dữ liệu thẻ. Sau khi nhập xong, thấy chữ Add and continue thì bấm ngay. Ảnh b39 được lưu nguyên bản theo yêu cầu người dùng; xem mục riêng bên dưới.
 - [14_b39_use_this_address.png](flow_images/shared/reload_payment/14_b39_use_this_address.png): màn Select a billing address với nút Use this address. Ảnh nguyên bản có tên và địa chỉ cá nhân; không chép lại các giá trị vào văn bản.
 - [07_b34_product_stalled.png](flow_images/shared/reload_payment/07_b34_product_stalled.png): ảnh mới 21/11 cho thấy trang Amazon Gift Card Balance Reload đã hiện nhưng Buy Now còn dưới màn; người dùng yêu cầu vuốt ngắn từ dưới lên.

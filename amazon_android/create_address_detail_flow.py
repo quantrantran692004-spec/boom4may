@@ -203,18 +203,22 @@ def _street_has_address(nodes, field):
 
 
 def _suggestions(nodes, field, prefix=None):
+    entered_found = False
     if field is not None:
         bottom = _bounds(field)[3]
     else:
         street = _street_label(nodes)
-        if street is None or not prefix:
+        if not prefix:
             return []
-        street_bottom = _bounds(street)[3]
         entered = [n for n in nodes if _visible(n) and _text(n) == prefix and
-                   street_bottom - 15 <= _bounds(n)[1] < street_bottom + 80]
-        if len({n['bounds'] for n in entered}) != 1:
-            return []
-        bottom = _bounds(entered[0])[3]
+                   (street is None or _bounds(n)[1] >= _bounds(street)[3] - 15)]
+        if len({n['bounds'] for n in entered}) == 1:
+            entered_found = True
+            bottom = _bounds(entered[0])[3]
+        else:
+            # A cropped screenshot may contain only the suggestion list.
+            # Accept address-looking rows for the number just entered.
+            bottom = min((_bounds(n)[1] for n in nodes if _visible(n)), default=0)
     following = [_bounds(n)[1] for n in nodes if _visible(n) and
                  _text(n).startswith(('unit or suite', 'zip code',
                                        'full name', 'phone number')) and
@@ -223,7 +227,8 @@ def _suggestions(nodes, field, prefix=None):
     matches = {n['bounds']: n for n in nodes if _visible(n) and
                (field is None or n['bounds'] != field['bounds']) and
                bottom <= _bounds(n)[1] < limit and
-               re.match(r'^\d{1,6}\s+\S*?[a-z]', _text(n))}
+               re.match(r'^\d{1,6}\s+\S*?[a-z]', _text(n)) and
+               (field is not None or entered_found or _text(n).startswith(prefix + ' '))}
     return list(matches.values())
 
 
@@ -264,6 +269,12 @@ def _scroll(phone, deadline):
               str(width // 2), str(int(height * .18)), '350', timeout=5)
 
 
+def _bounded_native(phone, deadline, stop):
+    # A four-second 'read' in the phone reader also starts OCR after the
+    # accessibility dump. Timing it out kills that phone's warmed OCR worker.
+    return _read_hierarchy(phone, deadline, stop)
+
+
 def build_create_address_detail_steps(phone, state):
     def run(number, outer, stop):
         if number in state.create_address_completed:
@@ -274,19 +285,18 @@ def build_create_address_detail_steps(phone, state):
         expires = time.monotonic() + min(120, outer.remaining())
         taps = 0
         reads_failed = 0
-        visual_misses = 0
         # These screens are WebViews; their accessibility dump often blocks.
-        # b28 still starts with native nodes because it must verify Street focus.
-        # b29 has a direct OCR path below; a native dump adds delay.
+        # WebView accessibility can stall across phones; read pixels first.
         prefer_visual = number in {26, 27, 30}
         scrolls = 0
-        outer.recovering(f'b{number}: đọc chữ cần bấm trên màn hiện tại')
+        outer.recovering('b28: nhập số tìm địa chỉ trên máy này' if number == 28 else
+                         f'b{number}: đọc chữ cần bấm trên màn hiện tại')
         if number == 31:
             if stop.is_set():
                 raise ToolError('Đã dừng máy này')
             _foreground(phone, deadline)
             try:
-                tabs = _read_hierarchy(phone, AttemptDeadline(
+                tabs = _bounded_native(phone, AttemptDeadline(
                     min(4, deadline.remaining()), notice=outer.notice), stop)
             except ToolError:
                 tabs = []
@@ -326,14 +336,35 @@ def build_create_address_detail_steps(phone, state):
                     _scroll(phone, deadline)
                     outer.recovering(f'b29: cuộn tìm ô cạnh Make this my default address ({attempt+1}/3)')
             raise ToolError('b29: chưa thấy chữ Make this my default address; giữ bước máy này')
-        while time.monotonic() < expires:
-            if stop.is_set():
-                raise ToolError('Đã dừng máy này')
-            if number == 28 and state.create_address_prefix_sent:
+        if number == 28:
+            # b27's blue "Enter an address manually" opens the keyboard on
+            # Street address. Send this phone's number immediately; the UI
+            # reads below are for choosing the suggestion, not for typing.
+            if not state.create_address_prefix_sent:
+                if state.create_address_prefix is None:
+                    state.create_address_prefix = (
+                        state.create_address_proxy_prefix or _new_prefix())
+                if stop.is_set():
+                    raise ToolError('Đã dừng máy này')
+                state.create_address_prefix_sent = True
+                state.create_address_prefix_sent_at = time.monotonic()
+                state.create_address_prefix_attempts += 1
+                try:
+                    cloud_adb(phone, 'shell', 'input', 'text',
+                              state.create_address_prefix, timeout=5)
+                except ToolError as exc:
+                    raise ToolError('b28: chưa rõ số đã được nhập hay chưa; '
+                                    'kiểm tra máy rồi bấm Tiếp tục') from exc
+                outer.recovering('b28: đã nhập số tìm địa chỉ; đang tìm gợi ý')
+            if not state.create_address_prefix:
+                raise ToolError('b28: thiếu số tìm địa chỉ của máy này; giữ bước')
+            while time.monotonic() < expires:
+                if stop.is_set():
+                    raise ToolError('Đã dừng máy này')
                 try:
                     visual = _read_text_region(
-                        phone, AttemptDeadline(min(18, deadline.remaining()),
-                        notice=outer.notice), stop, (.20, .68))
+                        phone, AttemptDeadline(min(45, deadline.remaining()),
+                        notice=outer.notice), stop, (.20, .68), direct_visual=True)
                 except ToolError:
                     if stop.is_set():
                         raise
@@ -349,8 +380,17 @@ def build_create_address_detail_steps(phone, state):
                 if _populated(visual):
                     state.create_address_completed.add(28)
                     return
-                # OCR missed the list; the existing native read below can
-                # recover a filled form without waiting for a fixed timer.
+                if (state.create_address_prefix_sent_at is not None and
+                        time.monotonic() - state.create_address_prefix_sent_at >= 45):
+                    raise ToolError('b28: đã nhập số nhưng chưa thấy gợi ý địa chỉ; '
+                                    'giữ bước máy này để kiểm tra')
+                outer.recovering('b28: chưa thấy gợi ý sau khi nhập số; đọc lại ảnh')
+                if stop.wait(.4):
+                    raise ToolError('Đã dừng máy này')
+            raise ToolError('b28: hết thời gian đọc gợi ý địa chỉ; giữ bước máy này')
+        while time.monotonic() < expires:
+            if stop.is_set():
+                raise ToolError('Đã dừng máy này')
             # Read the current screen once, then fall back to the other backend.
             nodes = None
             if prefer_visual:
@@ -361,7 +401,7 @@ def build_create_address_detail_steps(phone, state):
                             notice=outer.notice), stop, (.05, .55))
                         if number == 26 and not (_form(nodes) or _addresses(nodes)):
                             nodes = None
-                        if number == 27 and not (_form(nodes) or _search(nodes)):
+                        if number == 27 and not (_street_label(nodes) or _search(nodes)):
                             nodes = None
                     else:
                         nodes = _read(phone, AttemptDeadline(min(12, deadline.remaining()),
@@ -370,7 +410,7 @@ def build_create_address_detail_steps(phone, state):
                     pass
             if not nodes:
                 try:
-                    nodes = _read_hierarchy(phone, AttemptDeadline(
+                    nodes = _bounded_native(phone, AttemptDeadline(
                         min(4, deadline.remaining()), notice=outer.notice), stop)
                 except ToolError:
                     pass
@@ -381,11 +421,11 @@ def build_create_address_detail_steps(phone, state):
                                   notice=outer.notice), stop, visual=True)
                 except ToolError:
                     pass
-            if number == 27 and nodes and not (_form(nodes) or _search(nodes)):
+            if number == 27 and nodes and not (_street_label(nodes) or _search(nodes)):
                 try:
                     visual = _read(phone, AttemptDeadline(min(12, deadline.remaining()),
                                    notice=outer.notice), stop, visual=True)
-                    if _form(visual) or _search(visual):
+                    if _street_label(visual) or _search(visual):
                         nodes = visual
                 except ToolError:
                     if stop.is_set():
@@ -404,9 +444,11 @@ def build_create_address_detail_steps(phone, state):
                     except ToolError:
                         pass
                 if reads_failed >= 6:
-                    raise ToolError(f'b{number}: đọc cây Android lỗi {reads_failed} lần; giữ bước máy này')
+                    raise ToolError(f'b{number}: chưa đọc được chữ trên ảnh hoặc cây Android '
+                                    f'sau {reads_failed} lượt; giữ bước máy này')
                 wait_s = min(1 + reads_failed, 4)
-                outer.recovering(f'b{number}: mạng/màn chậm; đọc lại cây Android ({reads_failed}/6)')
+                outer.recovering(f'b{number}: chưa đọc được chữ trên màn; '
+                                 f'thử lại ({reads_failed}/6)')
                 if stop.wait(wait_s):
                     raise ToolError('Đã dừng máy này')
                 continue
@@ -420,97 +462,10 @@ def build_create_address_detail_steps(phone, state):
                 if _addresses(nodes) or _has(nodes, 'add a new address'):
                     target = _action(nodes, 'add a new address')
             elif number == 27:
-                if _form(nodes):
+                if _street_label(nodes) is not None:
                     state.create_address_completed.add(number); return
                 if _search(nodes) or _has(nodes, 'enter an address manually'):
                     target = _action(nodes, 'enter an address manually')
-            elif number == 28:
-                if _form(nodes):
-                    if _populated(nodes):
-                        state.create_address_completed.add(number); return
-                    field = _street_field(nodes)
-                    if field is None:
-                        field = _street_saved_field(nodes, state.create_address_street_bounds)
-                    if field is None:
-                        try:
-                            visual = _read(phone, AttemptDeadline(min(8, deadline.remaining()),
-                                           notice=outer.notice), stop, visual=True)
-                            field = _street_field(visual)
-                            if field is not None:
-                                nodes = visual
-                        except ToolError:
-                            if stop.is_set():
-                                raise
-                    if _populated(nodes, field):
-                        state.create_address_completed.add(number); return
-                    if _street_has_address(nodes, field):
-                        raise ToolError('b28: Street address đã có địa chỉ nhưng chưa xác nhận ZIP; '
-                                        'giữ bước, không nhập mã sang ô khác')
-                    if field is None:
-                        outer.recovering('b28: form đang tải ô Street address; đọc lại')
-                    else:
-                        choices = _suggestions(nodes, field, state.create_address_prefix)
-                        if choices:
-                            outer.recovering('b28: đã thấy gợi ý địa chỉ; chọn ngay')
-                            _foreground(phone, deadline)
-                            _tap(phone, secrets.choice(choices), deadline)
-                            state.create_address_suggestion_tapped_at = time.monotonic()
-                            state.create_address_completed.add(28)
-                            return
-                        elif not state.create_address_prefix_sent or (
-                                state.create_address_prefix_sent_at is not None and
-                                time.monotonic() - state.create_address_prefix_sent_at >= 15 and
-                                state.create_address_prefix_attempts < 3):
-                            if state.create_address_prefix is None:
-                                state.create_address_prefix = (
-                                    state.create_address_proxy_prefix or _new_prefix())
-                            elif (state.create_address_prefix_attempts >= 1 and
-                                  state.create_address_proxy_prefix and
-                                  state.create_address_prefix == state.create_address_proxy_prefix):
-                                outer.recovering('b28: mã bưu chính chưa có gợi ý; chuyển sang số ngẫu nhiên dự phòng')
-                                state.create_address_prefix = _new_prefix()
-                            elif state.create_address_prefix_attempts >= 2:
-                                state.create_address_prefix = _new_prefix()
-                            _foreground(phone, deadline)
-                            try:
-                                visual = nodes if nodes and all(n.get('vision') == 'true' for n in nodes) else _read(phone, AttemptDeadline(
-                                    min(12, deadline.remaining()), notice=outer.notice),
-                                    stop, visual=True)
-                                tap_field = _street_field(visual)
-                                tap_target = (_street_tap_target(visual, tap_field)
-                                              if tap_field is not None else None)
-                            except ToolError:
-                                if stop.is_set():
-                                    raise
-                                tap_target = None
-                            if tap_target is None:
-                                visual_misses += 1
-                                if visual_misses >= 3:
-                                    raise ToolError('b28: ảnh chưa xác định được ô Street address '
-                                                    'sau ba lượt; không nhập sang Unit')
-                                outer.recovering(f'b28: ảnh chưa rõ ô Street; chờ tải rồi chụp lại '
-                                                 f'({visual_misses}/3)')
-                                if stop.wait(2):
-                                    raise ToolError('Đã dừng máy này')
-                                continue
-                            visual_misses = 0
-                            _tap(phone, tap_target, deadline)
-                            if state.create_address_prefix_sent:
-                                cloud_adb(phone, 'shell', 'input', 'keyevent', 'KEYCODE_MOVE_END', timeout=4)
-                                for _ in range(max(len(state.create_address_prefix or ''), 10)):
-                                    cloud_adb(phone, 'shell', 'input', 'keyevent', 'KEYCODE_DEL', timeout=4)
-                            state.create_address_street_bounds = tap_field['bounds']
-                            cloud_adb(phone, 'shell', 'input', 'text', state.create_address_prefix,
-                                      timeout=5)
-                            state.create_address_prefix_sent = True
-                            state.create_address_prefix_sent_at = time.monotonic()
-                            state.create_address_prefix_attempts += 1
-                            outer.recovering('b28: đã nhập số tìm kiếm; chờ gợi ý địa chỉ')
-                        elif (state.create_address_prefix_sent_at is not None and
-                              time.monotonic() - state.create_address_prefix_sent_at >= 15):
-                            raise ToolError('b28: đã nhập lại cùng số nhưng chưa thấy gợi ý; giữ bước máy này')
-                elif _saved(nodes):
-                    state.create_address_completed.add(number); return
             elif number == 30:
                 if _saved(nodes):
                     state.create_address_saved_at = time.monotonic()
@@ -535,9 +490,11 @@ def build_create_address_detail_steps(phone, state):
                     state.create_address_submit_sent_at = time.monotonic()
                 _tap_for_transition(phone, target, deadline)
                 taps += 1
+                if number == 27:
+                    state.create_address_completed.add(27)
+                    return
                 outer.recovering(f'b{number}: đã bấm, đang đọc lại để xác nhận')
-            wait_s = (.4 if number == 28 and state.create_address_prefix_sent and
-                      target is None else 1 if target is None else .25)
+            wait_s = 1 if target is None else .25
             if stop.wait(wait_s):
                 raise ToolError('Đã dừng máy này')
         raise ToolError(f'b{number}: quá 2 phút chưa xác nhận được màn đích; giữ bước máy này')

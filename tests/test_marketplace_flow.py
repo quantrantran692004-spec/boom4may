@@ -18,6 +18,7 @@ def node(text='', bounds='[20,100][380,140]', **attrs):
 
 TAB = node(**{'content-desc': 'Your Account Tab, 2 of 4'}, bounds='[110,810][190,860]')
 FOREGROUND_CHECK = flow._foreground
+TEXT_REGION_READ = flow._read_text_region
 BROWSE = node(**{'content-desc': 'Browse menu Tab, 4 of 4'}, bounds='[310,810][390,860]')
 ACCOUNT = [node('Your Orders'), node('Orders'), node('Account'), node('Lists'),
            node('EN', '[350,100][390,125]'), TAB, BROWSE]
@@ -253,11 +254,11 @@ class MarketplaceFlowTests(unittest.TestCase):
         with patch.object(flow,'_read',return_value=incomplete), \
              patch.object(flow,'cloud_adb') as adb, \
              patch.object(flow,'_tap_for_transition') as tap:
-            with self.assertRaisesRegex(ToolError,'75 giây'):
-                self.action(21,state)(None,AttemptDeadline(None),self.stop)
+            self.action(21,state)(None,AttemptDeadline(None),self.stop)
         adb.assert_not_called(); tap.assert_not_called()
         self.assertEqual(state.marketplace_done_attempts,1)
-        self.assertNotIn(21,state.marketplace_completed)
+        self.assertIn(21,state.marketplace_completed)
+        self.assertTrue(state.marketplace_done_confirmed)
 
     def test_text_back_fallback_stops_if_new_screenshot_returns_to_authentication(self):
         state = self.state(); state.marketplace_completed.add(16)
@@ -375,6 +376,18 @@ class MarketplaceFlowTests(unittest.TestCase):
         with patch.object(flow,'_read_hierarchy',return_value=partial), \
              patch.object(flow,'_read_visual_nodes',side_effect=AssertionError('Must not wait for OCR')):
             self.assertIs(flow._read_navigation_nodes(self.phone,AttemptDeadline(12),self.stop),partial)
+
+    def test_direct_text_region_uses_shared_ocr_without_phone_reader(self):
+        direct_nodes = [node('Street address', vision='true')]
+        reader = SimpleNamespace(call=Mock(side_effect=AssertionError('Phone reader used')))
+        with patch('amazon_android.isolated_reader.current', return_value=reader), \
+             patch.object(flow, '_read_visual_nodes', return_value=direct_nodes) as visual:
+            self.assertIs(TEXT_REGION_READ(self.phone, AttemptDeadline(50),
+                          self.stop, (.20, .68), direct_visual=True), direct_nodes)
+        reader.call.assert_not_called()
+        self.assertEqual(visual.call_count, 1)
+        self.assertTrue(visual.call_args.kwargs['text_only'])
+        self.assertEqual(visual.call_args.kwargs['crop'], (.20, .68))
 
     def test_b22_newly_visible_person_does_not_wait_for_back_cooldown(self):
         state = self.state(); state.marketplace_completed.update(range(16,22))
@@ -563,7 +576,7 @@ class MarketplaceFlowTests(unittest.TestCase):
         tap.assert_not_called()
         self.assertIn(19, state.marketplace_completed)
 
-    def test_done_timeout_retains_dispatch_and_resume_does_not_tap_again(self):
+    def test_done_tap_advances_immediately_without_waiting_for_destination(self):
         state = self.state(); state.marketplace_completed.update(range(16,21))
         calls = [0]
         def read(*_args, **_kwargs):
@@ -571,15 +584,11 @@ class MarketplaceFlowTests(unittest.TestCase):
             return settings('United States') if calls[0] == 1 else []
         with patch.object(flow, '_read', side_effect=read), \
              patch.object(flow, '_tap_for_transition') as tap:
-            with self.assertRaisesRegex(ToolError, '75 giây'):
-                self.action(21, state)(None, AttemptDeadline(None), self.stop)
+            self.action(21, state)(None, AttemptDeadline(None), self.stop)
         self.assertTrue(state.marketplace_done_sent)
         tap.assert_called_once()
-        self.assertNotIn(21, state.marketplace_completed)
-        with patch.object(flow, '_read', return_value=[TAB, BROWSE]), \
-             patch.object(flow, '_tap_for_transition') as resumed_tap:
-            self.action(21, state)(None, AttemptDeadline(None), self.stop)
-        resumed_tap.assert_not_called()
+        self.assertEqual(calls[0], 1)
+        self.assertIn(21, state.marketplace_completed)
         self.assertTrue(state.marketplace_done_confirmed)
 
     def test_repeated_done_still_visible_is_bounded_and_never_selects_other_country(self):
@@ -588,14 +597,15 @@ class MarketplaceFlowTests(unittest.TestCase):
         state.marketplace_done_attempts = 1
         state.marketplace_done_at = self.clock[0]
         tap_times = []
-        with patch.object(flow, '_read', return_value=settings('United States')), \
+        no_tabs = [n for n in settings('United States') if n is not TAB]
+        with patch.object(flow, '_read', return_value=no_tabs), \
              patch.object(flow, '_tap_for_transition', side_effect=lambda *_:
                           tap_times.append(self.clock[0])) as tap:
-            with self.assertRaisesRegex(ToolError, 'Done hai lần'):
-                self.action(21, state)(None, AttemptDeadline(None), self.stop)
+            self.action(21, state)(None, AttemptDeadline(None), self.stop)
         self.assertEqual([c.args[1]['text'] for c in tap.call_args_list], ['Done'])
         self.assertGreaterEqual(tap_times[0], 120)  # Resume preserves the prior tap's wait.
         self.assertEqual(state.marketplace_done_attempts, 2)
+        self.assertIn(21, state.marketplace_completed)
 
     def test_authentication_screen_stops_instead_of_touching_account_tab(self):
         state = self.state()

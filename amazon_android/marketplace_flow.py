@@ -116,11 +116,16 @@ def _read(phone, deadline, stop, *, visual=False, navigation=False):
     return _read_nodes_once(phone, budget, stop)
 
 
-def _read_text_region(phone, deadline, stop, crop):
+def _read_text_region(phone, deadline, stop, crop, *, direct_visual=False):
     """Read only visible text in a screen region, keeping original tap bounds."""
     from .isolated_reader import current
 
-    budget = AttemptDeadline(min(18, deadline.remaining()), notice=deadline.notice)
+    budget = AttemptDeadline(min(45 if direct_visual else 18, deadline.remaining()),
+                             notice=deadline.notice)
+    if direct_visual:
+        # The address WebView uses the two bounded OCR engines in this process
+        # rather than cold-starting one OCR process per phone at b28.
+        return _read_visual_nodes(phone, budget, stop, crop=crop, text_only=True)
     reader = current(phone.serial)
     if reader is not None:
         return reader.call('visual_text', budget.remaining(), stop, crop=crop)
@@ -337,7 +342,7 @@ def build_marketplace_steps(phone, state):
             if (not _search_active(nodes) and (len(labels) < 2 or any(
                     label.startswith(('loading', 'please wait')) for label in labels))):
                 stalled_nav_reads += 1
-                if stalled_nav_reads < 2 or not nodes:
+                if stalled_nav_reads < (6 if number == 22 else 2) or not nodes:
                     return None
                 # A persistent loading page can cover the bottom tabs; Back
                 # exposes the live Android navigation instead of waiting 75s.
@@ -414,11 +419,12 @@ def build_marketplace_steps(phone, state):
                 if number == 16 and kind in {'MARKET_SETTINGS', 'MARKET_COUNTRIES'}:
                     state.marketplace_completed.add(number)
                     return  # The user already advanced this machine.
-                if kind == 'ACCOUNT':
+                if number == 16 and kind == 'ACCOUNT':
                     state.marketplace_completed.add(number)
                     return
-                if number == 22 and not state.marketplace_done_confirmed:
-                    raise ToolError('Chưa xác nhận chuyển màn sau Done trên máy này')
+                if number == 22 and taps > 0 and kind == 'ACCOUNT':
+                    state.marketplace_completed.add(number)
+                    return
                 if nodes and (number == 22 or kind not in {'MARKET_SETTINGS', 'MARKET_COUNTRIES'}):
                     target = account_target(nodes)
             elif number in {17, 18}:
@@ -483,6 +489,10 @@ def build_marketplace_steps(phone, state):
                 elif nodes:
                     target = account_target(nodes)
             elif number == 21:
+                if state.marketplace_done_sent and _navigation_ready(nodes):
+                    state.marketplace_done_confirmed = True
+                    state.marketplace_completed.add(number)
+                    return
                 if state.marketplace_done_sent and _destination(nodes):
                     stable_destination += 1
                     if _navigation_ready(nodes) or stable_destination >= 2:
@@ -539,7 +549,8 @@ def build_marketplace_steps(phone, state):
                 if not foreground_ready():
                     continue
                 _pause(stop, 0)
-                if number == 21 and kind == 'MARKET_SETTINGS' and _us_selected(nodes):
+                done_tap = number == 21 and kind == 'MARKET_SETTINGS' and _us_selected(nodes)
+                if done_tap:
                     if state.marketplace_done_attempts >= 2:
                         raise ToolError('Đã thử Done hai lần; giữ nguyên để kiểm tra mạng rồi Tiếp tục')
                     state.marketplace_done_sent = True
@@ -551,6 +562,10 @@ def build_marketplace_steps(phone, state):
                     next_tap = time.monotonic() + 8
                 taps += 1
                 _tap_for_transition(phone, target, deadline)
+                if done_tap:
+                    state.marketplace_done_confirmed = True
+                    state.marketplace_completed.add(21)
+                    return
             elif target is None and nodes and time.monotonic() >= next_tap:
                 # Retry a visible network error only when it has a unique button.
                 retry_sent = False

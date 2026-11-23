@@ -28,7 +28,7 @@ class ReloadPaymentTests(unittest.TestCase):
         self.job = RunJob(0, 'batch', None, account=account)
         target_reader = patch.object(
             flow, '_read_text_region',
-            side_effect=lambda phone, deadline, stop, crop:
+            side_effect=lambda phone, deadline, stop, crop, **_kwargs:
                 flow._read(phone, deadline, stop, visual=True))
         target_reader.start()
         self.addCleanup(target_reader.stop)
@@ -96,6 +96,33 @@ class ReloadPaymentTests(unittest.TestCase):
                 build_reload_payment_steps(self.phone, self.state)[-2].action(
                     job, self.deadline, self.stop)
         adb.assert_not_called()
+
+    def test_b38_locates_all_three_fields_in_one_cropped_read_before_input(self):
+        from amazon_android import reload_payment_flow as flow
+        self.state.reload_completed.update({32, 33, 34, 36, 37})
+        form = [node('Card number', 100), node('Card number', 140),
+                node('Expiration date', 190), node('MM / YY', 230),
+                node('Name on card', 285), node('First and last name', 330)]
+        button = node('Add and continue', 425)
+        sent = []
+        def read(_phone, _deadline, _stop, crop, **kwargs):
+            if crop == (.05, .58):
+                self.assertTrue(kwargs['direct_visual'])
+                self.assertFalse(sent)
+                return form
+            return [button]
+        def adb(_phone, *args, **_kwargs):
+            if args[:3] == ('shell', 'input', 'text'):
+                sent.append(args[3])
+            return SimpleNamespace(stdout='')
+        with patch.object(flow, '_read_text_region', side_effect=read) as region, \
+             patch.object(flow, '_foreground'), patch.object(flow, '_tap'), \
+             patch.object(flow, 'cloud_adb', side_effect=adb):
+            build_reload_payment_steps(self.phone, self.state)[-2].action(
+                self.job, self.deadline, self.stop)
+        self.assertEqual(region.call_count, 2)  # Form once, then button.
+        self.assertEqual(len(sent), 3)
+        self.assertEqual(self.state.reload_card_fields_sent, {0, 1, 2})
 
     def test_b32_scrolls_immediately_after_person_tap_without_account_scan(self):
         from amazon_android import reload_payment_flow as flow

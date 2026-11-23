@@ -61,6 +61,7 @@ class BulkInputTests(unittest.TestCase):
         window.run_note = Mock()
         window._refresh_devices = Mock()
         window._previous_work_busy = Mock(return_value=False)
+        window._start_profile_creation_retry = Mock()
         return window
 
     def test_locked_failed_machine_paste_only_changes_selected_proxy(self):
@@ -89,27 +90,22 @@ class BulkInputTests(unittest.TestCase):
         self.assertEqual(window.jobs[1].account.phone, "12025550999")
         self.assertEqual(window.jobs[1].account.full_name, "Repaired Person")
         self.assertEqual(window._edited_locked_rows, set())
-        self.assertEqual(window._pending_retries, {1})
+        self.assertEqual(window._pending_retries, set())
+        window._start_profile_creation_retry.assert_called_once_with(1)
 
-    def test_queued_retry_launch_receives_repaired_machine_job(self):
+    def test_immediate_retry_receives_repaired_machine_job(self):
         window = self.locked_window()
         window._accept_proxy_text("new.example:2002:newuser:newpass")
         window._continue_profile(1)
-        window.running = False
-        window.attach_in_progress = False
         window.cancel = threading.Event()
-        window.settings = Mock(start_group_size=1, hide_profile_creation=True)
-        window.run_button = Mock()
-        window.settings_button = Mock()
-        window.stop_button = Mock()
-        window.reset_button = Mock()
         window.phone_stop_after_step = {}
         window.events = Mock()
-        window.phone_serials = {}
+        window.run_group_size = 2
+        window.run_hide_profile_creation = True
         window.proxy_postal_prefixes = {}
         window.menu_opened_at = {}
         with patch("amazon_android.desktop.threading.Thread") as thread:
-            window._launch([1])
+            Window._start_profile_creation_retry(window, 1)
         sent_jobs = thread.call_args.kwargs["args"][0]
         self.assertEqual(len(sent_jobs), 1)
         self.assertEqual(sent_jobs[0].proxy.host, "new.example")
@@ -129,6 +125,9 @@ class BulkInputTests(unittest.TestCase):
         window.count_menu = Mock()
         window.proxy_paste_heading = Mock()
         window.proxy_paste_hint = Mock()
+        window.single_account_line = Mock()
+        window.apply_single_account_button = Mock()
+        window.clear_selected_button = Mock()
         window._set_editing(False)
         window.detail_entries["host"].configure.assert_called_with(state="normal")
         window.detail_entries["full_name"].configure.assert_called_with(state="normal")
@@ -234,6 +233,9 @@ class BulkInputTests(unittest.TestCase):
         window.detail_title = Mock()
         window.account_detail_heading = Mock()
         window.detail_status = Mock()
+        window.single_account_line = Mock()
+        window.apply_single_account_button = Mock()
+        window.clear_selected_button = Mock()
         window.status = [("Chưa chạy", "idle") for _ in range(12)]
         window._refresh_otp_detail = Mock()
         window._refresh_devices = Mock()

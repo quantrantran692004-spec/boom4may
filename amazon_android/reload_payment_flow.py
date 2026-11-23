@@ -182,23 +182,31 @@ def build_reload_payment_steps(phone, state):
                       ('expiration date', 'name on card', ('mm / yy', 'mm/yy'), expiry),
                       ('name on card', 'add and continue',
                        ('first and last name', 'name on card'), name))
-            for index, (label, following, placeholders, value) in enumerate(fields):
-                if index in state.reload_card_fields_sent:
-                    continue
-                for attempt in range(5):
+            pending = [(index, field) for index, field in enumerate(fields)
+                       if index not in state.reload_card_fields_sent]
+            targets = {}
+            if pending:
+                for attempt in range(3):
+                    if stop.is_set():
+                        raise ToolError('Đã dừng máy này')
                     try:
-                        nodes = _read(phone, AttemptDeadline(min(12, deadline.remaining()),
-                                      notice=outer.notice), stop, visual=True)
-                        target = _field_target(nodes, label, following, placeholders)
-                        if target:
+                        nodes = _read_text_region(
+                            phone, AttemptDeadline(min(45, deadline.remaining()),
+                            notice=outer.notice), stop, (.05, .58), direct_visual=True)
+                        targets = {index: _field_target(nodes, label, following, placeholders)
+                                   for index, (label, following, placeholders, _) in pending}
+                        if all(targets.values()):
                             break
                     except ToolError:
                         if stop.is_set():
                             raise
-                    if stop.wait(min(2, deadline.remaining())):
+                    if attempt < 2 and stop.wait(min(.5, deadline.remaining())):
                         raise ToolError('Đã dừng máy này')
                 else:
-                    raise ToolError(f'b38: chưa xác định được ô {label}; chưa nhập thẻ')
+                    missing = next(field[0] for index, field in pending if not targets.get(index))
+                    raise ToolError(f'b38: chưa xác định được ô {missing} trên ảnh form; chưa nhập thẻ')
+            for index, (_, _, _, value) in pending:
+                target = targets[index]
                 _input(phone, target, value, deadline)
                 state.reload_card_fields_sent.add(index)
             _, target = _read_until(phone, deadline, stop, 'add and continue')
