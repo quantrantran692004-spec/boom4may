@@ -92,6 +92,8 @@ class InstallTests(unittest.TestCase):
             result = install_amazon("q2")
         self.assertEqual(events, ["apps", "search:z", "install", "terminal", "apps"])
         self.assertTrue(result["amazon_package_installed"])
+        self.assertEqual(result["serial"], "127.0.0.1:5555")
+        self.assertEqual(result["device_id"], "ACN1")
 
 
 if __name__ == "__main__":

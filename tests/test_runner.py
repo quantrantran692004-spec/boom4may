@@ -52,13 +52,18 @@ class RunnerTests(unittest.TestCase):
 
     def execute(self, jobs=None, start_group_size=1, auto_close=True,
                 hide_profile_creation=False, menu_ready=None, stop_after_step=None,
-                proxy_prefix_ready=None, create_result=None):
+                proxy_prefix_ready=None, create_result=None,
+                trace_preparation=False):
         events = []
         def shell(name, device_id, **kwargs):
+            if trace_preparation:
+                self.calls.append('shell')
             return {"serial": f"127.0.0.1:{5000 + int(name[1:])}",
                     "device_id": device_id}
 
         def menu(phone, **kwargs):
+            if trace_preparation:
+                self.calls.append('menu')
             if auto_close:
                 self.running.discard(f"q{int(phone.serial.rsplit(':', 1)[1]) - 5000}")
             return {"stage": "HOME_MENU_OPEN"}
@@ -78,9 +83,15 @@ class RunnerTests(unittest.TestCase):
              patch("amazon_android.runner.start_profile", self.start), \
              patch("amazon_android.runner.install_amazon", self.install), \
              patch("amazon_android.runner.open_adb_shell", side_effect=shell), \
-             patch("amazon_android.runner.show_apps"), \
-             patch("amazon_android.runner.open_amazon"), \
-             patch("amazon_android.runner.collapse_apps_panel"), \
+             patch("amazon_android.runner.show_apps",
+                   side_effect=lambda *_a, **_k: self.calls.append('apps')
+                   if trace_preparation else None), \
+             patch("amazon_android.runner.open_amazon",
+                   side_effect=lambda *_a, **_k: self.calls.append('open')
+                   if trace_preparation else None), \
+             patch("amazon_android.runner.collapse_apps_panel",
+                   side_effect=lambda *_a, **_k: self.calls.append('collapse')
+                   if trace_preparation else None), \
              patch("amazon_android.runner.open_home_menu", side_effect=menu):
             result = run_batch(jobs or self.jobs, self.registry,
                                lambda *event: events.append(event), self.stop,
@@ -90,6 +101,16 @@ class RunnerTests(unittest.TestCase):
                                proxy_prefix_ready=proxy_prefix_ready,
                                stop_after_step=stop_after_step)
         return result, events
+
+    def test_fresh_install_uses_existing_tunnel_and_reaches_menu_before_panel_cleanup(self):
+        def install(name, device_id=None, **_kwargs):
+            self.calls.append(f'install:{name}')
+            return {'amazon_package_installed': True,
+                    'serial': '127.0.0.1:5001', 'device_id': device_id}
+        with patch.object(self, 'install', side_effect=install):
+            result, _ = self.execute(self.jobs[:1], trace_preparation=True)
+        self.assertEqual(result['menu_open'], 1)
+        self.assertEqual(self.calls[-4:], ['install:q1', 'open', 'menu', 'collapse'])
 
     def test_opens_first_phone_before_creating_second_profile(self):
         result, _ = self.execute()

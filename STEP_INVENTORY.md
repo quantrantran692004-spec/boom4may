@@ -60,11 +60,11 @@ Tool gửi Start cho Profile đã xác nhận, tuân giới hạn số máy Runn
 
 ## P07 — Mở Apps, tìm z và cài Amazon
 
-Trên đúng cửa sổ máy, mở Apps/App Store, tìm `z`, cài Amazon Shopping và xác nhận package qua ADB. Nếu app đã cài thì tiếp tục, không cài lặp. **Đã nối mã; một số máy cũ từng được kiểm tra thật, không suy ra máy mới.**
+Trên đúng cửa sổ máy, mở Apps/App Store, tìm `z`, cài Amazon Shopping và xác nhận package qua ADB. Nếu app đã cài thì tiếp tục, không cài lặp. Kết quả cài đặt giữ serial ADB và Device ID vừa xác nhận để P08 dùng ngay cho đúng máy, tránh mở lại Terminal/Apps. **Đã nối mã; một số máy cũ từng được kiểm tra thật, không suy ra máy mới.**
 
 ## P08 — Mở Amazon tới menu ba gạch
 
-Ngay sau khi Amazon mở, nếu App Store còn hiện bên phải cửa sổ máy, bấm Apps đúng một lần để thu panel rồi xác nhận nó đã ẩn. Đây là bước chung cho mọi máy trước khi mở menu; không bấm khi panel đã thu.
+Ngay sau khi Amazon mở, dùng ADB trên đúng serial để mở và xác nhận Browse menu trước; nếu App Store còn hiện bên phải cửa sổ máy thì thu panel sau đó. Panel Swarmote không chặn thao tác ADB trong Android. Không bấm Apps khi panel đã thu. Sửa thứ tự 25/11/2026 để bỏ lượt chờ UIA trước cú bấm trên Amazon; đã test mô phỏng, chưa đo trên máy thật.
 
 Mở Amazon, nếu hiện Skip sign in thì gửi Back trên điện thoại một lần thay vì bấm Skip (sửa 20/11/2026), bấm Browse menu Tab và xác nhận `Shop by category`/menu. Đây là điểm nối luồng riêng từng máy. Nếu registry đã ghi `MENU_OPEN` từ lượt trước, phải nối lại ADB serial của đúng máy trước khi phát sự kiện để chạy b1. Nếu thiếu hàng Amazon hoặc serial, báo rõ ở hàng máy; nếu Offline, nhắc Start rồi Tiếp tục. **Đã sửa mã và test mô phỏng cho q1/q2; q2 chưa xác minh lại thật sau báo cáo đứng ở menu.**
 
@@ -211,6 +211,10 @@ Nếu cây WebView không xuất nút `Verify mobile number`, riêng nhánh đă
 **B24–b25, cập nhật 21/11/2026:** Sau b23, b24 chụp OCR tìm đúng chữ Your Addresses; thấy thì chuyển b25, chưa thấy thì cuộn xuống và chụp lại, kể cả ảnh ít chữ. Nếu sau cú cuộn vẫn chỉ là trang chen vào không có nội dung Account, Back một lần rồi chụp tìm tiếp; không bấm lại Account. B25 chụp mới, thấy đúng chữ Your Addresses thì bấm ngay. Các nhãn khác chỉ giúp quyết định Back khỏi trang chen vào, không là điều kiện để chọn Your Addresses. 9 test create_address_flow PASS; chưa có ảnh quảng cáo cụ thể hay thử máy thật, phiên hiện hành chưa nạp mã mới.
 
 **B32–b39, bổ sung 21/11/2026:** B32 cuộn ngay sau cú bấm hình người; b33 tìm chữ Reload Balance, chưa thấy thì cuộn tiếp và thấy thì bấm ngay. B34 vuốt ngắn ngay sau cú bấm b33, không đọc màn mới trước; b36 tìm chữ Buy Now, chưa thấy thì vuốt ngắn tiếp và thấy thì bấm ngay; b37 bấm Add a credit or debit card trên màn Your Auto-Reload Setting; b38 tìm đúng ba ô thẻ, nhập số thẻ/MM-YY/tên cùng hàng của đúng máy rồi đọc vùng nút Add and continue và bấm ngay khi thấy chữ. B39 chỉ tìm chữ Use this address trên ảnh rồi bấm ngay, không kiểm trạng thái chọn địa chỉ hay bố cục màn; kết thúc tại đó. Ảnh b35 là trạng thái Low Balance Auto-Reload mặc định, không có thao tác riêng; không đổi $25/$10. Không bấm Set up now. Màn tải chậm được đọc lại tối đa năm lượt; thiếu thẻ/ô không rõ thì dừng riêng trước nhập. Card chỉ trong RAM, không ghi đầy đủ vào log/tài liệu. Test mô phỏng mới PASS; chưa thử máy thật, phiên hiện hành chưa nạp mã mới. **Sửa b38 ngày 23/11/2026:** Quét OCR vùng ba ô một lượt, chỉ nhập khi đã xác định đủ Card number, Expiration date và Name on card; dùng đúng hàng máy, giữ dấu từng ô khi Tiếp tục. Chưa thử máy thật.
+
+**B36–b38 điều chỉnh thêm 25/11/2026:** b36/b37 chỉ đọc vùng chữ cần bấm, không quét toàn màn/cây Android khi vùng thiếu chữ; b38 nhập từng ký tự, nghỉ 0,4 giây giữa ký tự.
+
+**B38 sửa 25/11/2026:** Sau một lượt OCR xác định đủ ba ô thẻ, nhập từng nhóm tối đa bốn ký tự và nghỉ 0,3 giây giữa các nhóm. Nếu bàn phím vẫn hiện sau ô tên thì đóng bàn phím; quét chữ Add and continue trong vùng 30–80% chiều cao rồi bấm ngay. Vùng cũ 55–98% bỏ sót nút nằm khoảng 45% trong ảnh form đã lưu. Không quét toàn màn khi tìm nút; chưa xác minh trên máy thật.
 
 Kiểm tra tốc độ 21/11/2026: b23 giữ đúng nhịp chờ 3 giây sau b22, mốc chờ riêng máy giữ qua Dừng/Tiếp tục; hết chờ chỉ OCR vùng có chữ Account và bấm khi thấy đúng một nhãn, không phân loại toàn màn hoặc đòi thêm nội dung. B24–b25 tiếp tục đọc OCR chữ Your Addresses trước. B26–b27 quét chữ ở nửa trên, b30 ưu tiên OCR để bấm Add address ngay khi thấy. B33/b34/b36/b37 quét vùng có nút, giữ tọa độ toàn màn để bấm; b34 vuốt trước khi đọc và vuốt tiếp ngay khi vùng chưa có Buy Now. B38 vẫn xác định từng ô thẻ. OCR b37 trên ảnh lưu đọc đúng dòng; phép đo OCR ảnh tĩnh đã làm nóng: toàn ảnh trung bình 4,33 giây, vùng nút 2,36 giây (ba lần mỗi cách), chưa gồm ADB và chưa đo trên máy thật.
 

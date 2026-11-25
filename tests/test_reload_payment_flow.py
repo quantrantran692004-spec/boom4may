@@ -79,7 +79,8 @@ class ReloadPaymentTests(unittest.TestCase):
             for step in build_reload_payment_steps(self.phone, self.state):
                 step.action(self.job, self.deadline, self.stop)
         self.assertEqual(swipes, ['account', 'product'])
-        self.assertEqual(entered, ['4111111111111111', '12/30', 'Example%sPerson'])
+        self.assertEqual(''.join(entered).replace('%s', ' '),
+                         '411111111111111112/30Example Person')
         self.assertIn('Add and continue', taps)
         self.assertIn('Use this address', taps)
         self.assertNotIn('Set up now', taps)
@@ -121,8 +122,52 @@ class ReloadPaymentTests(unittest.TestCase):
             build_reload_payment_steps(self.phone, self.state)[-2].action(
                 self.job, self.deadline, self.stop)
         self.assertEqual(region.call_count, 2)  # Form once, then button.
-        self.assertEqual(len(sent), 3)
+        self.assertEqual(len(sent), 35)
         self.assertEqual(self.state.reload_card_fields_sent, {0, 1, 2})
+
+    def test_b38_hides_keyboard_and_taps_button_in_actual_image_region(self):
+        from amazon_android import reload_payment_flow as flow
+        from amazon_android import account_flow
+        self.state.reload_completed.update({32, 33, 34, 36, 37})
+        self.state.reload_card_fields_sent.update({0, 1, 2})
+        target = node('Add and continue', 377)
+        actions = []
+        def adb(_phone, *args, **_kwargs):
+            actions.append(args)
+            return SimpleNamespace(stdout='')
+        with patch.object(account_flow, '_keyboard_visible', return_value=True), \
+             patch.object(flow, '_read_text_region', return_value=[target]) as read, \
+             patch.object(flow, '_foreground'), \
+             patch.object(flow, 'cloud_adb', side_effect=adb), \
+             patch.object(flow, '_tap', side_effect=lambda *_: actions.append(('tap',))):
+            build_reload_payment_steps(self.phone, self.state)[-2].action(
+                self.job, self.deadline, self.stop)
+        self.assertEqual(actions, [('shell', 'input', 'keyevent', 'KEYCODE_BACK'),
+                                   ('tap',)])
+        self.assertEqual(read.call_args.args[3], (.30, .80))
+
+    def test_b38_button_crop_matches_saved_form_image(self):
+        from amazon_android.reload_payment_flow import _find
+        from amazon_android.vision import ocr_nodes
+        screenshot = (Path(__file__).resolve().parents[1] / 'flow_images' /
+                      'shared' / 'reload_payment' /
+                      '06_b38_add_and_continue.png').read_bytes()
+        nodes = ocr_nodes(screenshot, crop=(.30, .80), text_only=True)
+        self.assertIsNotNone(_find(nodes, 'add and continue'))
+
+    def test_b38_types_in_paced_groups_after_one_field_tap(self):
+        from amazon_android import reload_payment_flow as flow
+        entered = []
+        target = node('Name on card', 300)
+        with patch.object(flow, '_foreground'), \
+             patch.object(flow, '_tap') as tap, \
+             patch.object(self.stop, 'wait', return_value=False) as wait, \
+             patch.object(flow, 'cloud_adb', side_effect=lambda _phone, *args, **_kw:
+                          entered.append(args[3]) or SimpleNamespace(stdout='')):
+            flow._input(self.phone, target, 'Example Person', self.deadline, self.stop)
+        tap.assert_called_once()
+        self.assertEqual(entered, list('Example') + ['%s'] + list('Person'))
+        self.assertEqual([call.args[0] for call in wait.call_args_list], [.4] * 13)
 
     def test_b32_scrolls_immediately_after_person_tap_without_account_scan(self):
         from amazon_android import reload_payment_flow as flow
@@ -278,16 +323,18 @@ class ReloadPaymentTests(unittest.TestCase):
 
     def test_b38_taps_add_and_continue_from_button_region_after_fields_sent(self):
         from amazon_android import reload_payment_flow as flow
+        from amazon_android import account_flow
         self.state.reload_completed.update({32, 33, 34, 36, 37})
         self.state.reload_card_fields_sent.update({0, 1, 2})
         target = node('Add and continue', 380)
         with patch.object(flow, '_read_text_region', return_value=[target]) as region, \
              patch.object(flow, '_read', side_effect=AssertionError('full scan')), \
+             patch.object(account_flow, '_keyboard_visible', return_value=False), \
              patch.object(flow, '_foreground'), \
              patch.object(flow, '_tap') as tap:
             build_reload_payment_steps(self.phone, self.state)[-2].action(
                 self.job, self.deadline, self.stop)
-        self.assertEqual(region.call_args.args[3], (.55, .98))
+        self.assertEqual(region.call_args.args[3], (.30, .80))
         tap.assert_called_once_with(self.phone, target, unittest.mock.ANY)
         self.assertIn(38, self.state.reload_completed)
 

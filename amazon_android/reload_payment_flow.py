@@ -28,7 +28,7 @@ def _target_crop(labels):
     if 'add a credit or debit card' in labels:
         return (.20, .65)
     if 'add and continue' in labels:
-        return (.55, .98)
+        return (.30, .80)
     if 'use this address' in labels:
         return (.05, .50)
     return None
@@ -52,7 +52,7 @@ def _read_until(phone, deadline, stop, *labels, attempts=5):
                     raise
         # A single cropped miss returns to the calling step so it can scroll
         # again without a full-screen or native WebView read.
-        if crop is None or attempts != 1:
+        if crop is None or ('reload balance' in labels and attempts != 1):
             for visual in ((True, False) if attempt == 0 else (() if crop else (True,))):
                 try:
                     nodes = _read(phone, AttemptDeadline(min(12, deadline.remaining()),
@@ -113,11 +113,43 @@ def _field_target(nodes, label, next_label, placeholders):
     return {'bounds': f'[{x-1},{y-1}][{x+1},{y+1}]'}
 
 
-def _input(phone, target, value, deadline):
+def _input(phone, target, value, deadline, stop):
     _foreground(phone, deadline)
+    if stop.is_set():
+        raise ToolError('Đã dừng máy này')
     _tap(phone, target, deadline)
-    cloud_adb(phone, 'shell', 'input', 'text', value.replace(' ', '%s'),
-              timeout=max(5, math.ceil(min(15, deadline.remaining()))))
+    # Give the card WebView time to accept each character.
+    for offset, char in enumerate(value):
+        if offset and stop.wait(min(.4, deadline.remaining())):
+            raise ToolError('Đã dừng máy này')
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        piece = '%s' if char == ' ' else char
+        cloud_adb(phone, 'shell', 'input', 'text', piece,
+                  timeout=max(5, math.ceil(min(15, deadline.remaining()))))
+
+
+def _add_button(phone, deadline, stop):
+    # The keyboard can cover the button after Name on card. Dismiss only the
+    # visible IME, then locate the button on the current screen image.
+    from .account_flow import _keyboard_visible
+
+    if _keyboard_visible(phone, deadline):
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        _foreground(phone, deadline)
+        cloud_adb(phone, 'shell', 'input', 'keyevent', 'KEYCODE_BACK',
+                  timeout=max(1, math.ceil(min(5, deadline.remaining()))))
+    for attempt in range(5):
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        nodes = _read_text_region(phone, deadline, stop, (.30, .80))
+        target = _find(nodes, 'add and continue')
+        if target:
+            return target
+        if attempt < 4 and stop.wait(min(.35, deadline.remaining())):
+            raise ToolError('Đã dừng máy này')
+    raise ToolError('b38: chưa thấy Add and continue; giữ bước máy này')
 
 
 def build_reload_payment_steps(phone, state):
@@ -207,9 +239,9 @@ def build_reload_payment_steps(phone, state):
                     raise ToolError(f'b38: chưa xác định được ô {missing} trên ảnh form; chưa nhập thẻ')
             for index, (_, _, _, value) in pending:
                 target = targets[index]
-                _input(phone, target, value, deadline)
+                _input(phone, target, value, deadline, stop)
                 state.reload_card_fields_sent.add(index)
-            _, target = _read_until(phone, deadline, stop, 'add and continue')
+            target = _add_button(phone, deadline, stop)
             _foreground(phone, deadline)
             _tap(phone, target, deadline)
         elif number == 39:

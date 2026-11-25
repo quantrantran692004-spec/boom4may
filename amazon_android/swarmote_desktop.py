@@ -956,7 +956,8 @@ def install_amazon(name: str, timeout: int = 180,
         report()
         if package_path(phone, AMAZON_PACKAGE):
             return {"profile_name": name, "amazon_package_installed": True,
-                    "already_installed": already_installed, "source_verified": False}
+                    "already_installed": already_installed, "source_verified": False,
+                    "serial": shell["serial"], "device_id": shell["device_id"]}
         if stop is None:
             time.sleep(2)
         else:

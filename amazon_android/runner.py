@@ -143,9 +143,10 @@ def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
         item = registry.get(job.batch_id, job.index)
         if item is None:
             raise ToolError("Không còn metadata của Profile")
+        installed = None
         if item["stage"] != "APP_INSTALLED":
             emit(job.index, f"Đang tìm z và cài Amazon · {name}", "running", name)
-            install_amazon(name, device_id=device_id, stop=stop, progress=progress)
+            installed = install_amazon(name, device_id=device_id, stop=stop, progress=progress)
             registry.mark(job.batch_id, job.index, "READY", stage="APP_INSTALLED")
         emit(job.index, f"Amazon đã cài trên {name}", "installed", name)
         if stop_here("sau khi cài Amazon"):
@@ -155,12 +156,18 @@ def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
             emit(job.index, f"Đã dừng sau khi cài Amazon · {name}", "stopped", name)
             return "stopped"
         emit(job.index, f"Đang mở menu Amazon · {name}", "running", name)
-        shell = open_adb_shell(name, device_id, stop=stop, progress=progress)
+        # Installation already opened this phone's ADB tunnel and Apps panel.
+        # Reuse that confirmed serial instead of searching the Swarmote UI again.
+        reused = (installed is not None and installed.get("device_id") == device_id
+                  and installed.get("serial"))
+        shell = ({"serial": installed["serial"], "device_id": device_id} if reused else
+                 open_adb_shell(name, device_id, stop=stop, progress=progress))
         if stop_here("sau khi nối ADB"):
             return "stopped"
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
-        show_apps(name, device_id, stop=stop, progress=progress)
+        if not reused:
+            show_apps(name, device_id, stop=stop, progress=progress)
         if stop_here("sau khi mở danh sách ứng dụng"):
             return "stopped"
         if stop.is_set():
@@ -171,14 +178,14 @@ def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
             return "stopped"
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
-        collapse_apps_panel(name, device_id, stop=stop)
-        if stop_here("sau khi thu gọn ứng dụng"):
-            return "stopped"
         menu = open_home_menu(phone, stop=stop)
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
         if menu["stage"] != "HOME_MENU_OPEN":
             raise ToolError("Amazon chưa xác nhận menu ba gạch")
+        collapse_apps_panel(name, device_id, stop=stop)
+        if stop_here("sau khi thu gọn ứng dụng"):
+            return "stopped"
         if menu_ready is not None:
             menu_ready(job.index, name, device_id, phone.serial)
         if stop_here("sau khi mở menu ba gạch", stage="MENU_OPEN"):
