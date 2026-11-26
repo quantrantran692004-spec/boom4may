@@ -114,6 +114,9 @@ class RegistrationState:
     tail_menu_wait_started: dict[int, float] = field(default_factory=dict, repr=False)
     manual_sms_completed: bool = False
     marketplace_completed: set[int] = field(default_factory=set, repr=False)
+    marketplace_account_preview_needed: bool = False
+    marketplace_account_preview_opened_at: float | None = None
+    marketplace_account_preview_back_sent: bool = False
     marketplace_done_sent: bool = False
     marketplace_done_confirmed: bool = False
     marketplace_done_attempts: int = 0

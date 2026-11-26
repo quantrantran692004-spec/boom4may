@@ -137,6 +137,49 @@ def _pause(stop, seconds):
         raise ToolError('Đã dừng máy này')
 
 
+def build_account_preview_step(phone, state):
+    """After b16, open Account briefly and return before the marketplace steps."""
+    def action(_job, outer, stop):
+        if 16 not in state.marketplace_completed:
+            raise ToolError('Chưa hoàn tất b16 trên máy này')
+        if not state.marketplace_account_preview_needed:
+            return  # b16 found this phone already past the person-tab tap.
+        if state.marketplace_account_preview_back_sent:
+            return
+        if state.marketplace_account_preview_opened_at is None:
+            outer.recovering('b16a: tìm chữ Account để mở ngay')
+            for _ in range(32):
+                if stop.is_set():
+                    raise ToolError('Đã dừng máy này')
+                try:
+                    nodes = _read_text_region(phone, outer, stop, (.08, .30))
+                except ToolError:
+                    if stop.is_set():
+                        raise
+                    nodes = []
+                matches = {n['bounds']: n for n in nodes if _visible(n) and
+                           _text(n) == 'account'}
+                if len(matches) == 1:
+                    _foreground(phone, outer)
+                    if stop.is_set():
+                        raise ToolError('Đã dừng máy này')
+                    _tap_for_transition(phone, next(iter(matches.values())), outer)
+                    state.marketplace_account_preview_opened_at = time.monotonic()
+                    break
+                _pause(stop, min(.5, outer.remaining()))
+            else:
+                raise ToolError('b16a: chưa thấy duy nhất chữ Account; giữ bước máy này')
+        outer.recovering('b16a: đã mở Account · chờ 4 giây rồi Back')
+        _pause(stop, max(0, state.marketplace_account_preview_opened_at + 4 - time.monotonic()))
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        _foreground(phone, outer)
+        cloud_adb(phone, 'shell', 'input', 'keyevent', 'KEYCODE_BACK', timeout=4)
+        state.marketplace_account_preview_back_sent = True
+
+    return PostMenuStep('b16a xem Account 4 giây rồi Back', action)
+
+
 def _kind(nodes):
     from .account_flow import screen
     return screen(nodes)
@@ -561,6 +604,8 @@ def build_marketplace_steps(phone, state):
                 else:
                     next_tap = time.monotonic() + 8
                 taps += 1
+                if number == 16:
+                    state.marketplace_account_preview_needed = True
                 _tap_for_transition(phone, target, deadline)
                 if done_tap:
                     state.marketplace_done_confirmed = True

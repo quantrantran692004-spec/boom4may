@@ -18,7 +18,8 @@ from .post_menu import (AttemptDeadline, PostMenuStep, RecoverableStepError,
                         RegistrationState)
 from .q7_random_prefix import CHILD_LABELS
 from .runner import RunJob
-from .marketplace_flow import build_marketplace_steps, _navigation_ready, _search_active
+from .marketplace_flow import (build_marketplace_steps, build_account_preview_step,
+                               _navigation_ready, _search_active)
 from .create_address_flow import build_create_address_steps
 from .create_address_detail_flow import build_create_address_detail_steps
 from .reload_payment_flow import build_reload_payment_steps
@@ -229,6 +230,9 @@ def _tail_menu(phone: CloudPhone, deadline: AttemptDeadline,
 
 def build_tail_steps(phone: CloudPhone, state: RegistrationState) -> tuple[PostMenuStep, ...]:
     """Open Browse at b12, then make three distinct random navigation visits."""
+    def visit_seconds(number):
+        return (16.0 if state.flow_mode == 'create' else 1.0) + (4.0 if number == 15 else 0.0)
+
     def read_menu(number, deadline, stop):
         started = state.tail_menu_wait_started.setdefault(number, time.monotonic())
         limit = 90 if number == 12 else 60
@@ -261,7 +265,7 @@ def build_tail_steps(phone: CloudPhone, state: RegistrationState) -> tuple[PostM
             return False
         if number in TAIL_NUMBERS:
             if number not in state.tail_viewed:
-                duration = 16.0 if state.flow_mode == 'create' else 1.0
+                duration = visit_seconds(number)
                 wait_until(until - duration / 2, deadline, stop)
                 state.tail_viewed.add(number)
             return True
@@ -376,8 +380,7 @@ def build_tail_steps(phone: CloudPhone, state: RegistrationState) -> tuple[PostM
                 raise ToolError(f"b{number}: cú bấm danh mục chưa xác nhận; "
                                 "giữ nguyên bước để kiểm tra máy này") from exc
             state.tail_choices[number] = label
-            view(number, deadline, stop,
-                 seconds=16.0 if state.flow_mode == 'create' else 1.0)
+            view(number, deadline, stop, seconds=visit_seconds(number))
             return_to_menu(number, deadline, stop)
         return action
 
@@ -391,7 +394,10 @@ def build_post_auth_steps(phone: CloudPhone, state: RegistrationState) -> tuple[
 
     b12–b22 are shared; b23–b39 are create-only address/reload actions.
     """
-    steps = build_tail_steps(phone, state) + build_marketplace_steps(phone, state)
+    marketplace = build_marketplace_steps(phone, state)
+    with_preview = (marketplace[:1] + (build_account_preview_step(phone, state),) +
+                    marketplace[1:]) if marketplace else ()
+    steps = build_tail_steps(phone, state) + with_preview
     if state.flow_mode == 'create':
         steps += (build_create_address_steps(phone, state) +
                   build_create_address_detail_steps(phone, state) +
