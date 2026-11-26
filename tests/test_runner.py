@@ -124,7 +124,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result['menu_open'], 1)
         self.assertEqual(self.calls.count('start:q3'), 1)
 
-    def test_fresh_install_uses_existing_tunnel_and_reaches_menu_before_panel_cleanup(self):
+    def test_fresh_install_uses_existing_tunnel_and_collapses_apps_before_menu(self):
         def install(name, device_id=None, **_kwargs):
             self.calls.append(f'install:{name}')
             return {'amazon_package_installed': True,
@@ -132,7 +132,7 @@ class RunnerTests(unittest.TestCase):
         with patch.object(self, 'install', side_effect=install):
             result, _ = self.execute(self.jobs[:1], trace_preparation=True)
         self.assertEqual(result['menu_open'], 1)
-        self.assertEqual(self.calls[-4:], ['install:q1', 'open', 'menu', 'collapse'])
+        self.assertEqual(self.calls[-4:], ['install:q1', 'collapse', 'open', 'menu'])
 
     def test_opens_first_phone_before_creating_second_profile(self):
         result, _ = self.execute()

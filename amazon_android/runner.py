@@ -166,7 +166,6 @@ def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
             registry.mark(job.batch_id, job.index, "STOPPED")
             emit(job.index, f"Đã dừng sau khi cài Amazon · {name}", "stopped", name)
             return "stopped"
-        emit(job.index, f"Đang mở menu Amazon · {name}", "running", name)
         # Installation already opened this phone's ADB tunnel and Apps panel.
         # Reuse that confirmed serial instead of searching the Swarmote UI again.
         reused = (installed is not None and installed.get("device_id") == device_id
@@ -183,6 +182,12 @@ def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
             return "stopped"
         if stop.is_set():
             raise ToolError("Đã dừng chuẩn bị máy")
+        collapse_apps_panel(name, device_id, stop=stop)
+        if stop_here("sau khi thu gọn ứng dụng"):
+            return "stopped"
+        if stop.is_set():
+            raise ToolError("Đã dừng chuẩn bị máy")
+        emit(job.index, f"Đang mở menu Amazon · {name}", "running", name)
         phone = CloudPhone(shell["serial"])
         open_amazon(phone)
         if stop_here("sau khi mở Amazon"):
@@ -194,9 +199,6 @@ def _prepare_phone_locked(job: RunJob, name: str, device_id: str,
             raise ToolError("Đã dừng chuẩn bị máy")
         if menu["stage"] != "HOME_MENU_OPEN":
             raise ToolError("Amazon chưa xác nhận menu ba gạch")
-        collapse_apps_panel(name, device_id, stop=stop)
-        if stop_here("sau khi thu gọn ứng dụng"):
-            return "stopped"
         if menu_ready is not None:
             menu_ready(job.index, name, device_id, phone.serial)
         if stop_here("sau khi mở menu ba gạch", stage="MENU_OPEN"):

@@ -21,7 +21,7 @@ def apartment_type():
 
 
 class PreparationThreadsTests(unittest.TestCase):
-    def test_app_store_panel_closes_after_amazon_menu_opens(self):
+    def test_app_store_panel_closes_before_amazon_menu_opens(self):
         from worker_helpers import on_worker
         actions = []
         registry = SimpleNamespace(get=lambda *a: {'stage': 'APP_INSTALLED'},
@@ -39,7 +39,7 @@ class PreparationThreadsTests(unittest.TestCase):
             result = on_worker(_prepare_phone, RunJob(0, 'test', None), 'q1',
                                'ACN1', registry, lambda *_e: None, threading.Event())
         self.assertEqual(result, 'done')
-        self.assertEqual(actions, ['amazon', 'menu', 'collapse'])
+        self.assertEqual(actions, ['collapse', 'amazon', 'menu'])
 
     def test_com_initialization_failure_marks_the_row_instead_of_leaving_running(self):
         from worker_helpers import on_worker

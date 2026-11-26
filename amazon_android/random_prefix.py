@@ -419,7 +419,7 @@ def build_random_steps(phone: CloudPhone, on_otp,
 
     def browse_view(number, deadline, stop):
         until = state.prefix_view_until[number]
-        if number not in state.prefix_view_scrolled:
+        if number in (1, 2) and number not in state.prefix_view_scrolled:
             wait_until(state.prefix_scroll_at.get(number, until), deadline, stop)
             width, height = _size(phone, deadline)
             scroll_view(phone, width, height, deadline, stop, number, cloud_adb)
@@ -449,7 +449,7 @@ def build_random_steps(phone: CloudPhone, on_otp,
                         nodes = _restore_prefix_menu(phone, width, height, deadline, stop, nodes)
                     elif stop.wait(deadline.allowance(0.6)):
                         raise ToolError("Đã dừng máy này")
-                if attempt >= 2:
+                if number in (1, 2) and attempt >= 2:
                     # Reveal another row if the first two taps were not sent.
                     try:
                         cloud_adb(phone, "shell", "input", "swipe",
@@ -486,7 +486,8 @@ def build_random_steps(phone: CloudPhone, on_otp,
                 view_seconds = 3 + secrets.randbelow(3)
                 started = time.monotonic()
                 state.prefix_view_until[number] = started + view_seconds
-                state.prefix_scroll_at[number] = started + view_seconds / 2
+                if number in (1, 2):
+                    state.prefix_scroll_at[number] = started + 2.0
                 browse_view(number, deadline, stop)
                 return
             raise RecoverableStepError(

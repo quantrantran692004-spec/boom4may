@@ -1015,7 +1015,7 @@ class RandomPrefixTests(unittest.TestCase):
             steps[0].action(self.job, self.deadline, self.stop)
             steps[1].action(self.job, self.deadline, self.stop)
         delays = [call.args[0] for call in waited.call_args_list]
-        self.assertEqual(delays, [2.5, 5, 0.6, 2.5, 5])
+        self.assertEqual(delays, [2.0, 5, 0.6, 2.0, 5])
         self.assertEqual(state.prefix_completed, {1, 2})
 
     def test_prefix_waits_after_tap_then_scrolls_forward_once(self):
@@ -1043,7 +1043,7 @@ class RandomPrefixTests(unittest.TestCase):
         self.assertEqual([action[0] for action in actions],
                          ['tap', 'wait', 'swipe', 'wait'])
         self.assertEqual([action[1] for action in actions if action[0] == 'wait'],
-                         [1.5, 1.5])
+                         [2.0, 1.0])
         swipe = next(action[1] for action in actions if action[0] == 'swipe')
         self.assertGreater(int(swipe[4]), int(swipe[6]))
         self.assertEqual(state.prefix_completed, {1})
@@ -1158,6 +1158,81 @@ class RandomPrefixTests(unittest.TestCase):
         self.assertEqual(next(command for command in commands
                               if command[:3] == ("shell", "input", "swipe"))[-1], '450')
         self.assertEqual(waited.call_count, 3)
+
+    def test_b1_b2_wait_two_seconds_after_tap_before_view_scroll(self):
+        state = RegistrationState()
+        steps = random_prefix.build_random_steps(self.phone, lambda _: None,
+                                                  registration=state)
+        clock = [100.0]
+        actions = []
+
+        def adb(_phone, *args, **_kwargs):
+            if args[:3] in {('shell', 'input', 'tap'), ('shell', 'input', 'swipe')}:
+                actions.append((args[2], clock[0]))
+            return SimpleNamespace(stdout='Physical size: 420x840')
+
+        def wait(seconds):
+            clock[0] += seconds
+            return False
+
+        with patch.object(random_prefix.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
+             patch.object(random_prefix, '_restore_prefix_menu', return_value=[]), \
+             patch.object(random_prefix.secrets, 'choice', side_effect=lambda items: items[0]), \
+             patch.object(random_prefix.secrets, 'randbelow', return_value=0), \
+             patch.object(self.stop, 'wait', side_effect=wait):
+            steps[0].action(self.job, self.deadline, self.stop)
+            steps[1].action(self.job, self.deadline, self.stop)
+
+        taps = [at for kind, at in actions if kind == 'tap']
+        swipes = [at for kind, at in actions if kind == 'swipe']
+        self.assertEqual(len(taps), 2)
+        self.assertEqual(len(swipes), 2)
+        self.assertEqual([swipe - tap for tap, swipe in zip(taps, swipes)], [2.0, 2.0])
+
+    def test_b3_views_without_any_scroll(self):
+        state = RegistrationState(prefix_completed={1, 2})
+        step = random_prefix.build_random_steps(self.phone, lambda _: None,
+                                                 registration=state)[2]
+        commands = []
+
+        def adb(_phone, *args, **_kwargs):
+            commands.append(args)
+            return SimpleNamespace(stdout='Physical size: 420x840')
+
+        with patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
+             patch.object(random_prefix, '_restore_prefix_menu', return_value=[]), \
+             patch.object(random_prefix.secrets, 'randbelow', return_value=0), \
+             patch.object(self.stop, 'wait', return_value=False):
+            step.action(self.job, self.deadline, self.stop)
+        self.assertIn(3, state.prefix_completed)
+        self.assertNotIn(3, state.prefix_scroll_at)
+        self.assertNotIn(3, state.prefix_view_scrolled)
+        self.assertFalse(any(command[:3] == ('shell', 'input', 'swipe')
+                             for command in commands))
+
+    def test_b3_retry_after_failed_taps_does_not_scroll(self):
+        state = RegistrationState(prefix_completed={1, 2})
+        step = random_prefix.build_random_steps(self.phone, lambda _: None,
+                                                 registration=state)[2]
+        commands = []
+
+        def adb(_phone, *args, **_kwargs):
+            commands.append(args)
+            if args[:3] == ('shell', 'input', 'tap') and sum(
+                    cmd[:3] == ('shell', 'input', 'tap') for cmd in commands) <= 3:
+                raise ToolError('tap failed')
+            return SimpleNamespace(stdout='Physical size: 420x840')
+
+        with patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
+             patch.object(random_prefix, '_restore_prefix_menu', return_value=[]), \
+             patch.object(random_prefix.secrets, 'choice', side_effect=lambda items: items[0]), \
+             patch.object(random_prefix.secrets, 'randbelow', return_value=0), \
+             patch.object(self.stop, 'wait', return_value=False):
+            step.action(self.job, self.deadline, self.stop)
+        self.assertIn(3, state.prefix_completed)
+        self.assertFalse(any(command[:3] == ('shell', 'input', 'swipe')
+                             for command in commands))
 
     def test_failed_tap_tries_other_positions_and_scrolls(self):
         commands = []
