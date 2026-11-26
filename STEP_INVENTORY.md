@@ -181,7 +181,7 @@ Nếu cây WebView không xuất nút `Verify mobile number`, riêng nhánh đă
 
 ## Chung b12–b15 — Mở ba gạch rồi ba lượt điều hướng ngẫu nhiên
 
-**Nhịp cuộn hiện hành, sửa 26/11/2026:** B13/b14/b15 chờ nửa thời gian xem sau cú bấm, vuốt vừa một lần từ dưới lên trong menu/trang con, rồi xem hết nửa còn lại trước khi Back khỏi trang con. B13/b14 giữ 16 giây ở Tạo và 1 giây ở Đăng nhập; b15 tăng thêm 4 giây thành 20 giây ở Tạo và 5 giây ở Đăng nhập. Dừng/Tiếp tục sau cú vuốt không cuộn hoặc bấm lại. Đây là mã/test mô phỏng; chưa kiểm trên Swarmote thật.
+**Nhịp cuộn hiện hành, sửa 26/11/2026:** B13/b14/b15 chờ nửa thời gian xem sau cú bấm, vuốt vừa một lần từ dưới lên trong menu/trang con, rồi xem hết nửa còn lại trước khi Back khỏi trang con. B13/b14 giữ 16 giây ở Tạo và 1 giây ở Đăng nhập; b15 xem 40 giây ở Tạo và 10 giây ở Đăng nhập theo yêu cầu tăng gần gấp đôi. Dừng/Tiếp tục sau cú vuốt không cuộn hoặc bấm lại, chỉ chờ phần thời gian còn lại. Đây là mã/test mô phỏng; chưa kiểm trên Swarmote thật.
 
 **Bổ sung b13–b15 ngày 20/11/2026:** Sau OTP có thể hiện menu thẻ hoặc menu danh sách. Nếu cây Android chỉ thấy tiêu đề mà thiếu các hàng, đọc OCR ảnh hiện tại để chọn mục trước khi cuộn/dừng. OCR ảnh thật nhận đủ sáu mục danh sách; test mô phỏng đạt, chưa chạy Swarmote thật.
 

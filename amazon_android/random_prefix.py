@@ -231,7 +231,9 @@ def _tail_menu(phone: CloudPhone, deadline: AttemptDeadline,
 def build_tail_steps(phone: CloudPhone, state: RegistrationState) -> tuple[PostMenuStep, ...]:
     """Open Browse at b12, then make three distinct random navigation visits."""
     def visit_seconds(number):
-        return (16.0 if state.flow_mode == 'create' else 1.0) + (4.0 if number == 15 else 0.0)
+        if number == 15:
+            return 40.0 if state.flow_mode == 'create' else 10.0
+        return 16.0 if state.flow_mode == 'create' else 1.0
 
     def read_menu(number, deadline, stop):
         started = state.tail_menu_wait_started.setdefault(number, time.monotonic())

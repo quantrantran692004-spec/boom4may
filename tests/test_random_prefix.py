@@ -249,7 +249,7 @@ class RandomPrefixTests(unittest.TestCase):
         self.assertEqual(state.tail_choices, {})
         self.assertEqual(state.tail_completed, {12})
 
-    def test_login_tail_waits_two_seconds_for_menu_and_five_seconds_at_b15(self):
+    def test_login_tail_waits_two_seconds_for_menu_and_ten_seconds_at_b15(self):
         state = RegistrationState(flow_mode='login', login_verify_pressed=True)
         menu = [{"text": "Shop by category", "bounds": "[10,10][330,40]"}] + [
             {"text": label, "bounds": f"[20,{100+i*60}][330,{150+i*60}]"}
@@ -262,12 +262,12 @@ class RandomPrefixTests(unittest.TestCase):
             for step in random_prefix.build_tail_steps(self.phone, state):
                 step.action(self.job, self.deadline, stop)
         waits = [call.args[0] for call in stop.wait.call_args_list]
-        for actual, expected in zip(waits, [2, 0.5, 1.0, 0.5, 1.0, 2.5, 5.0], strict=True):
+        for actual, expected in zip(waits, [2, 0.5, 1.0, 0.5, 1.0, 5.0, 10.0], strict=True):
             self.assertAlmostEqual(actual, expected, delta=0.1)
         self.assertEqual(state.tail_completed, {12, 13, 14, 15})
         self.assertEqual(state.tail_view_until, {})
 
-    def test_create_tail_views_b13_b14_for_sixteen_and_b15_for_twenty_seconds(self):
+    def test_create_tail_views_b13_b14_for_sixteen_and_b15_for_forty_seconds(self):
         state = RegistrationState(flow_mode='create', create_pressed=True)
         menu = [{'text': 'Shop by category', 'bounds': '[10,10][330,40]'}] + [
             {'text': label, 'bounds': f'[20,{100+i*60}][330,{150+i*60}]'}
@@ -279,11 +279,11 @@ class RandomPrefixTests(unittest.TestCase):
             for step in random_prefix.build_tail_steps(self.phone, state):
                 step.action(self.job, self.deadline, stop)
         waits = [call.args[0] for call in stop.wait.call_args_list]
-        for actual, expected in zip(waits, [2, 8, 16, 8, 16, 10, 20], strict=True):
+        for actual, expected in zip(waits, [2, 8, 16, 8, 16, 20, 40], strict=True):
             self.assertAlmostEqual(actual, expected, delta=0.1)
         self.assertEqual(state.tail_completed, {12, 13, 14, 15})
 
-    def test_login_b15_view_is_five_seconds(self):
+    def test_login_b15_view_is_ten_seconds(self):
         state = RegistrationState(flow_mode='login', login_verify_pressed=True,
                                   tail_completed={12, 13, 14},
                                   tail_choices={13: 'cats', 14: 'dogs'})
@@ -306,7 +306,7 @@ class RandomPrefixTests(unittest.TestCase):
              patch.object(self.stop, 'wait', side_effect=wait):
             random_prefix.build_tail_steps(self.phone, state)[3].action(
                 self.job, self.deadline, self.stop)
-        self.assertEqual(waits, [2.5, 2.5])
+        self.assertEqual(waits, [5.0, 5.0])
         self.assertIn(15, state.tail_completed)
 
     def test_tail_resume_finishes_view_without_reopening_menu_or_repeating_tap(self):

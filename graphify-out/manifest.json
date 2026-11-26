@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795700160.038326,
-    "seen": 1795700254.0347495,
-    "ast_hash": "12572c56d0ea3e8128a7f51ed7ccaa8b",
+    "mtime": 1795701445.0998826,
+    "seen": 1795701574.761276,
+    "ast_hash": "1bb9d34c9a68b5df47b558266855ea00",
     "semantic_hash": ""
   },
   "DESIGN.md": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1795700340.9695444,
-    "seen": 1795700352.7085962,
-    "ast_hash": "68c5b1e0ed17e34b30749e45d48a136b",
+    "mtime": 1795701558.9727366,
+    "seen": 1795701574.761276,
+    "ast_hash": "459b5592e30ca685dc45f808165290b4",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795700080.3135989,
-    "seen": 1795700254.035745,
-    "ast_hash": "4ccdc088c38ade7b05b4ebe347a82a17",
+    "mtime": 1795701445.0998826,
+    "seen": 1795701574.761276,
+    "ast_hash": "775bd56a31b5d0e4f468cb7233c5d2b4",
     "semantic_hash": ""
   },
   "SWARMOTE.md": {
@@ -342,15 +342,15 @@
     "semantic_hash": ""
   },
   "FLOW_PROGRESS.md": {
-    "mtime": 1795700160.044309,
-    "seen": 1795700254.0347495,
-    "ast_hash": "7bbab258c6c79d8bf79e921614acee64",
+    "mtime": 1795701445.1008804,
+    "seen": 1795701574.761276,
+    "ast_hash": "1763ea0c61ffb0b27fd401b498844efb",
     "semantic_hash": ""
   },
   "STEP_INVENTORY.md": {
-    "mtime": 1795700130.1495278,
-    "seen": 1795700254.035745,
-    "ast_hash": "a41117294385763a66f23b537ad4c1c4",
+    "mtime": 1795701420.101617,
+    "seen": 1795701574.761276,
+    "ast_hash": "65682955f1efd0710fbced74a26a0b94",
     "semantic_hash": ""
   },
   "amazon_android/account_flow.py": {
@@ -1146,15 +1146,15 @@
     "semantic_hash": ""
   },
   "amazon_android/random_prefix.py": {
-    "mtime": 1795699693.7900887,
-    "seen": 1795700254.0347495,
-    "ast_hash": "7858dd413e8fc7e4fad80d0bca1a518f",
+    "mtime": 1795701379.9294572,
+    "seen": 1795701574.761276,
+    "ast_hash": "d85b8add76e2ca4ad87bc453e3f369a0",
     "semantic_hash": ""
   },
   "tests/test_random_prefix.py": {
-    "mtime": 1795697113.8799596,
-    "seen": 1795697928.7552018,
-    "ast_hash": "2e9629cc5266fbe27a4fb25e063f3b1d",
+    "mtime": 1795701368.4552486,
+    "seen": 1795701574.761276,
+    "ast_hash": "e28aa6f013483c0180f9b6261aec6af2",
     "semantic_hash": ""
   },
   "flow_images/shared/random_prefix_reference/01_menu_cards.png": {
