@@ -22,7 +22,6 @@ from .account_flow import (
     resume_common_index, route_list_menu, verify_menu_open,
 )
 from .random_prefix import build_random_steps
-from .q7_state_machine import build_q7_pilot_steps
 from .windows_identity import set_process_identity, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
@@ -73,10 +72,9 @@ FIELD_KEYS = (
 REPAIR_KEYS = tuple(key for key in FIELD_KEYS if key != "profile_name")
 
 POST_MENU_STEP_FACTORIES = {index: build_random_steps for index in range(12)}
-POST_MENU_STEP_FACTORIES[6] = build_q7_pilot_steps
 
 
-def _automatic_resume_slots(items: list[dict]) -> list[int]:
+def _automatic_resume_slots(items: list[dict], start_group_size: int = 12) -> list[int]:
     """Resume queued work after a restart; errors require an explicit Continue."""
     return [item["slot"] for item in items
             if item.get("state") in {"READY", "RUNNING"}
@@ -123,6 +121,7 @@ class Window:
         self.post_menu_stops: dict[int, threading.Event] = {}
         self.phone_stop_after_step: dict[int, threading.Event] = {}
         self.post_menu_resume_after_stop: set[int] = set()
+        self.manual_slots: set[tuple[str, int]] = set()
         self.post_menu_workers: dict[int, threading.Thread] = {}
         self.menu_opened_at: dict[int, float] = {}
         self.phone_serials: dict[int, str] = {}
@@ -740,8 +739,9 @@ class Window:
             self.run_note.configure(text="Chỉ dán một hàng Amazon của máy đang chọn", text_color=RED)
             return
         try:
-            record = parse_records(raw if raw.startswith("|") and raw.endswith("|")
-                                   else f"|{raw}|", account_table=True)[0]
+            table_row = (raw if "\t" in raw or raw.count("|") < 3 or
+                         (raw.startswith("|") and raw.endswith("|")) else f"|{raw}|")
+            record = parse_records(table_row, account_table=True)[0]
             token = otp_token(record.otp_url)
             if any(other.index != index and other.account is not None and
                    otp_token(other.account.otp_url) == token
@@ -1017,7 +1017,7 @@ class Window:
         if self.registry_error:
             validation = self.registry_error
         elif self.draft.locked:
-            validation = (f"Mẻ đang chạy · tối đa {self.run_group_size} máy Running · "
+            validation = (f"Mẻ đang chạy · tối đa {self.run_group_size} máy Running tự động · "
                           f"{active} Profile" if self.running else
                           f"Mẻ đã khóa · {active} máy · bấm Mẻ mới để nhập mẻ tiếp theo")
         elif issue:
@@ -1254,6 +1254,7 @@ class Window:
         self.post_menu_stops = {}
         self.phone_stop_after_step = {}
         self.post_menu_resume_after_stop = set()
+        self.manual_slots = set()
         self.post_menu_workers = {}
         self.post_menu_steps = {}
         self.menu_opened_at = {}
@@ -1299,7 +1300,8 @@ class Window:
                 event = self.phone_stop_after_step.get(index)
                 return event is not None and event.is_set()
             return index in self.jobs and state != "menu_only" and (
-                not self.running or state in {"error", "uncertain", "stopped", "retry_queued"})
+                not self.running or state in {"error", "uncertain", "stopped",
+                                              "retry_queued", "queued"})
         return not self.running and not issue
 
     def _can_edit_locked_row(self, index: int) -> bool:
@@ -1350,7 +1352,7 @@ class Window:
         dialog = ctk.CTkToplevel(self.root, fg_color=BG)
         self.settings_window = dialog
         dialog.title("Settings · Swarmote")
-        dialog.geometry("480x530+120+100")
+        dialog.geometry("520x650+120+100")
         dialog.resizable(False, False)
         # Map the window before building its controls so the click gets
         # immediate visual feedback even on a busy Tk event loop.
@@ -1361,7 +1363,7 @@ class Window:
         card.pack(fill="both", expand=True, padx=16, pady=16)
         self._label(card, "Mở máy sau khi tạo Profile", 19,
                     color=INK, weight="bold").pack(anchor="w", padx=22, pady=(20, 8))
-        self._label(card, "Tối đa máy Running trong mẻ (1–12)", 13,
+        self._label(card, "Số máy Running đồng thời (1–12)", 13,
                     color=INK).pack(anchor="w", padx=22)
         group_size = tk.StringVar(value=str(self.settings.start_group_size))
         ctk.CTkOptionMenu(
@@ -1374,7 +1376,7 @@ class Window:
         self._label(
             card,
             "Tạo Profile tiếp tục khi máy khác đang cài Amazon.\n"
-            "Stop một máy về Offline để Profile đang đợi tự mở.",
+            "Máy tiếp theo tự mở khi một máy Running chuyển sang Offline.",
             12, justify="left",
         ).pack(anchor="w", padx=22)
         hide_creation = tk.BooleanVar(value=self.settings.hide_profile_creation)
@@ -1388,13 +1390,39 @@ class Window:
         self._label(card, "Các điện thoại Running vẫn hiện bình thường.",
                     12, color=MUTED).pack(anchor="w", padx=22)
         login_mode = tk.BooleanVar(value=self.settings.account_flow_mode == "login")
+        address_card = tk.BooleanVar(value=self.settings.login_followup == "address_and_card")
+        card_only = tk.BooleanVar(value=self.settings.login_followup == "card_only")
         ctk.CTkSwitch(
             card, text="Đăng nhập Amazon (tắt = Tạo tài khoản)",
             variable=login_mode, onvalue=True, offvalue=False,
+            command=lambda: (address_card.set(False), card_only.set(False))
+            if not login_mode.get() else None,
             text_color=INK, fg_color=SECONDARY,
             progress_color=BLUE, button_color=WHITE,
             font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(18, 3))
+
+        def select_followup(selected, other):
+            if selected.get():
+                other.set(False)
+                login_mode.set(True)
+
+        ctk.CTkSwitch(
+            card, text="Đăng nhập · thêm địa chỉ rồi thẻ",
+            variable=address_card, onvalue=True, offvalue=False,
+            command=lambda: select_followup(address_card, card_only),
+            text_color=INK, fg_color=SECONDARY,
+            progress_color=BLUE, button_color=WHITE,
+            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+        ).pack(anchor="w", padx=22, pady=(14, 3))
+        ctk.CTkSwitch(
+            card, text="Đăng nhập · chỉ thêm thẻ",
+            variable=card_only, onvalue=True, offvalue=False,
+            command=lambda: select_followup(card_only, address_card),
+            text_color=INK, fg_color=SECONDARY,
+            progress_color=BLUE, button_color=WHITE,
+            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+        ).pack(anchor="w", padx=22, pady=(10, 3))
         self._label(card, "Áp dụng cho các máy bắt đầu luồng Amazon sau khi lưu.",
                     12, color=MUTED).pack(anchor="w", padx=22)
 
@@ -1403,17 +1431,22 @@ class Window:
                 messagebox.showerror("Mẻ đang chạy", "Đổi Settings sau khi mẻ kết thúc")
                 return
             try:
+                followup = ("address_and_card" if address_card.get() else
+                            "card_only" if card_only.get() else "none")
                 updated = AppSettings(int(group_size.get()), hide_creation.get(),
-                                      "login" if login_mode.get() else "create")
+                                      "login" if login_mode.get() else "create", followup)
                 save_settings(updated)
             except (ToolError, OSError, ValueError) as exc:
                 messagebox.showerror("Không lưu được Settings", str(exc))
                 return
             self.settings = updated
             dialog.destroy()
+            mode_label = ("Đăng nhập + địa chỉ + thẻ" if updated.login_followup == "address_and_card"
+                          else "Đăng nhập + thẻ" if updated.login_followup == "card_only"
+                          else "Đăng nhập" if updated.account_flow_mode == "login"
+                          else "Tạo tài khoản")
             self.run_note.configure(
-                text=(f"Đã lưu: tối đa {updated.start_group_size} máy Running · "
-                      f"{'Đăng nhập' if updated.account_flow_mode == 'login' else 'Tạo tài khoản'}"),
+                text=f"Đã lưu: tối đa {updated.start_group_size} máy Running tự động · {mode_label}",
                 text_color=GREEN,
             )
 
@@ -1466,10 +1499,17 @@ class Window:
                 self._refresh_devices()
                 return
         session = self.post_menu_sessions.get(index)
+        def select_manual() -> None:
+            job = self.jobs.get(index)
+            if job is not None and hasattr(job, 'batch_id'):
+                if not hasattr(self, 'manual_slots'):
+                    self.manual_slots = set()
+                self.manual_slots.add((job.batch_id, index))
         if session is not None:
             event = self.phone_stop_after_step.get(index)
             if (session.state == "RUNNING" and event is not None and
                     event.is_set() and not self.cancel.is_set()):
+                select_manual()
                 self.post_menu_resume_after_stop.add(index)
                 self.status[index] = (
                     f"Máy {index + 1} sẽ tiếp tục ngay sau khi dừng an toàn",
@@ -1482,24 +1522,30 @@ class Window:
                     if not self._read_browser_otp(index):
                         return
                 self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
+                select_manual()
                 self._start_post_menu(index)
             return
         if index in self.phone_serials and index in self.jobs:
+            select_manual()
             self._start_post_menu(index)
             return
         item = (self.registry.get(self.jobs[index].batch_id, index)
                 if index in self.jobs and self.registry is not None else None)
         if (item is not None and item.get("stage") == "RESERVED" and
                 item.get("state") in {"ERROR", "STOPPED"} and not item.get("device_id")):
-            if self.running:
-                self._start_profile_creation_retry(index)
-                return
-            self._launch([index])
+            select_manual()
+            self._start_profile_creation_retry(index)
             return
-        if self.running or index in getattr(self, "preparation_retry_workers", {}):
+        if item is not None and item.get("device_id"):
+            select_manual()
             self._start_preparation_retry(index)
             return
-        self._launch([index])
+        if self.running or index in getattr(self, 'preparation_retry_workers', {}):
+            select_manual()
+            self._start_preparation_retry(index)
+            return
+        select_manual()
+        self._launch([index], manual_override=True)
 
     def _start_preparation_retry(self, index: int) -> None:
         if self.cancel.is_set():
@@ -1551,7 +1597,8 @@ class Window:
                    "opened": self.menu_opened_at, "group": self.run_group_size,
                    "hide": self.run_hide_profile_creation,
                    "phone_stops": {index: self.phone_stop_after_step[index]},
-                   "final_index": -2}
+                   "final_index": -2, "manual_slots": self.manual_slots,
+                   "manual_override": True}
         worker = threading.Thread(target=self._run, args=([job], context), daemon=True)
         self.preparation_retry_workers[index] = worker
         self._refresh_devices()
@@ -1568,7 +1615,7 @@ class Window:
             retry_preparation(job, context["registry"], emit, context["stop"],
                 menu_ready=lambda index, _name, _device, serial:
                     context["serials"].__setitem__(index, serial),
-                stop_after_step=context["phone_stop"])
+                stop_after_step=context["phone_stop"], start_if_offline=True)
         except Exception as exc:
             stopped = context["stop"].is_set() or context["phone_stop"].is_set()
             reason = str(exc) if isinstance(exc, ToolError) else type(exc).__name__
@@ -1749,6 +1796,7 @@ class Window:
             session.registration.create_address_proxy_prefix = prefix
         if session.state == "READY" and session.attempts == 0:
             session.registration.flow_mode = self.settings.account_flow_mode
+            session.registration.login_followup = self.settings.login_followup
         if session.state not in {"READY", "PAUSED"}:
             return
         worker = self.post_menu_workers.get(index)
@@ -1796,8 +1844,7 @@ class Window:
             "after_step": self.phone_stop_after_step.setdefault(job.index, threading.Event())}
         try:
             def route(current, active_job, deadline, active_stop):
-                if context["factories"].get(active_job.index) in {
-                        build_random_steps, build_q7_pilot_steps}:
+                if context["factories"].get(active_job.index) is build_random_steps:
                     return None  # The random prefix also runs on list menus.
                 phone = CloudPhone(context["serials"][active_job.index])
                 return route_list_menu(phone, steps, current, session,
@@ -1840,11 +1887,12 @@ class Window:
 
     def _resume_restored(self) -> None:
         if self.restored_batch:
-            slots = _automatic_resume_slots(self.restored_batch[1])
+            slots = _automatic_resume_slots(self.restored_batch[1],
+                                            self.settings.start_group_size)
             if slots:
                 self._launch(slots)
 
-    def _launch(self, indices: list[int]) -> None:
+    def _launch(self, indices: list[int], *, manual_override: bool = False) -> None:
         if self.running or self.attach_in_progress or self._previous_work_busy():
             return
         if self.registry is None:
@@ -1896,7 +1944,10 @@ class Window:
                    "proxy_prefixes": self.proxy_postal_prefixes,
                    "opened": self.menu_opened_at, "group": self.run_group_size,
                    "hide": self.run_hide_profile_creation,
-                   "phone_stops": self.phone_stop_after_step}
+                   "phone_stops": self.phone_stop_after_step,
+                   "manual_slots": self.manual_slots,
+                   "manual_override": manual_override,
+                   "automatic_start_slots": None}
         self.batch_worker = threading.Thread(target=self._run, args=(jobs, context), daemon=True)
         self.batch_worker.start()
 
@@ -1906,7 +1957,9 @@ class Window:
             "serials": self.phone_serials, "opened": self.menu_opened_at,
             "proxy_prefixes": getattr(self, 'proxy_postal_prefixes', {}),
             "group": self.run_group_size, "hide": self.run_hide_profile_creation,
-            "phone_stops": self.phone_stop_after_step}
+            "phone_stops": self.phone_stop_after_step,
+            "manual_slots": getattr(self, 'manual_slots', set()),
+            "automatic_start_slots": None}
         initialized = False
         message = "Mẻ đã kết thúc"
         final_state = "finished"
@@ -1930,6 +1983,9 @@ class Window:
                 proxy_prefix_ready=lambda index, prefix:
                     context.setdefault("proxy_prefixes", {}).__setitem__(index, prefix),
                 stop_after_step=context.get("phone_stops"),
+                manual_slots=context.get("manual_slots"),
+                manual_override=context.get("manual_override", False),
+                automatic_start_slots=context.get("automatic_start_slots"),
             )
             message = (f"Mẻ kết thúc: {summary['menu_open']} tới menu · "
                        f"{summary['error']} lỗi · {summary['stopped']} dừng"
@@ -1996,7 +2052,7 @@ class Window:
                     pending = sorted(getattr(self, "_pending_retries", set()))
                     if pending:
                         self._pending_retries.clear()
-                        self._launch(pending)
+                        self._launch(pending, manual_override=True)
                 else:
                     if name:
                         self.values[index]["profile_name"].set(name)

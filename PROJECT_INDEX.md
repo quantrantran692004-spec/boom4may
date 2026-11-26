@@ -4,20 +4,22 @@
 
 ## Một quy luật để sửa mã về sau — 20/11/2026
 
-Luồng bắt đầu ở `desktop.POST_MENU_STEP_FACTORIES`: 12 slot dùng `random_prefix.build_random_steps`, riêng slot 7 dùng `q7_state_machine.build_q7_pilot_steps`. Các bước sau xác minh được nối một lần qua `random_prefix.build_post_auth_steps`. `PostMenuSession` chạy các `PostMenuStep` theo thứ tự; `RegistrationState` giữ dấu bấm, mốc chờ và bước hoàn tất của đúng máy. Tên bước có hậu tố như b4a, b11a, b11b là bước thật trong danh sách, không suy ra chỉ số bằng số b.
+Luồng bắt đầu ở `desktop.POST_MENU_STEP_FACTORIES`: từ 26/11/2026, cả 12 slot đều dùng `random_prefix.build_random_steps`, kể cả Máy 7. Các bước sau xác minh được nối một lần qua `random_prefix.build_post_auth_steps`. `PostMenuSession` chạy các `PostMenuStep` theo thứ tự; `RegistrationState` giữ dấu bấm, mốc chờ và bước hoàn tất của đúng máy. Tên bước có hậu tố như b4a, b11a, b11b là bước thật trong danh sách, không suy ra chỉ số bằng số b.
 
 | Mốc | File sở hữu hành vi | Trạng thái/điều kiện chuyển bước | Test cần xem |
 | --- | --- | --- | --- |
-| P01–P08, mở Amazon/menu | `desktop.py`, `bulk_input.py`, `runner.py`, `swarmote_desktop.py`, `home_menu.py` | `BatchDraft` và trạng thái chuẩn bị trong `runner.py`; khi Profile chưa tạo và máy lỗi, sửa dữ liệu riêng tại `desktop.py` rồi Tiếp tục bằng `RunJob` mới của đúng hàng | `test_bulk_input.py`, `test_stop_reset.py`, `test_runner.py`, `test_home_menu.py`, `test_swarmote_waits.py` |
-| b1–b3 thường | `random_prefix.py` | `prefix_choices`, `prefix_view_until`, `prefix_completed`; đủ ba lượt xem rồi mới b4 | `test_random_prefix.py`, `test_resume_state.py` |
-| b1–b3 Máy 7 | `q7_random_prefix.py` | Dấu riêng của pilot; chỉ áp dụng slot 7 | `test_q7_random_prefix.py` |
-| b4–b11b Tạo/Đăng nhập | `account_flow.py`; Máy 7 có lớp kiểm tra trong `q7_state_machine.py` | Các dấu SMS/OTP/Create/Verify trong `RegistrationState`; xác nhận màn thật trước bước kế | `test_q1_flow.py`, `test_q7_state_machine.py`, `test_resume_state.py` |
+| P01–P08, mở Amazon/menu | `desktop.py`, `bulk_input.py`, `runner.py`, `swarmote_desktop.py`, `home_menu.py`; `phone_window_layout.py` chỉ xếp cửa sổ Windows khi tìm thấy viewer mới | `BatchDraft` và trạng thái chuẩn bị trong `runner.py`; khi Profile chưa tạo và máy lỗi, sửa dữ liệu riêng tại `desktop.py` rồi Tiếp tục bằng `RunJob` mới của đúng hàng | `test_bulk_input.py`, `test_stop_reset.py`, `test_runner.py`, `test_home_menu.py`, `test_swarmote_waits.py`, `test_phone_window_layout.py` |
+| b1–b3 cả 12 máy | `random_prefix.py` | `prefix_choices`, `prefix_view_until`, `prefix_completed`; đủ ba lượt xem rồi mới b4 | `test_random_prefix.py`, `test_resume_state.py` |
+| b4–b11b Tạo/Đăng nhập cả 12 máy | `account_flow.py` | Các dấu SMS/OTP/Create/Verify trong `RegistrationState`; xác nhận màn thật trước bước kế | `test_q1_flow.py`, `test_resume_state.py` |
 | b12–b15 chung | `random_prefix.py` | `tail_choices`, `tail_view_until`, `tail_viewed`, `tail_page_scrolled`, `tail_back_sent`, `tail_completed`; về menu rồi mới hoàn tất lượt | `test_random_prefix.py`, `test_resume_state.py` |
 | b16–b22 chung | `marketplace_flow.py` | `marketplace_completed` và các dấu Done; xác nhận United States và màn sau Done | `test_marketplace_flow.py` |
 | b23–b25 chỉ Tạo | `create_address_flow.py` | `create_address_completed`, `create_address_wait_until`; mở Your Addresses | `test_create_address_flow.py` |
 | b26–b31 chỉ Tạo | `create_address_detail_flow.py` | Dấu nhập/chọn gợi ý/lưu trong `RegistrationState`; b27 bấm Enter an address manually xong chuyển ngay b28, b28 nhập số theo hàng máy rồi mới đọc gợi ý, b30 xác nhận đã lưu | `test_create_address_detail_flow.py` |
 | b32–b39 chỉ Tạo | `reload_payment_flow.py` | Sau b31 cuộn ngay, OCR chữ Reload Balance/Buy Now/mục thêm thẻ; b38 nhập ba ô theo đúng hàng máy rồi bấm Add and continue; b39 thấy Use this address thì bấm | `test_reload_payment_flow.py` |
 | Dừng/Tiếp tục và trạng thái máy | `post_menu.py`, `runner.py`, `desktop.py` | `PostMenuSession.next_step`, `RegistrationState`, serial và khóa riêng máy; không phát lại hành động đã xác nhận | `test_post_menu.py`, `test_resume_state.py`, `test_stop_reset.py`, `test_runner.py` |
+
+`q7_random_prefix.py` và `q7_state_machine.py` giữ bản thử cũ làm tham chiếu;
+factory hiện hành không gọi hai file này.
 
 Quy tắc sửa: tìm mốc trong bảng này → đọc mục tương ứng trong `STEP_INVENTORY.md` → đọc ảnh tại `IMAGE_EVIDENCE.md` nếu là lỗi nhận diện → sửa ở file sở hữu → cập nhật trạng thái/test nếu có thao tác hoặc điểm Dừng/Tiếp tục → ghi kết quả thật hay mô phỏng vào mục cũ của `PROJECT_HANDOFF.md`. Sau đó chạy test liên quan, `python -m graphify update .` và `python -m graphify tree`. Không coi test mô phỏng là bằng chứng phiên Swarmote đang mở đã nạp mã mới.
 

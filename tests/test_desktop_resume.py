@@ -2,10 +2,11 @@ from worker_helpers import on_worker
 import unittest
 import queue
 import threading
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from amazon_android.desktop import Window, _automatic_resume_slots
 from amazon_android.runner import AccountData, RunJob
+from amazon_android.settings import AppSettings
 
 
 class DesktopResumeTests(unittest.TestCase):
@@ -34,6 +35,39 @@ class DesktopResumeTests(unittest.TestCase):
             {"slot": 3, "state": "STOPPED", "stage": "APP_INSTALLED"},
         ]
         self.assertEqual(_automatic_resume_slots(items), [2])
+        self.assertEqual(_automatic_resume_slots(items, start_group_size=2), [2])
+
+    def test_launch_keeps_queue_open_and_manual_override(self):
+        window = Window.__new__(Window)
+        window.running = False
+        window.attach_in_progress = False
+        window._previous_work_busy = Mock(return_value=False)
+        window.registry = Mock()
+        window.settings = AppSettings(start_group_size=2)
+        window.jobs = {index: RunJob(index, 'batch', None) for index in range(3)}
+        window._edited_locked_rows = set()
+        window.phone_stop_after_step = {}
+        window.cancel = threading.Event()
+        window.run_button = Mock()
+        window.settings_button = Mock()
+        window.stop_button = Mock()
+        window.reset_button = Mock()
+        window._refresh_devices = Mock()
+        window.run_note = Mock()
+        window.events = queue.Queue()
+        window.phone_serials = {}
+        window.proxy_postal_prefixes = {}
+        window.menu_opened_at = {}
+        window.manual_slots = set()
+        with patch('amazon_android.desktop.threading.Thread') as worker:
+            window._launch([0, 1, 2])
+            automatic = worker.call_args.kwargs['args'][1]
+            self.assertIsNone(automatic['automatic_start_slots'])
+            self.assertFalse(automatic['manual_override'])
+            window.running = False
+            window._launch([2], manual_override=True)
+            manual = worker.call_args.kwargs['args'][1]
+            self.assertTrue(manual['manual_override'])
 
     def test_attach_existing_q1_only_after_running_menu_check(self):
         window = Window.__new__(Window)

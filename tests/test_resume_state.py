@@ -92,6 +92,19 @@ class ResumeRegistrationStateTests(unittest.TestCase):
         self.assertIs(worker.call_args.kwargs["args"][2], steps)
         worker.return_value.start.assert_called_once()
 
+    def test_login_followup_is_captured_when_phone_first_starts(self):
+        self.window.settings = AppSettings(account_flow_mode='login',
+                                           login_followup='card_only')
+        self.window.post_menu_step_factories = {
+            0: Mock(return_value=(PostMenuStep('b4', Mock()),))}
+        with patch('amazon_android.desktop.threading.Thread'):
+            self.window._start_post_menu(0)
+        session = self.window.post_menu_sessions[0]
+        self.assertEqual(session.registration.flow_mode, 'login')
+        self.assertEqual(session.registration.login_followup, 'card_only')
+        self.window.settings = AppSettings(account_flow_mode='create')
+        self.assertEqual(session.registration.login_followup, 'card_only')
+
     def test_queued_resume_clears_phone_stop_only_when_worker_restarts(self):
         session = PostMenuSession("batch", 0, "q1", state="PAUSED")
         self.window.post_menu_sessions[0] = session
@@ -314,6 +327,82 @@ class ResumeRegistrationStateTests(unittest.TestCase):
         self.assertEqual(called, ['b37'])
         self.assertEqual(session.state, 'DONE')
         self.assertEqual(state.reload_completed, {32, 33, 34, 36})
+
+    def test_resume_adopts_manually_opened_card_form(self):
+        phone = CloudPhone('127.0.0.1:5001')
+        state = RegistrationState(flow_mode='create')
+        called = []
+        numbers = (27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39)
+        steps = tuple(PostMenuStep(f'b{n} action',
+                                   lambda *_args, n=n: called.append(n)) for n in numbers)
+        session = PostMenuSession('batch', 0, 'q1', next_step=0,
+                                  state='PAUSED', registration=state)
+        card_form = [{'text': label, 'bounds': f'[20,{i*50}][300,{i*50+30}]'}
+                     for i, label in enumerate(('Card number', 'Expiration date',
+                                                'Name on card'))]
+        with patch('amazon_android.marketplace_flow._read_text_region',
+                   return_value=card_form):
+            session.run(self.job, steps, lambda *_: None, threading.Event(),
+                        reconcile=lambda current, job, deadline, stop:
+                            (resume_common_index(phone, steps, current, deadline,
+                                                 stop, state, job), steps),
+                        stop_after_step=threading.Event())
+        self.assertEqual(called, [38, 39])
+        self.assertEqual(state.create_address_completed, {27, 28, 29, 30, 31})
+        self.assertEqual(state.reload_completed, {32, 33, 34, 36, 37})
+
+    def test_login_card_only_continue_adopts_manually_opened_card_form(self):
+        phone = CloudPhone('127.0.0.1:5001')
+        state = RegistrationState(flow_mode='login', login_followup='card_only',
+                                  marketplace_completed={22})
+        called = []
+        steps = tuple(PostMenuStep(f'b{n} action',
+                                   lambda *_args, n=n: called.append(n))
+                      for n in (32, 33, 34, 36, 37, 38))
+        session = PostMenuSession('batch', 0, 'q1', next_step=0,
+                                  state='PAUSED', registration=state)
+        card_form = [{'text': label, 'bounds': f'[20,{i*50}][300,{i*50+30}]'}
+                     for i, label in enumerate(('Card number', 'Expiration date',
+                                                'Name on card'))]
+        with patch('amazon_android.marketplace_flow._read_text_region',
+                   return_value=card_form):
+            session.run(self.job, steps, lambda *_: None, threading.Event(),
+                        reconcile=lambda current, job, deadline, stop:
+                            (resume_common_index(phone, steps, current, deadline,
+                                                 stop, state, job), steps))
+        self.assertEqual(session.state, 'DONE')
+        self.assertEqual(called, [38])
+        self.assertEqual(state.reload_completed, {32, 33, 34, 36, 37})
+
+    def test_resume_b28_recognizes_number_already_on_screen(self):
+        phone = CloudPhone('127.0.0.1:5001')
+        state = RegistrationState(flow_mode='create',
+                                  create_address_proxy_prefix='3654')
+        steps = (PostMenuStep('b28 action', lambda *_: None),
+                 PostMenuStep('b29 action', lambda *_: None))
+        form = [{'text': 'Street address', 'bounds': '[20,100][300,130]'},
+                {'text': '3654', 'bounds': '[20,150][300,180]'}]
+        with patch('amazon_android.marketplace_flow._read_text_region',
+                   return_value=form):
+            target = resume_common_index(phone, steps, 0, AttemptDeadline(None),
+                                         threading.Event(), state, self.job)
+        self.assertEqual(target, 0)
+        self.assertTrue(state.create_address_prefix_sent)
+        self.assertEqual(state.create_address_prefix, '3654')
+
+    def test_resume_b31_accepts_account_screen_after_manual_tab(self):
+        phone = CloudPhone('127.0.0.1:5001')
+        state = RegistrationState(flow_mode='create')
+        steps = (PostMenuStep('b31 action', lambda *_: None),
+                 PostMenuStep('b32 action', lambda *_: None))
+        account = [{'text': 'Your Orders', 'bounds': '[20,100][300,130]'},
+                   {'text': 'Your Addresses', 'bounds': '[20,150][300,180]'}]
+        with patch('amazon_android.marketplace_flow._read_text_region',
+                   return_value=account):
+            target = resume_common_index(phone, steps, 0, AttemptDeadline(None),
+                                         threading.Event(), state, self.job)
+        self.assertEqual(target, 1)
+        self.assertIn(31, state.create_address_completed)
 
     def test_manually_selected_us_resumes_continue_instead_of_old_country_error(self):
         state = RegistrationState(flow_mode='create')

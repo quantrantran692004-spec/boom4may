@@ -29,6 +29,10 @@ class RandomPrefixTests(unittest.TestCase):
         marketplace = patch.object(random_prefix, 'build_marketplace_steps', return_value=())
         marketplace.start()
         self.addCleanup(marketplace.stop)
+        browse_adb = patch('amazon_android.account_flow.cloud_adb',
+                           return_value=SimpleNamespace(stdout='Physical size: 420x840'))
+        browse_adb.start()
+        self.addCleanup(browse_adb.stop)
         self.phone = CloudPhone("127.0.0.1:5001")
         self.job = RunJob(0, "batch", None)
         self.deadline = AttemptDeadline(None)
@@ -257,7 +261,9 @@ class RandomPrefixTests(unittest.TestCase):
              patch.object(random_prefix.secrets, "choice", side_effect=lambda items: items[0]):
             for step in random_prefix.build_tail_steps(self.phone, state):
                 step.action(self.job, self.deadline, stop)
-        self.assertEqual([call.args[0] for call in stop.wait.call_args_list], [2, 1.0, 1.0, 1.0])
+        waits = [call.args[0] for call in stop.wait.call_args_list]
+        for actual, expected in zip(waits, [2, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0], strict=True):
+            self.assertAlmostEqual(actual, expected, delta=0.1)
         self.assertEqual(state.tail_completed, {12, 13, 14, 15})
         self.assertEqual(state.tail_view_until, {})
 
@@ -272,8 +278,9 @@ class RandomPrefixTests(unittest.TestCase):
              patch.object(random_prefix.secrets, 'choice', side_effect=lambda items: items[0]):
             for step in random_prefix.build_tail_steps(self.phone, state):
                 step.action(self.job, self.deadline, stop)
-        self.assertEqual([call.args[0] for call in stop.wait.call_args_list],
-                         [2, 16, 16, 16])
+        waits = [call.args[0] for call in stop.wait.call_args_list]
+        for actual, expected in zip(waits, [2, 8, 16, 8, 16, 8, 16], strict=True):
+            self.assertAlmostEqual(actual, expected, delta=0.1)
         self.assertEqual(state.tail_completed, {12, 13, 14, 15})
 
     def test_tail_resume_finishes_view_without_reopening_menu_or_repeating_tap(self):
@@ -282,7 +289,9 @@ class RandomPrefixTests(unittest.TestCase):
         for number, expected_remaining in ((12, 1), (13, 0.75)):
             with self.subTest(step=number):
                 state = RegistrationState(login_verify_pressed=True)
-                stop = Mock(is_set=Mock(return_value=False), wait=Mock(side_effect=[True, False]))
+                stop = Mock(is_set=Mock(return_value=False),
+                            wait=Mock(side_effect=[True, False] if number == 12
+                                      else [True, False, False]))
                 clock = [100]
                 with patch.object(random_prefix, "_read_nodes", return_value=menu) as read, \
                      patch.object(random_prefix, "_tap") as tap, \
@@ -447,7 +456,7 @@ class RandomPrefixTests(unittest.TestCase):
         self.assertIn(13, state.tail_completed)
         self.assertIn(state.tail_choices[13], {'books', 'electronics'})
         tap.assert_called_once()
-        scroll.assert_not_called()
+        scroll.assert_called_once_with(self.phone, [], self.deadline, browsing=True)
 
     def test_tail_excludes_search_parents_camera_icons_and_permission_actions(self):
         def item(text='', **attrs):
@@ -636,7 +645,8 @@ class RandomPrefixTests(unittest.TestCase):
              patch.object(self.stop, 'wait', return_value=False):
             random_prefix.build_tail_steps(self.phone, state)[1].action(
                 RunJob(1, 'batch', None), self.deadline, self.stop)
-        scroll.assert_called_once()
+        self.assertEqual(scroll.call_count, 2)  # Reveal another choice, then browse it.
+        self.assertTrue(scroll.call_args.kwargs['browsing'])
         tap.assert_called_once_with(self.phone, fresh[-1], self.deadline)
         self.assertEqual(state.tail_choices, {13: 'cats'})
 
@@ -652,7 +662,8 @@ class RandomPrefixTests(unittest.TestCase):
              patch.object(self.stop, 'wait', return_value=False):
             random_prefix.build_tail_steps(self.phone, state)[1].action(
                 RunJob(1, 'batch', None), self.deadline, self.stop)
-        self.assertEqual(scroll.call_count, 2)
+        self.assertEqual(scroll.call_count, 3)  # Two searches and the visit swipe.
+        self.assertTrue(scroll.call_args.kwargs['browsing'])
         tap.assert_called_once()
         self.assertEqual(state.tail_choices, {13: 'pets'})
 
@@ -943,7 +954,7 @@ class RandomPrefixTests(unittest.TestCase):
                           side_effect=lambda *_a, **_k: menu if stage[0] == 'menu' else page), \
              patch.object(random_prefix, '_tap', side_effect=tap), \
              patch.object(random_prefix, '_scroll_up',
-                          side_effect=lambda *_a: actions.append('scroll')), \
+                          side_effect=lambda *_a, **_k: actions.append('scroll')), \
              patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
              patch.object(random_prefix.secrets, 'choice', side_effect=lambda items: items[0]), \
              patch.object(self.stop, 'wait', return_value=False):
@@ -963,7 +974,7 @@ class RandomPrefixTests(unittest.TestCase):
         with patch.object(random_prefix, '_read_nodes',
                           side_effect=[ToolError('slow page'), menu]), \
              patch.object(random_prefix, '_scroll_up',
-                          side_effect=lambda *_a: actions.append('scroll')), \
+                          side_effect=lambda *_a, **_k: actions.append('scroll')), \
              patch.object(random_prefix, 'cloud_adb',
                           side_effect=lambda *_a, **_k: actions.append('back')), \
              patch.object(self.stop, 'wait', return_value=False):
@@ -1004,8 +1015,121 @@ class RandomPrefixTests(unittest.TestCase):
             steps[0].action(self.job, self.deadline, self.stop)
             steps[1].action(self.job, self.deadline, self.stop)
         delays = [call.args[0] for call in waited.call_args_list]
-        self.assertEqual(delays, [5, 0.6, 5])
+        self.assertEqual(delays, [2.5, 5, 0.6, 2.5, 5])
         self.assertEqual(state.prefix_completed, {1, 2})
+
+    def test_prefix_waits_after_tap_then_scrolls_forward_once(self):
+        clock = [100.0]
+        actions = []
+        state = RegistrationState()
+
+        def adb(_phone, *args, **_kwargs):
+            if args[:3] in {('shell', 'input', 'tap'), ('shell', 'input', 'swipe')}:
+                actions.append((args[2], args))
+            return SimpleNamespace(stdout='Physical size: 420x840')
+
+        def wait(seconds):
+            actions.append(('wait', seconds))
+            clock[0] += seconds
+            return False
+
+        with patch.object(random_prefix.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
+             patch.object(random_prefix.secrets, 'randbelow', return_value=0), \
+             patch.object(self.stop, 'wait', side_effect=wait):
+            random_prefix.build_random_steps(self.phone, lambda _: None,
+                                             registration=state)[0].action(
+                                                 self.job, self.deadline, self.stop)
+        self.assertEqual([action[0] for action in actions],
+                         ['tap', 'wait', 'swipe', 'wait'])
+        self.assertEqual([action[1] for action in actions if action[0] == 'wait'],
+                         [1.5, 1.5])
+        swipe = next(action[1] for action in actions if action[0] == 'swipe')
+        self.assertGreater(int(swipe[4]), int(swipe[6]))
+        self.assertEqual(state.prefix_completed, {1})
+
+    def test_tail_waits_after_tap_then_scrolls_forward_once(self):
+        menu = [{'text': 'Shop by category', 'bounds': '[10,10][330,40]'},
+                {'text': 'Pets', 'bounds': '[20,100][330,160]'}]
+        for mode, duration in (('create', 16.0), ('login', 1.0)):
+            with self.subTest(mode=mode):
+                clock = [100.0]
+                actions = []
+                state = RegistrationState(flow_mode=mode,
+                                          create_pressed=mode == 'create',
+                                          login_verify_pressed=mode == 'login')
+
+                def wait(seconds):
+                    actions.append(('wait', seconds))
+                    clock[0] += seconds
+                    return False
+
+                def adb(_phone, *args, **_kwargs):
+                    if args[:3] == ('shell', 'input', 'swipe'):
+                        actions.append(('swipe', args))
+                    return SimpleNamespace(stdout='Physical size: 420x840')
+
+                with patch.object(random_prefix.time, 'monotonic', side_effect=lambda: clock[0]), \
+                     patch.object(random_prefix, '_read_nodes', return_value=menu), \
+                     patch.object(random_prefix, '_tap',
+                                  side_effect=lambda *_args: actions.append(('tap', None))), \
+                     patch('amazon_android.account_flow.cloud_adb', side_effect=adb), \
+                     patch.object(self.stop, 'wait', side_effect=wait):
+                    random_prefix.build_tail_steps(self.phone, state)[1].action(
+                        self.job, self.deadline, self.stop)
+                self.assertEqual([action[0] for action in actions],
+                                 ['tap', 'wait', 'swipe', 'wait'])
+                self.assertEqual([action[1] for action in actions if action[0] == 'wait'],
+                                 [duration / 2, duration / 2])
+                swipe = next(action[1] for action in actions if action[0] == 'swipe')
+                self.assertGreater(int(swipe[4]), int(swipe[6]))
+                self.assertEqual(state.tail_completed, {13})
+
+    def test_tail_stop_after_swipe_resumes_remaining_view_before_back(self):
+        clock = [100.0]
+        stage = ['menu']
+        actions = []
+        state = RegistrationState(flow_mode='create', create_pressed=True)
+        menu = [{'text': 'Shop by category', 'bounds': '[10,10][330,40]'},
+                {'text': 'Pets', 'bounds': '[20,100][330,160]'}]
+        page = [{'text': 'Pet products', 'bounds': '[20,100][330,160]'}]
+        waits = [False, True, False]
+
+        def wait(seconds):
+            actions.append(('wait', seconds))
+            stopped = waits.pop(0)
+            if not stopped:
+                clock[0] += seconds
+            return stopped
+
+        def adb(_phone, *args, **_kwargs):
+            if args[:3] == ('shell', 'input', 'keyevent'):
+                actions.append(('back', None))
+                stage[0] = 'menu'
+            return SimpleNamespace(stdout='Physical size: 420x840')
+
+        def tap(*_args):
+            actions.append(('tap', None))
+            stage[0] = 'page'
+
+        with patch.object(random_prefix.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(random_prefix, '_read_nodes',
+                          side_effect=lambda *_a, **_k: menu if stage[0] == 'menu' else page), \
+             patch.object(random_prefix, '_tap', side_effect=tap), \
+             patch.object(random_prefix, '_scroll_up',
+                          side_effect=lambda *_a, **_k: actions.append(('swipe', None))), \
+             patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
+             patch.object(self.stop, 'wait', side_effect=wait):
+            step = random_prefix.build_tail_steps(self.phone, state)[1]
+            with self.assertRaisesRegex(ToolError, 'Đã dừng'):
+                step.action(self.job, self.deadline, self.stop)
+            self.assertEqual(state.tail_page_scrolled, {13})
+            self.assertNotIn(13, state.tail_completed)
+            step.action(self.job, self.deadline, self.stop)
+        self.assertEqual([action[0] for action in actions],
+                         ['tap', 'wait', 'swipe', 'wait', 'wait', 'back'])
+        self.assertEqual(clock[0], 116.0)
+        self.assertEqual(state.tail_completed, {13})
 
     def test_stop_during_prefix_view_resumes_same_tap_without_repeating(self):
         state = RegistrationState()
@@ -1017,7 +1141,7 @@ class RandomPrefixTests(unittest.TestCase):
             return SimpleNamespace(stdout="Physical size: 420x840")
         with patch.object(random_prefix, "cloud_adb", side_effect=adb), \
              patch.object(random_prefix.secrets, "randbelow", return_value=0), \
-             patch.object(self.stop, "wait", side_effect=[True, False]) as waited:
+             patch.object(self.stop, "wait", side_effect=[True, False, False]) as waited:
             with self.assertRaisesRegex(ToolError, "Đã dừng"):
                 action(self.job, self.deadline, self.stop)
             self.assertEqual(state.prefix_completed, set())
@@ -1028,7 +1152,12 @@ class RandomPrefixTests(unittest.TestCase):
         self.assertEqual(state.prefix_view_until, {})
         self.assertEqual(len([command for command in commands
                               if command[:3] == ("shell", "input", "tap")]), 1)
-        self.assertEqual(waited.call_count, 2)
+        self.assertEqual(len([command for command in commands
+                              if command[:3] == ("shell", "input", "swipe")]), 1)
+        self.assertEqual(state.prefix_view_scrolled, {1})
+        self.assertEqual(next(command for command in commands
+                              if command[:3] == ("shell", "input", "swipe"))[-1], '450')
+        self.assertEqual(waited.call_count, 3)
 
     def test_failed_tap_tries_other_positions_and_scrolls(self):
         commands = []

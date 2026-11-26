@@ -72,7 +72,7 @@ class AddressDetailTests(unittest.TestCase):
              patch.object(self.stop, 'wait', return_value=False):
             build_create_address_detail_steps(self.phone, self.state)[2].action(
                 None, self.deadline, self.stop)
-        self.assertEqual(typed, ['3654'])
+        self.assertEqual(typed, list('3654'))
         self.assertIn(28, self.state.create_address_completed)
         native.assert_not_called()
 
@@ -125,8 +125,8 @@ class AddressDetailTests(unittest.TestCase):
             build_create_address_detail_steps(self.phone, self.state)[2].action(
                 None, self.deadline, self.stop)
         tap.assert_called_once()
-        self.assertEqual(events[0], ('type', '0218'))
-        self.assertEqual([kind for kind, _ in events], ['type', 'read', 'read'])
+        self.assertEqual(events[:4], [('type', digit) for digit in '0218'])
+        self.assertEqual([kind for kind, _ in events], ['type'] * 4 + ['read', 'read'])
         native.assert_not_called()
 
     def test_b28_selects_cropped_suggestion_without_native_dump(self):
@@ -150,7 +150,7 @@ class AddressDetailTests(unittest.TestCase):
              patch.object(flow, 'cloud_adb', side_effect=adb):
             build_create_address_detail_steps(self.phone, self.state)[2].action(
                 None, self.deadline, self.stop)
-        self.assertEqual(sent, ['545'])
+        self.assertEqual(sent, list('545'))
         self.assertIn(28, self.state.create_address_completed)
         self.assertEqual(tap.call_count, 1)
         native.assert_not_called()
@@ -473,6 +473,7 @@ class AddressDetailTests(unittest.TestCase):
         read.assert_called_once()
         tap.assert_called_once()
         self.assertIn(31, self.state.create_address_completed)
+        self.assertIsNotNone(self.state.create_address_person_tapped_at)
 
 
 if __name__ == '__main__':

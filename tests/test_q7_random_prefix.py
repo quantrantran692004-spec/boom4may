@@ -10,7 +10,7 @@ from amazon_android import q7_random_prefix as random_prefix
 from amazon_android.cloud import CloudPhone
 from amazon_android.core import ToolError
 from amazon_android.desktop import POST_MENU_STEP_FACTORIES, Window
-from amazon_android.q7_state_machine import build_q7_pilot_steps
+from amazon_android.random_prefix import build_random_steps as build_shared_steps
 from amazon_android.post_menu import (AttemptDeadline, PostMenuSession, PostMenuStep,
                                       RecoverableStepError, RegistrationState)
 from amazon_android.runner import RunJob
@@ -28,7 +28,7 @@ class RandomPrefixTests(unittest.TestCase):
 
     def test_twelve_slots_have_three_prefix_steps_before_b4(self):
         self.assertEqual(set(POST_MENU_STEP_FACTORIES), set(range(12)))
-        self.assertIs(POST_MENU_STEP_FACTORIES[6], build_q7_pilot_steps)
+        self.assertIs(POST_MENU_STEP_FACTORIES[6], build_shared_steps)
         for factory in POST_MENU_STEP_FACTORIES.values():
             steps = factory(self.phone, lambda _: None)
             self.assertEqual([step.name for step in steps[:4]],
@@ -66,8 +66,46 @@ class RandomPrefixTests(unittest.TestCase):
         self.assertEqual(len(category), 3)
         self.assertEqual(len(set(command[3:] for command in category)), 3)
         self.assertEqual(state.prefix_completed, {1, 2, 3})
+        browsing = [command for command in commands
+                    if command[:3] == ("shell", "input", "swipe")]
+        self.assertEqual(len(browsing), 3)
+        self.assertTrue(all(command[-1] == '450' for command in browsing))
         self.assertEqual(child.call_count, 3)
-        self.assertEqual(sum(call.args == (11,) for call in wait.call_args_list), 3)
+        view_waits = [call.args[0] for call in wait.call_args_list
+                      if call.args and call.args[0] > 1]
+        self.assertEqual(len(view_waits), 6)  # Before and after each browse swipe.
+        self.assertTrue(all(delay <= 12 for delay in view_waits))
+
+    def test_q7_child_opens_before_browse_swipe_and_keeps_view_time(self):
+        clock = [100.0]
+        actions = []
+        state = RegistrationState()
+
+        def adb(_phone, *args, **_kwargs):
+            if args[:3] in {('shell', 'input', 'tap'), ('shell', 'input', 'swipe')}:
+                actions.append((args[2], args))
+            return SimpleNamespace(stdout='Physical size: 420x840')
+
+        def wait(seconds):
+            actions.append(('wait', seconds))
+            clock[0] += seconds
+            return False
+
+        with patch.object(random_prefix.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(random_prefix, 'cloud_adb', side_effect=adb), \
+             patch.object(random_prefix, '_tap_child',
+                          side_effect=lambda *_args: actions.append(('child', None)) or True), \
+             patch.object(self.stop, 'wait', side_effect=wait):
+            random_prefix.build_random_steps(self.phone, lambda _: None,
+                                             registration=state)[0].action(
+                                                 self.job, self.deadline, self.stop)
+        self.assertEqual([action[0] for action in actions],
+                         ['tap', 'wait', 'child', 'wait', 'swipe', 'wait'])
+        self.assertEqual([action[1] for action in actions if action[0] == 'wait'],
+                         [0.5, 5.5, 5.5])
+        swipe = next(action[1] for action in actions if action[0] == 'swipe')
+        self.assertGreater(int(swipe[4]), int(swipe[6]))
+        self.assertEqual(state.prefix_completed, {1})
 
     def test_child_tap_uses_visible_submenu_bounds(self):
         nodes = [
@@ -103,6 +141,24 @@ class RandomPrefixTests(unittest.TestCase):
         child.assert_not_called()
         self.assertEqual(sum(call.args == (11,) for call in wait.call_args_list), 3)
         self.assertEqual(state.prefix_completed, {1, 2, 3})
+
+    def test_continue_after_view_swipe_does_not_repeat_tap_or_swipe(self):
+        state = RegistrationState(prefix_choices={1: (0.16, 0.20)},
+                                  prefix_view_scrolled={1},
+                                  q7_prefix_view_until={1: time.monotonic() - 1})
+        step = random_prefix.build_random_steps(self.phone, lambda _: None,
+                                                registration=state)[0]
+        commands = []
+        def adb(_phone, *args, **_kwargs):
+            commands.append(args)
+            return SimpleNamespace(stdout='Physical size: 420x840')
+        with patch.object(random_prefix, 'cloud_adb', side_effect=adb):
+            step.action(self.job, self.deadline, self.stop)
+        self.assertIn(1, state.prefix_completed)
+        self.assertFalse(any(command[:3] == ('shell', 'input', 'swipe')
+                             for command in commands))
+        self.assertFalse(any(command[:3] == ('shell', 'input', 'tap')
+                             for command in commands))
 
     def test_child_waits_for_expanded_menu_and_never_taps_sign_in(self):
         loading = [{"text": "Shop by category", "bounds": "[1,1][200,40]"}]
@@ -183,7 +239,7 @@ class RandomPrefixTests(unittest.TestCase):
         session = PostMenuSession("batch", 0, "q1")
         steps = random_prefix.build_random_steps(self.phone, lambda _: None)
         context = {"serials": {0: self.phone.serial}, "steps": {0: steps},
-                   "factories": {0: build_q7_pilot_steps},
+                   "factories": {0: build_shared_steps},
                    "events": queue.Queue(), "otp": queue.Queue(),
                    "otp_status": queue.Queue()}
         with patch("amazon_android.isolated_reader.phone_reader",

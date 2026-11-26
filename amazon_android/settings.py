@@ -15,15 +15,21 @@ class AppSettings:
     start_group_size: int = 1
     hide_profile_creation: bool = False
     account_flow_mode: str = "create"
+    login_followup: str = "none"
 
     def __post_init__(self) -> None:
         if not 1 <= self.start_group_size <= 12:
-            raise ToolError("Giới hạn máy Running trong mẻ phải từ 1 đến 12")
+            raise ToolError("Số máy tự Start khi Chạy mẻ phải từ 1 đến 12")
         if not isinstance(self.hide_profile_creation, bool):
             raise ToolError("Tùy chọn ẩn cửa sổ tạo Profile không hợp lệ")
         if (not isinstance(self.account_flow_mode, str) or
                 self.account_flow_mode not in {"create", "login"}):
             raise ToolError("Chế độ Amazon phải là Tạo tài khoản hoặc Đăng nhập")
+        if (not isinstance(self.login_followup, str) or
+                self.login_followup not in {"none", "address_and_card", "card_only"}):
+            raise ToolError("Tùy chọn sau Đăng nhập không hợp lệ")
+        if self.account_flow_mode != "login" and self.login_followup != "none":
+            raise ToolError("Tùy chọn thêm địa chỉ/thẻ cần bật Đăng nhập Amazon")
 
 
 def settings_path() -> Path:
@@ -38,7 +44,8 @@ def load_settings(path: Path | None = None) -> AppSettings:
         data = json.loads(source.read_text(encoding="utf-8"))
         return AppSettings(int(data["start_group_size"]),
                            data.get("hide_profile_creation", False),
-                           data.get("account_flow_mode", "create"))
+                           data.get("account_flow_mode", "create"),
+                           data.get("login_followup", "none"))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise ToolError("Không đọc được Settings; kiểm tra settings.json") from exc
 
@@ -52,6 +59,7 @@ def save_settings(settings: AppSettings, path: Path | None = None) -> None:
             "start_group_size": settings.start_group_size,
             "hide_profile_creation": settings.hide_profile_creation,
             "account_flow_mode": settings.account_flow_mode,
+            "login_followup": settings.login_followup,
         }),
                         encoding="utf-8")
         os.replace(temp, target)

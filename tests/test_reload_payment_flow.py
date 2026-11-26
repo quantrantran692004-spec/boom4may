@@ -1,4 +1,5 @@
 import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,7 +21,8 @@ class ReloadPaymentTests(unittest.TestCase):
         from amazon_android import reload_payment_flow as flow
         self.phone = CloudPhone('127.0.0.1:5001')
         self.state = RegistrationState(flow_mode='create',
-                                       create_address_completed=set(range(23, 32)))
+                                       create_address_completed=set(range(23, 32)),
+                                       create_address_person_tapped_at=time.monotonic() - 3)
         self.stop = threading.Event()
         self.deadline = AttemptDeadline(190)
         account = AccountData('12025550123', 'Example Person', 'ExamplePass1!',
@@ -98,6 +100,28 @@ class ReloadPaymentTests(unittest.TestCase):
                     job, self.deadline, self.stop)
         adb.assert_not_called()
 
+    def test_login_card_only_starts_b32_after_marketplace_without_address(self):
+        from amazon_android import reload_payment_flow as flow
+        state = RegistrationState(flow_mode='login', login_followup='card_only',
+                                  marketplace_completed={22})
+        with patch.object(flow, '_swipe') as swipe, \
+             patch.object(self.stop, 'wait') as wait:
+            build_reload_payment_steps(self.phone, state)[0].action(
+                self.job, self.deadline, self.stop)
+        swipe.assert_called_once()
+        wait.assert_not_called()
+        self.assertEqual(state.reload_completed, {32})
+        self.assertEqual(state.create_address_completed, set())
+
+    def test_login_card_only_cannot_start_before_b22(self):
+        from amazon_android import reload_payment_flow as flow
+        state = RegistrationState(flow_mode='login', login_followup='card_only')
+        with patch.object(flow, '_swipe') as swipe:
+            with self.assertRaisesRegex(ToolError, 'b22'):
+                build_reload_payment_steps(self.phone, state)[0].action(
+                    self.job, self.deadline, self.stop)
+        swipe.assert_not_called()
+
     def test_b38_locates_all_three_fields_in_one_cropped_read_before_input(self):
         from amazon_android import reload_payment_flow as flow
         self.state.reload_completed.update({32, 33, 34, 36, 37})
@@ -108,7 +132,7 @@ class ReloadPaymentTests(unittest.TestCase):
         sent = []
         def read(_phone, _deadline, _stop, crop, **kwargs):
             if crop == (.05, .58):
-                self.assertTrue(kwargs['direct_visual'])
+                self.assertFalse(kwargs.get('direct_visual', False))
                 self.assertFalse(sent)
                 return form
             return [button]
@@ -169,13 +193,44 @@ class ReloadPaymentTests(unittest.TestCase):
         self.assertEqual(entered, list('Example') + ['%s'] + list('Person'))
         self.assertEqual([call.args[0] for call in wait.call_args_list], [.4] * 13)
 
-    def test_b32_scrolls_immediately_after_person_tap_without_account_scan(self):
+    def test_b32_waits_two_and_half_seconds_after_person_tap_without_account_scan(self):
         from amazon_android import reload_payment_flow as flow
+        clock = [100.0]
+        actions = []
+        self.state.create_address_person_tapped_at = 100.0
+        def wait(seconds):
+            actions.append(('wait', seconds))
+            clock[0] += seconds
+            return False
         with patch.object(flow, '_read',
                           side_effect=AssertionError('account scan')), \
-             patch.object(flow, '_swipe') as swipe:
+             patch.object(flow.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(self.stop, 'wait', side_effect=wait), \
+             patch.object(flow, '_swipe', side_effect=lambda *_: actions.append(('swipe', None))):
             build_reload_payment_steps(self.phone, self.state)[0].action(
                 self.job, self.deadline, self.stop)
+        self.assertEqual(actions, [('wait', 2.5), ('swipe', None)])
+
+    def test_b32_stop_continue_keeps_remaining_wait_before_one_swipe(self):
+        from amazon_android import reload_payment_flow as flow
+        clock = [100.0]
+        self.state.create_address_person_tapped_at = 100.0
+        waits = []
+        def wait(seconds):
+            waits.append(seconds)
+            if len(waits) == 1:
+                return True
+            clock[0] += seconds
+            return False
+        with patch.object(flow.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(self.stop, 'wait', side_effect=wait), \
+             patch.object(flow, '_swipe') as swipe:
+            step = build_reload_payment_steps(self.phone, self.state)[0]
+            with self.assertRaisesRegex(ToolError, 'Đã dừng'):
+                step.action(self.job, self.deadline, self.stop)
+            clock[0] = 101.0
+            step.action(self.job, self.deadline, self.stop)
+        self.assertEqual(waits, [2.5, 1.5])
         swipe.assert_called_once()
 
     def test_reload_tap_is_followed_by_scroll_before_product_read(self):

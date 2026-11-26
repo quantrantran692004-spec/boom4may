@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "amazon_android/desktop.py": {
-    "mtime": 1795395954.0606089,
-    "seen": 1795396149.095616,
-    "ast_hash": "c99b09bd3af84be753c148ceb29d9c93",
+    "mtime": 1795679138.087334,
+    "seen": 1795679307.731455,
+    "ast_hash": "d7d8c36db275c6285a2b0ce216be969d",
     "semantic_hash": ""
   },
   "amazon_android/home_menu.py": {
@@ -60,9 +60,9 @@
     "semantic_hash": ""
   },
   "amazon_android/post_menu.py": {
-    "mtime": 1795228050.1750383,
-    "seen": 1795228311.6348543,
-    "ast_hash": "db243f6b86aa6421a67ae8371d5b3fdf",
+    "mtime": 1795663317.5025413,
+    "seen": 1795663602.853733,
+    "ast_hash": "64a44ab5b546c45124428d0951f19d34",
     "semantic_hash": ""
   },
   "amazon_android/profile_registry.py": {
@@ -84,15 +84,15 @@
     "semantic_hash": ""
   },
   "amazon_android/runner.py": {
-    "mtime": 1795578077.4041126,
-    "seen": 1795578172.4576442,
-    "ast_hash": "32ad26b797a19de07f25eefe830fe220",
+    "mtime": 1795679015.3677003,
+    "seen": 1795679307.731455,
+    "ast_hash": "f3c392949ecfdedbd7119c2cfd563799",
     "semantic_hash": ""
   },
   "amazon_android/settings.py": {
-    "mtime": 1794963589.4762084,
-    "seen": 1794964196.6729717,
-    "ast_hash": "08ef14aa3e7ee123a3634151595f54ff",
+    "mtime": 1795663512.4599693,
+    "seen": 1795663602.853733,
+    "ast_hash": "a9923199f5c6268b7e037380163292ff",
     "semantic_hash": ""
   },
   "amazon_android/setup.py": {
@@ -102,9 +102,9 @@
     "semantic_hash": ""
   },
   "amazon_android/swarmote_desktop.py": {
-    "mtime": 1795578077.402114,
-    "seen": 1795578172.4576442,
-    "ast_hash": "aec13f812e79dfd3bd10f1b8e94957d6",
+    "mtime": 1795664990.3101432,
+    "seen": 1795665278.8748567,
+    "ast_hash": "2d6f0f4d61b5d9e887a9be78d8e48894",
     "semantic_hash": ""
   },
   "pyproject.toml": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "tests/test_desktop_resume.py": {
-    "mtime": 1794621960.3026037,
-    "seen": 1794623175.1177075,
-    "ast_hash": "c74913b7997d13e49db5113341168dc8",
+    "mtime": 1795679026.848788,
+    "seen": 1795679307.731455,
+    "ast_hash": "c2625b1e9092d967a66ceb1aff1dc359",
     "semantic_hash": ""
   },
   "tests/test_home_menu.py": {
@@ -174,9 +174,9 @@
     "semantic_hash": ""
   },
   "tests/test_q1_flow.py": {
-    "mtime": 1795248939.8873885,
-    "seen": 1795248968.484386,
-    "ast_hash": "a89a89b1157c167c0cd326af6bed898d",
+    "mtime": 1795679168.5893888,
+    "seen": 1795679307.731455,
+    "ast_hash": "0bf0da9e414c0d748d3b2ef4760f0d43",
     "semantic_hash": ""
   },
   "tests/test_registration.py": {
@@ -186,15 +186,15 @@
     "semantic_hash": ""
   },
   "tests/test_runner.py": {
-    "mtime": 1795578100.8283122,
-    "seen": 1795578172.4576442,
-    "ast_hash": "1aeb7c0ccb851974707fe2175bfcdbca",
+    "mtime": 1795679058.782871,
+    "seen": 1795679307.731455,
+    "ast_hash": "201c89f1434551c718fd28c04b5bfc30",
     "semantic_hash": ""
   },
   "tests/test_settings.py": {
-    "mtime": 1794963581.4358356,
-    "seen": 1794964196.6729717,
-    "ast_hash": "d518ed10eaeb39b973599d8851dcee16",
+    "mtime": 1795661444.5020163,
+    "seen": 1795661648.7851853,
+    "ast_hash": "aa921fa1b6f265d54f9a5f284a6cedfc",
     "semantic_hash": ""
   },
   "tests/test_swarmote_batch_start.py": {
@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795150117.0188906,
-    "seen": 1795150141.17424,
-    "ast_hash": "b31c72075ea3ccf7639980f5c6618882",
+    "mtime": 1795664256.2749002,
+    "seen": 1795664504.9100826,
+    "ast_hash": "8245c5712a29ff2b9869ccd31e509657",
     "semantic_hash": ""
   },
   "DESIGN.md": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1795579546.743363,
-    "seen": 1795579590.5361626,
-    "ast_hash": "63ed16a876d23be583efb30c3f2545c1",
+    "mtime": 1795679247.4555056,
+    "seen": 1795679307.731455,
+    "ast_hash": "697473806b0fd8b3a4794c8e4b65df98",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -342,21 +342,21 @@
     "semantic_hash": ""
   },
   "FLOW_PROGRESS.md": {
-    "mtime": 1795247861.0571587,
-    "seen": 1795247930.7537456,
-    "ast_hash": "975a1d4d208048080bd0b7f0b49bf671",
+    "mtime": 1795679247.4584725,
+    "seen": 1795679307.731455,
+    "ast_hash": "3f1f61f32175e5519444ab7af0b68665",
     "semantic_hash": ""
   },
   "STEP_INVENTORY.md": {
-    "mtime": 1795579546.7463593,
-    "seen": 1795579590.5361626,
-    "ast_hash": "76b002b1a0cf818ec99888496dd4572a",
+    "mtime": 1795679247.4574666,
+    "seen": 1795679307.731455,
+    "ast_hash": "c171999c94442dc3fccf807dbc726395",
     "semantic_hash": ""
   },
   "amazon_android/account_flow.py": {
-    "mtime": 1795248905.1281047,
-    "seen": 1795248968.484386,
-    "ast_hash": "dc4bae02d299b79c7cf46726626873e3",
+    "mtime": 1795679085.0154498,
+    "seen": 1795679307.731455,
+    "ast_hash": "790319b27ba5120181566d4b8aa7f095",
     "semantic_hash": ""
   },
   "ASSET_INDEX.md": {
@@ -390,9 +390,9 @@
     "semantic_hash": ""
   },
   "PROJECT_INDEX.md": {
-    "mtime": 1795398884.517645,
-    "seen": 1795398900.7458591,
-    "ast_hash": "593f33f022ea393a65ded1f1d18cbd84",
+    "mtime": 1795665154.6768217,
+    "seen": 1795665278.8748567,
+    "ast_hash": "7ec1c13ab9c2184e25f159571d8a7c52",
     "semantic_hash": ""
   },
   "assets/ui_history/reset_check.png": {
@@ -726,21 +726,21 @@
     "semantic_hash": ""
   },
   "tests/test_preparation_threads.py": {
-    "mtime": 1794623997.345429,
-    "seen": 1794624019.5858276,
-    "ast_hash": "d6d67f99c09b1faf4a3ea6d3efc132e0",
+    "mtime": 1795661520.185856,
+    "seen": 1795661648.7851853,
+    "ast_hash": "ce7b7e3747d8bff7db9c206fdb439d68",
     "semantic_hash": ""
   },
   "tests/test_q3_q4_flow.py": {
-    "mtime": 1794641957.8396897,
-    "seen": 1794642232.6837854,
-    "ast_hash": "9c02945cd3cc7251b0d5543c222f6f8a",
+    "mtime": 1795664095.4633017,
+    "seen": 1795664504.9100826,
+    "ast_hash": "bf1d2bfca3a921300447918c4ae01a8d",
     "semantic_hash": ""
   },
   "tests/test_resume_state.py": {
-    "mtime": 1795247799.1148388,
-    "seen": 1795247930.7537456,
-    "ast_hash": "33176a1c93ec5a2764d4c6eb081f9967",
+    "mtime": 1795661244.1850917,
+    "seen": 1795661347.5441768,
+    "ast_hash": "098d4d6ac809c8ae9adbe7227e90145e",
     "semantic_hash": ""
   },
   "tests/test_shared_navigation_fallback.py": {
@@ -756,15 +756,15 @@
     "semantic_hash": ""
   },
   "tests/test_stop_reset.py": {
-    "mtime": 1795395993.1753635,
-    "seen": 1795396149.0966158,
-    "ast_hash": "0329e1991aef8e24555b05b8d23f79b7",
+    "mtime": 1795662266.6551578,
+    "seen": 1795662312.073056,
+    "ast_hash": "4e7ffdc61e4d17111fc7212f1d1a60c8",
     "semantic_hash": ""
   },
   "tests/test_swarmote_waits.py": {
-    "mtime": 1794621960.3196127,
-    "seen": 1794623175.1177075,
-    "ast_hash": "e2fa0735f35ade697072e851b47f876b",
+    "mtime": 1795665095.901544,
+    "seen": 1795665278.8748567,
+    "ast_hash": "2cf44ac18ad06c86893607d0f8790cfe",
     "semantic_hash": ""
   },
   "tests/test_ui_backend.py": {
@@ -1146,15 +1146,15 @@
     "semantic_hash": ""
   },
   "amazon_android/random_prefix.py": {
-    "mtime": 1795247680.4778104,
-    "seen": 1795247930.7537456,
-    "ast_hash": "a3dbc46b253c2d594c00bdc01fac0cd4",
+    "mtime": 1795662594.3158844,
+    "seen": 1795662957.2922094,
+    "ast_hash": "b2ed4994ab4fec6083db46565ebd5d17",
     "semantic_hash": ""
   },
   "tests/test_random_prefix.py": {
-    "mtime": 1795247799.1128364,
-    "seen": 1795247930.7537456,
-    "ast_hash": "c4b65d07fbf1be8145ac623d55115411",
+    "mtime": 1795662821.280508,
+    "seen": 1795662957.2922094,
+    "ast_hash": "12739b0d709a39f87ac759563c913d9b",
     "semantic_hash": ""
   },
   "flow_images/shared/random_prefix_reference/01_menu_cards.png": {
@@ -1242,33 +1242,33 @@
     "semantic_hash": ""
   },
   "amazon_android/q7_state_machine.py": {
-    "mtime": 1794969796.6251602,
-    "seen": 1794969870.231168,
+    "mtime": 1795664074.8965821,
+    "seen": 1795664504.9100826,
     "ast_hash": "c53a6a7f6d709b1c7107c99211fd7bc2",
     "semantic_hash": ""
   },
   "tests/test_q7_state_machine.py": {
-    "mtime": 1795150037.1464632,
-    "seen": 1795150141.17424,
+    "mtime": 1795664082.3538551,
+    "seen": 1795664504.9100826,
     "ast_hash": "2c420f5876b9666039571b6f8ff564d2",
     "semantic_hash": ""
   },
   "Q7_STATE_MACHINE_PILOT.md": {
-    "mtime": 1794966623.860742,
-    "seen": 1794966651.6423469,
-    "ast_hash": "ad5996e4a6a798e5725990fe947cb963",
+    "mtime": 1795664135.6115193,
+    "seen": 1795664504.9100826,
+    "ast_hash": "74d01ec75df5600cc2a88332001f9614",
     "semantic_hash": ""
   },
   "amazon_android/q7_random_prefix.py": {
-    "mtime": 1794965048.6872146,
-    "seen": 1794965328.093034,
-    "ast_hash": "e0ce6cc44444164138483325bd5a1ab2",
+    "mtime": 1795662594.3168795,
+    "seen": 1795662957.2922094,
+    "ast_hash": "e50c1dc6584e5ed62a509dca969dc603",
     "semantic_hash": ""
   },
   "tests/test_q7_random_prefix.py": {
-    "mtime": 1794965129.1041842,
-    "seen": 1794965328.093034,
-    "ast_hash": "2c5ca3f1ba93c05ddd528b6341b7bb90",
+    "mtime": 1795679292.355355,
+    "seen": 1795679307.731455,
+    "ast_hash": "8a2c0f8becd0a4f863b22c1f27aab029",
     "semantic_hash": ""
   },
   "assets/ui_history/machine7_input_before.png": {
@@ -1428,21 +1428,21 @@
     "semantic_hash": ""
   },
   "tests/test_create_address_flow.py": {
-    "mtime": 1795247799.113838,
-    "seen": 1795247930.7537456,
-    "ast_hash": "8ef393450281a6e28501595c6a0f66fa",
+    "mtime": 1795661150.470168,
+    "seen": 1795661347.5441768,
+    "ast_hash": "0e3d418fc8ed47af046a62aaaac00108",
     "semantic_hash": ""
   },
   "amazon_android/create_address_detail_flow.py": {
-    "mtime": 1795398705.3534443,
-    "seen": 1795398842.9849393,
-    "ast_hash": "784cbd825ebef14ce83cbd89a593ddb6",
+    "mtime": 1795663317.5045326,
+    "seen": 1795663602.853733,
+    "ast_hash": "04d5723ce0d1e55840e61c004bcb1e4f",
     "semantic_hash": ""
   },
   "tests/test_create_address_detail_flow.py": {
-    "mtime": 1795398648.2374463,
-    "seen": 1795398842.9849393,
-    "ast_hash": "479e75997c8616acb5cef9e874e65484",
+    "mtime": 1795663440.6525316,
+    "seen": 1795663602.853733,
+    "ast_hash": "658b41eeab8497bfa2fc8d0237b33f50",
     "semantic_hash": ""
   },
   "flow_images/shared/create_address/05_b26_add_new_address.png": {
@@ -1506,15 +1506,15 @@
     "semantic_hash": ""
   },
   "amazon_android/reload_payment_flow.py": {
-    "mtime": 1795579537.7257018,
-    "seen": 1795579590.5361626,
-    "ast_hash": "2646d9ace6e00bd4dfa09ae8475df91d",
+    "mtime": 1795663317.5075347,
+    "seen": 1795663602.853733,
+    "ast_hash": "6fe97913403d03cd4fc8009ec2c231cc",
     "semantic_hash": ""
   },
   "tests/test_reload_payment_flow.py": {
-    "mtime": 1795579500.9080665,
-    "seen": 1795579590.5361626,
-    "ast_hash": "8b2164f693263ce8a36a37cac5005cd6",
+    "mtime": 1795663574.4688363,
+    "seen": 1795663602.854727,
+    "ast_hash": "9eba386e0f57864dc658cbdb18160231",
     "semantic_hash": ""
   },
   "flow_images/shared/reload_payment/01_b32_account_reload_balance.png": {
@@ -1635,6 +1635,24 @@
     "mtime": 1795395651.7441711,
     "seen": 1795396149.0966158,
     "ast_hash": "3bf20c3763fcbea455ae230cec881ea9",
+    "semantic_hash": ""
+  },
+  "amazon_android/browse_view_scroll.py": {
+    "mtime": 1795662594.3128736,
+    "seen": 1795662957.2922094,
+    "ast_hash": "98479c31fa165e92aa6d916addb30a9a",
+    "semantic_hash": ""
+  },
+  "amazon_android/phone_window_layout.py": {
+    "mtime": 1795665325.7448077,
+    "seen": 1795679307.731455,
+    "ast_hash": "da5d7d5b6123df9f3782750a1e85234f",
+    "semantic_hash": ""
+  },
+  "tests/test_phone_window_layout.py": {
+    "mtime": 1795665325.749811,
+    "seen": 1795679307.731455,
+    "ast_hash": "627fc3725a009d1b60d5db8051b261ac",
     "semantic_hash": ""
   }
 }

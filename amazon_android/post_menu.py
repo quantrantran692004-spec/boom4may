@@ -97,11 +97,15 @@ class RegistrationState:
     prefix_choices: dict[int, tuple[float, float]] = field(default_factory=dict, repr=False)
     prefix_completed: set[int] = field(default_factory=set, repr=False)
     prefix_view_until: dict[int, float] = field(default_factory=dict, repr=False)
+    prefix_scroll_at: dict[int, float] = field(default_factory=dict, repr=False)
+    prefix_view_scrolled: set[int] = field(default_factory=set, repr=False)
     q7_prefix_started_at: dict[int, float] = field(default_factory=dict, repr=False)
+    q7_prefix_view_until: dict[int, float] = field(default_factory=dict, repr=False)
     tail_choices: dict[int, str] = field(default_factory=dict, repr=False)
     tail_attempted: set[str] = field(default_factory=set, repr=False)
     tail_completed: set[int] = field(default_factory=set, repr=False)
     flow_mode: str = "auto"
+    login_followup: str = "none"
     prefix_attempted: set[str] = field(default_factory=set, repr=False)
     tail_view_until: dict[int, float] = field(default_factory=dict, repr=False)
     tail_viewed: set[int] = field(default_factory=set, repr=False)
@@ -126,6 +130,7 @@ class RegistrationState:
     create_address_submit_attempts: int = 0
     create_address_submit_sent_at: float | None = None
     create_address_saved_at: float | None = None
+    create_address_person_tapped_at: float | None = None
     reload_completed: set[int] = field(default_factory=set, repr=False)
     reload_card_fields_sent: set[int] = field(default_factory=set, repr=False)
     country_reverse_started: bool = False
@@ -219,10 +224,14 @@ class PostMenuSession:
                     target, replacement = resumed
                     if target < 0 or target >= len(steps) or len(replacement) != len(steps):
                         raise ValueError("Invalid resume step")
-                    if target > self.next_step and any(not re.match(
-                            r"b(?:[4-9]|10|11)[a-z]?(?:\s|$)", step.name)
+                    if target > self.next_step and any(not (
+                            re.match(r"b(?:[4-9]|10|11)[a-z]?(?:\s|$)", step.name) or
+                            (self.registration.flow_mode == 'create' or
+                             self.registration.flow_mode == 'login' and
+                             self.registration.login_followup != 'none') and re.match(
+                                r"b(?:2[3-9]|3[0-9])(?:\s|$)", step.name))
                             for step in steps[self.next_step:target]):
-                        raise ValueError("Cannot skip random viewing steps on resume")
+                        raise ValueError("Cannot skip unverified steps on resume")
                     with self._lock:
                         self.next_step = target
                     steps = replacement

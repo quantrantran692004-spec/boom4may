@@ -37,6 +37,19 @@ class CreateAddressFlowTests(unittest.TestCase):
                                      ['b36', 'b37', 'b38', 'b39'] if mode == 'create'
                                      else ['b20', 'b21', 'b22'])
 
+    def test_login_followup_options_append_only_the_selected_steps(self):
+        for index, factory in POST_MENU_STEP_FACTORIES.items():
+            phone = CloudPhone(f'127.0.0.1:{5001+index}')
+            for choice, expected in (
+                    ('address_and_card', [*range(23, 35), 36, 37, 38, 39]),
+                    ('card_only', [32, 33, 34, 36, 37, 38, 39])):
+                with self.subTest(slot=index+1, choice=choice):
+                    state = RegistrationState(flow_mode='login', login_followup=choice)
+                    names = [step.name for step in factory(
+                        phone, lambda _: None, registration=state)]
+                    self.assertEqual([name.split()[0] for name in names[-len(expected):]],
+                                     [f'b{number}' for number in expected])
+
     def test_b23_waits_three_seconds_then_taps_only_visible_account_word(self):
         action = build_create_address_steps(self.phone, self.state)[0].action
         target = dict(node('Account', 145), vision='true')

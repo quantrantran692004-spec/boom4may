@@ -24,6 +24,28 @@ def node(text, *, bounds="[10,10][200,50]", kind="android.widget.TextView"):
 
 
 class Q1FlowTests(unittest.TestCase):
+    def test_b8_confirmed_name_form_is_reused_by_b9(self):
+        steps = build_common_steps(self.phone, lambda _: None)
+        b8 = next(step.action for step in steps if step.name.startswith("b8"))
+        b9 = next(step.action for step in steps if step.name.startswith("b9"))
+        form = [node("Create account"), node("First and last name"),
+                node("", kind="android.widget.EditText"), node("Continue")]
+        with patch("amazon_android.account_flow._registration_nodes",
+                   return_value=[node("Looks like you are new to Amazon"),
+                                 node("Proceed to create an account")]) as read, \
+             patch("amazon_android.account_flow._wait_screen",
+                   side_effect=[form, [node("Verify with WhatsApp")]]) as wait, \
+             patch("amazon_android.account_flow._check_summary"), \
+             patch("amazon_android.account_flow._type_field", return_value=form) as typing, \
+             patch("amazon_android.account_flow._form_action",
+                   return_value=node("Continue")), \
+             patch("amazon_android.account_flow._tap_for_transition"):
+            b8(self.job, self.deadline, self.stop)
+            b9(self.job, self.deadline, self.stop)
+        read.assert_called_once()
+        self.assertEqual(typing.call_args.kwargs["nodes"], form)
+        self.assertEqual(wait.call_count, 2)
+
     def test_b9_retries_continue_after_dismissing_visible_keyboard(self):
         field = node(self.job.account.full_name, kind="android.widget.EditText",
                      bounds="[30,210][350,250]")

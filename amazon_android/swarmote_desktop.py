@@ -814,6 +814,11 @@ def _phone_window(name: str, device_id: str, *, seconds: float = 20,
         win32gui.EnumWindows(collect, None)
         _check_stop(stop)
         if len(matches) == 1:
+            try:
+                from .phone_window_layout import arrange_on_open
+                arrange_on_open(matches[0], expected_exe)
+            except Exception:
+                pass  # Window layout is optional; never block ADB or Apps.
             return Desktop(backend="uia").window(handle=matches[0]).wrapper_object()
         if len(matches) > 1:
             raise ToolError(f"Có nhiều cửa sổ điện thoại khớp {name}; đã dừng")

@@ -17,6 +17,7 @@ class StopResetTests(unittest.TestCase):
         w=Window.__new__(Window)
         w.cancel=threading.Event(); w.running=True; w.attach_in_progress=False
         w.post_menu_stops={}; w.phone_stop_after_step={}; w.post_menu_resume_after_stop=set()
+        w.manual_slots=set(); w.preparation_retry_workers={}
         w.post_menu_sessions={}; w.post_menu_workers={}
         w.post_menu_steps={}; w.menu_opened_at={}; w.phone_serials={}; w.jobs={0:object()}
         w.batch_worker=Mock(is_alive=Mock(return_value=True)); w.attach_worker=None
@@ -89,11 +90,24 @@ class StopResetTests(unittest.TestCase):
         w.registry.get.return_value = {'stage': 'RESERVED', 'state': 'ERROR',
                                        'device_id': None}
         w.status = [('focus failed', 'error')]
-        with patch.object(w, '_start_preparation_retry') as prepare, \
+        with patch.object(w, '_start_profile_creation_retry') as create, \
              patch.object(w, '_launch') as launch:
             w._continue_profile(0)
-        launch.assert_called_once_with([0])
-        prepare.assert_not_called()
+        create.assert_called_once_with(0)
+        launch.assert_not_called()
+        self.assertIn(('batch', 0), w.manual_slots)
+
+    def test_queued_phone_continue_starts_manual_preparation(self):
+        w = self.window()
+        w.jobs = {0: RunJob(0, 'batch', None)}
+        w.registry = Mock()
+        w.registry.get.return_value = {'name': 'q1', 'stage': 'PROFILE_CONFIRMED',
+                                       'state': 'READY', 'device_id': 'device-one'}
+        self.assertTrue(w._may_continue(0, 'queued', False))
+        with patch.object(w, '_start_preparation_retry') as prepare:
+            w._continue_profile(0)
+        prepare.assert_called_once_with(0)
+        self.assertIn(('batch', 0), w.manual_slots)
 
     def test_single_row_paste_and_clear_touch_only_selected_failed_machine(self):
         class Cell:
@@ -132,6 +146,41 @@ class StopResetTests(unittest.TestCase):
         self.assertEqual(w.values[0]['host'].get(), 'keep')
         self.assertEqual(w.otp_codes[4], '')
         self.assertEqual(w.otp_codes[0], 'old')
+
+    def test_single_row_paste_accepts_tab_and_csv_with_extra_columns(self):
+        class Cell:
+            def __init__(self):
+                self.value = ''
+            def get(self):
+                return self.value
+            def set(self, value):
+                self.value = value
+
+        url = 'https://apifc.net/smsrecord?token=synthetic'
+        card = '4000000000000001|12|2030'
+        samples = (
+            f'12025550123\tExample456!\tFirst\textra\t{card}\t{url}',
+            f'12025550123,Example456!,First,extra,{card},{url}',
+        )
+        for sample in samples:
+            with self.subTest(separator='tab' if '\t' in sample else 'csv'):
+                w = self.window()
+                w.draft.locked = False
+                w.selected = 0
+                w.jobs = {}
+                w.count.get.return_value = '1'
+                w.values = [{key: Cell() for key in
+                             ('phone', 'amazon_password', 'full_name', 'card', 'otp_url')}]
+                w.otp_codes = ['old']
+                w.otp_status = ['old']
+                w.single_account_line = Mock()
+                w.single_account_line.get.return_value = sample
+                w._apply_single_account_line()
+                self.assertEqual(w.values[0]['card'].get(), card)
+                self.assertEqual(w.values[0]['otp_url'].get(), url)
+                self.assertEqual(w.otp_codes[0], '')
+                self.assertEqual(w.run_note.configure.call_args.kwargs['text'],
+                                 'Đã điền hàng Amazon vào Máy 1')
 
     def test_retry_starts_while_batch_is_busy_and_double_continue_does_not_duplicate(self):
         w = self.window()
@@ -178,6 +227,21 @@ class StopResetTests(unittest.TestCase):
             retry_preparation(job, registry, emit, stop, stop_after_step=selected)
         prepare.assert_called_once_with(job, 'q3', 'device-three', registry,
                                          emit, stop, None, selected)
+
+    def test_manual_retry_starts_offline_confirmed_phone(self):
+        job = RunJob(2, 'batch', None)
+        registry = Mock()
+        registry.get.return_value = {'name': 'q3', 'device_id': 'device-three',
+                                     'stage': 'PROFILE_CONFIRMED', 'state': 'READY'}
+        with patch('amazon_android.runner.profile_status', return_value={
+                'state': 'Offline', 'device_id': 'device-three'}), \
+             patch('amazon_android.runner._start_and_confirm', return_value={
+                'state': 'Starting', 'device_id': 'device-three'}) as start, \
+             patch('amazon_android.runner._prepare_phone', return_value='done') as prepare:
+            retry_preparation(job, registry, Mock(), threading.Event(),
+                              start_if_offline=True)
+        start.assert_called_once()
+        prepare.assert_called_once()
 
     def test_menu_retry_reconnects_without_reinstalling_or_reopening_amazon(self):
         job = RunJob(2, 'batch', None)

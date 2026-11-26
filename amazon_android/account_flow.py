@@ -568,8 +568,11 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
                deadline: AttemptDeadline, *, country_list: bool = False,
                fling: bool = False, reverse: bool = False,
                gentle_reverse: bool = False, force_adb: bool = False,
-               first_reverse_triple: bool = False) -> None:
+               first_reverse_triple: bool = False,
+               browsing: bool = False) -> None:
     start, end, duration = (0.72, 0.32, "300")
+    if browsing:
+        start, end, duration = (0.68, 0.43, "450")
     if country_list:
         deadline.remaining()
         from .isolated_reader import current
@@ -1045,6 +1048,80 @@ def _wait_after_sms(phone: CloudPhone, deadline: AttemptDeadline,
     return False
 
 
+def _resume_address_payment_index(phone, steps, current, deadline, stop, registration):
+    """Adopt a later screen the user reached manually on this phone."""
+    from .marketplace_flow import _read_text_region
+
+    try:
+        nodes = _read_text_region(phone, AttemptDeadline(
+            min(18, deadline.remaining()), notice=deadline.notice),
+            stop, (.05, .95))
+    except ToolError:
+        if stop.is_set():
+            raise
+        return current
+    labels = {_text(node).rstrip(':') for node in nodes if _visible(node)}
+    if steps[current].name.startswith('b31 '):
+        from .create_address_flow import _account_content
+        if _account_content(nodes):
+            stage = 32
+        else:
+            stage = None
+    else:
+        stage = None
+    # A later page is evidence that the preceding action already happened.
+    # A form label alone does not prove that its own action was submitted.
+    if 'use this address' in labels:
+        stage = 39
+    elif {'card number', 'expiration date', 'name on card'} <= labels:
+        stage = 38
+    elif 'add a credit or debit card' in labels:
+        stage = 37
+    elif 'buy now' in labels:
+        stage = 36
+    elif 'reload balance' in labels:
+        stage = 33
+    elif 'address saved' in labels or 'personal addresses' in labels:
+        stage = 31
+    elif (steps[current].name.startswith('b28 ') and
+          'make this my default address' in labels and
+          any(re.fullmatch(r'\d{5}(?:-\d{4})?', label) for label in labels)):
+        stage = 29
+    elif 'add address' in labels and steps[current].name.startswith('b30 '):
+        stage = 30
+    elif ('make this my default address' in labels and
+          re.match(r'b(?:29|30)\s', steps[current].name)):
+        stage = 29
+    elif 'street address' in labels or 'address line 1' in labels:
+        stage = 28
+    elif 'enter an address manually' in labels:
+        stage = 27
+    elif 'add a new address' in labels:
+        stage = 26
+    elif 'your addresses' in labels and stage is None:
+        stage = 24
+    if steps[current].name.startswith('b28 ') and stage in {None, 28}:
+        prefix = registration.create_address_prefix or registration.create_address_proxy_prefix
+        if prefix and (prefix in labels or any(label.startswith(prefix + ' ')
+                                             for label in labels)):
+            registration.create_address_prefix = prefix
+            registration.create_address_prefix_sent = True
+            registration.create_address_prefix_sent_at = time.monotonic()
+    if stage is None:
+        return current
+    target = next((index for index, step in enumerate(steps)
+                   if step.name.startswith(f'b{stage} ')), current)
+    if target <= current:
+        return current
+    for step in steps[current:target]:
+        number = int(step.name.split(' ', 1)[0][1:])
+        if 23 <= number <= 31:
+            registration.create_address_completed.add(number)
+        elif 32 <= number <= 39:
+            registration.reload_completed.add(number)
+    return target
+
+
 def resume_common_index(phone: CloudPhone, steps: tuple[PostMenuStep, ...],
                         current: int, deadline: AttemptDeadline,
                         stop: threading.Event,
@@ -1053,6 +1130,13 @@ def resume_common_index(phone: CloudPhone, steps: tuple[PostMenuStep, ...],
     """Resume common form steps from live, row-checked UI after manual repair."""
     create = next((index for index, step in enumerate(steps)
                    if step.name == FINAL_SMS_STEP), len(steps) - 1)
+    if (registration is not None and
+            (registration.flow_mode == 'create' or
+             registration.flow_mode == 'login' and
+             registration.login_followup != 'none') and
+            current < len(steps) and re.match(r'b(?:2[3-9]|3[0-9])\s', steps[current].name)):
+        return _resume_address_payment_index(phone, steps, current, deadline,
+                                             stop, registration)
     # At the login b11b -> b12 boundary, Verify may have left the SMS form on
     # screen. Recheck that one boundary before trusting the saved next step.
     if (registration is not None and current == create + 1 and
@@ -1149,6 +1233,7 @@ def build_common_steps(phone: CloudPhone,
     mode = state.flow_mode
     if mode not in {"auto", "create", "login"}:
         raise ValueError("Unknown Amazon flow mode")
+    confirmed_name_form: list[dict[str, str]] | None = None
 
     def sign_in(job: RunJob, deadline: AttemptDeadline,
                 stop: threading.Event) -> None:
@@ -1260,16 +1345,21 @@ def build_common_steps(phone: CloudPhone,
 
     def proceed(job: RunJob, deadline: AttemptDeadline,
                 stop: threading.Event) -> None:
+        nonlocal confirmed_name_form
         nodes = _registration_nodes(phone, deadline, stop)
         if screen(nodes) in {"NEW_ACCOUNT", "CREATE_FORM"}:
             state.create_flow_seen = True
         if _at_or_after(nodes, "CREATE_FORM"):
+            if screen(nodes) == "CREATE_FORM":
+                confirmed_name_form = nodes
             return
         if screen(nodes) != "NEW_ACCOUNT":
             raise ToolError("Máy này chưa ở màn tạo tài khoản mới")
         _check_summary(nodes, job)
         _tap_for_transition(phone, _button(nodes, "Proceed to create an account"), deadline)
-        _wait_screen(phone, {"CREATE_FORM", "WHATSAPP", "SMS"}, deadline, stop)
+        nodes = _wait_screen(phone, {"CREATE_FORM", "WHATSAPP", "SMS"}, deadline, stop)
+        if screen(nodes) == "CREATE_FORM":
+            confirmed_name_form = nodes
 
     def skip_creation_for_login(job: RunJob, deadline: AttemptDeadline,
                                 stop: threading.Event) -> None:
@@ -1281,7 +1371,11 @@ def build_common_steps(phone: CloudPhone,
 
     def name(job: RunJob, deadline: AttemptDeadline,
              stop: threading.Event) -> None:
-        nodes = _registration_nodes(phone, deadline, stop)
+        nonlocal confirmed_name_form
+        nodes = confirmed_name_form
+        confirmed_name_form = None
+        if nodes is None:
+            nodes = _registration_nodes(phone, deadline, stop)
         if screen(nodes) == "CREATE_FORM":
             state.create_flow_seen = True
         if _at_or_after(nodes, "WHATSAPP"):

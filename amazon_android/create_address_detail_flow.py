@@ -302,6 +302,7 @@ def build_create_address_detail_steps(phone, state):
                 tabs = []
             target = _account_tab(phone, tabs, deadline)
             _tap(phone, target, deadline)
+            state.create_address_person_tapped_at = time.monotonic()
             state.create_address_completed.add(31)
             return
         if number == 28 and state.create_address_suggestion_tapped_at is not None:
@@ -350,8 +351,10 @@ def build_create_address_detail_steps(phone, state):
                 state.create_address_prefix_sent_at = time.monotonic()
                 state.create_address_prefix_attempts += 1
                 try:
-                    cloud_adb(phone, 'shell', 'input', 'text',
-                              state.create_address_prefix, timeout=5)
+                    for index, digit in enumerate(state.create_address_prefix):
+                        if index and stop.wait(.8):
+                            raise ToolError('Đã dừng máy này')
+                        cloud_adb(phone, 'shell', 'input', 'text', digit, timeout=5)
                 except ToolError as exc:
                     raise ToolError('b28: chưa rõ số đã được nhập hay chưa; '
                                     'kiểm tra máy rồi bấm Tiếp tục') from exc
@@ -363,8 +366,8 @@ def build_create_address_detail_steps(phone, state):
                     raise ToolError('Đã dừng máy này')
                 try:
                     visual = _read_text_region(
-                        phone, AttemptDeadline(min(45, deadline.remaining()),
-                        notice=outer.notice), stop, (.20, .68), direct_visual=True)
+                        phone, AttemptDeadline(min(18, deadline.remaining()),
+                        notice=outer.notice), stop, (.20, .68))
                 except ToolError:
                     if stop.is_set():
                         raise
@@ -432,17 +435,6 @@ def build_create_address_detail_steps(phone, state):
                         raise
             if not nodes:
                 reads_failed += 1
-                if number == 26 and reads_failed in (1, 3):
-                    try:
-                        _foreground(phone, deadline)
-                        size_out = cloud_adb(phone, 'shell', 'wm', 'size', timeout=4).stdout
-                        dims = re.findall(r'(?:Physical|Override) size:\s*(\d+)x(\d+)', size_out)
-                        if dims:
-                            w, h = map(int, dims[-1])
-                            outer.recovering('b26: bấm trực tiếp vị trí Add a new address')
-                            cloud_adb(phone, 'shell', 'input', 'tap', str(w // 2), str(int(h * 0.185)), timeout=4)
-                    except ToolError:
-                        pass
                 if reads_failed >= 6:
                     raise ToolError(f'b{number}: chưa đọc được chữ trên ảnh hoặc cây Android '
                                     f'sau {reads_failed} lượt; giữ bước máy này')

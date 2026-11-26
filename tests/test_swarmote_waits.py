@@ -23,9 +23,25 @@ class SwarmoteWaitTests(unittest.TestCase):
              patch('win32gui.GetWindowText', side_effect=titles.__getitem__), \
              patch('win32process.GetWindowThreadProcessId', return_value=(1, 123)), \
              patch('amazon_android.swarmote_desktop._swarmote_exe', return_value=Path('Swarmote.exe')), \
-             patch('amazon_android.swarmote_desktop.psutil.Process', return_value=SimpleNamespace(exe=lambda: 'Swarmote.exe')):
+             patch('amazon_android.swarmote_desktop.psutil.Process', return_value=SimpleNamespace(exe=lambda: 'Swarmote.exe')), \
+             patch('amazon_android.phone_window_layout.arrange_on_open') as arrange:
             self.assertIs(_phone_window('q2', 'ACN2'), expected)
         desktop.window.assert_called_once_with(handle=3)
+        arrange.assert_called_once_with(3, 'swarmote.exe')
+
+    def test_phone_lookup_continues_if_window_layout_fails(self):
+        desktop = Mock()
+        expected = object()
+        desktop.window.return_value.wrapper_object.return_value = expected
+        with patch('pywinauto.Desktop', return_value=desktop), \
+             patch('win32gui.EnumWindows', side_effect=lambda callback, extra: callback(3, extra)), \
+             patch('win32gui.GetWindowText', return_value='q2 - ACN2'), \
+             patch('win32process.GetWindowThreadProcessId', return_value=(1, 123)), \
+             patch('amazon_android.swarmote_desktop._swarmote_exe', return_value=Path('Swarmote.exe')), \
+             patch('amazon_android.swarmote_desktop.psutil.Process', return_value=SimpleNamespace(exe=lambda: 'Swarmote.exe')), \
+             patch('amazon_android.phone_window_layout.arrange_on_open',
+                   side_effect=OSError('Windows refused to move the viewer')):
+            self.assertIs(_phone_window('q2', 'ACN2'), expected)
 
     def test_stop_before_apps_or_terminal_lookup_does_not_touch_ui(self):
         stop = threading.Event(); stop.set()

@@ -13,6 +13,7 @@ from .account_flow import (MENU_CARD_LABELS, _bounds, _read_nodes, _read_nodes_o
                            _tap, _text, _visible, build_common_steps, screen)
 from .cloud import CloudPhone, cloud_adb, amazon_is_foreground
 from .core import AMAZON_PACKAGE, ToolError
+from .browse_view_scroll import scroll_view, wait_until
 from .post_menu import (AttemptDeadline, PostMenuStep, RecoverableStepError,
                         RegistrationState)
 from .q7_random_prefix import CHILD_LABELS
@@ -255,18 +256,18 @@ def build_tail_steps(phone: CloudPhone, state: RegistrationState) -> tuple[PostM
     def view(number, deadline, stop, seconds=None):
         if seconds is not None:
             state.tail_view_until[number] = time.monotonic() + seconds
-            remaining = seconds
-        elif number in state.tail_view_until:
-            remaining = max(0, state.tail_view_until[number] - time.monotonic())
-        else:
+        until = state.tail_view_until.get(number)
+        if until is None:
             return False
-        if stop.is_set() or (remaining and stop.wait(deadline.allowance(remaining))):
-            raise ToolError("Đã dừng máy này")
-        state.tail_view_until.pop(number, None)
         if number in TAIL_NUMBERS:
-            state.tail_viewed.add(number)
-        else:
-            state.tail_completed.add(number)
+            if number not in state.tail_viewed:
+                duration = 16.0 if state.flow_mode == 'create' else 1.0
+                wait_until(until - duration / 2, deadline, stop)
+                state.tail_viewed.add(number)
+            return True
+        wait_until(until, deadline, stop)
+        state.tail_view_until.pop(number, None)
+        state.tail_completed.add(number)
         return True
 
     def return_to_menu(number, deadline, stop):
@@ -285,14 +286,23 @@ def build_tail_steps(phone: CloudPhone, state: RegistrationState) -> tuple[PostM
                              'IDENTIFIER', 'COUNTRY'}:
             raise ToolError(f'b{number}: gặp form tài khoản sau khi mở thẻ con; giữ máy này')
         if screen(nodes) == 'MENU':
+            if number not in state.tail_page_scrolled:
+                if not amazon_is_foreground(phone, timeout=3, adb=cloud_adb):
+                    raise ToolError(f'b{number}: Amazon chưa ở phía trước; giữ máy này')
+                _scroll_up(phone, [], deadline, browsing=True)
+                state.tail_page_scrolled.add(number)
+            wait_until(state.tail_view_until.get(number, time.monotonic()), deadline, stop)
+            state.tail_view_until.pop(number, None)
             state.tail_completed.add(number)
             return
         if not amazon_is_foreground(phone, timeout=3, adb=cloud_adb):
             raise ToolError(f'b{number}: Amazon chưa ở phía trước; giữ máy này')
         if number not in state.tail_page_scrolled and number not in state.tail_back_sent:
             deadline.recovering(f'b{number}a: trang con đã mở · cuộn một lượt')
-            _scroll_up(phone, [], deadline)
+            _scroll_up(phone, [], deadline, browsing=True)
             state.tail_page_scrolled.add(number)
+        wait_until(state.tail_view_until.get(number, time.monotonic()), deadline, stop)
+        state.tail_view_until.pop(number, None)
         if number not in state.tail_back_sent:
             if stop.is_set():
                 raise ToolError('Đã dừng máy này')
@@ -386,6 +396,12 @@ def build_post_auth_steps(phone: CloudPhone, state: RegistrationState) -> tuple[
         steps += (build_create_address_steps(phone, state) +
                   build_create_address_detail_steps(phone, state) +
                   build_reload_payment_steps(phone, state))
+    elif state.flow_mode == 'login' and state.login_followup == 'address_and_card':
+        steps += (build_create_address_steps(phone, state) +
+                  build_create_address_detail_steps(phone, state) +
+                  build_reload_payment_steps(phone, state))
+    elif state.flow_mode == 'login' and state.login_followup == 'card_only':
+        steps += build_reload_payment_steps(phone, state)
     return steps
 
 
@@ -398,7 +414,18 @@ def build_random_steps(phone: CloudPhone, on_otp,
 
     def finish_view(number):
         state.prefix_view_until.pop(number, None)
+        state.prefix_scroll_at.pop(number, None)
         state.prefix_completed.add(number)
+
+    def browse_view(number, deadline, stop):
+        until = state.prefix_view_until[number]
+        if number not in state.prefix_view_scrolled:
+            wait_until(state.prefix_scroll_at.get(number, until), deadline, stop)
+            width, height = _size(phone, deadline)
+            scroll_view(phone, width, height, deadline, stop, number, cloud_adb)
+            state.prefix_view_scrolled.add(number)
+        wait_until(until, deadline, stop)
+        finish_view(number)
 
     def browse(number: int):
         def action(job: RunJob, deadline: AttemptDeadline,
@@ -408,10 +435,7 @@ def build_random_steps(phone: CloudPhone, on_otp,
             if number in state.prefix_completed:
                 return
             if number in state.prefix_view_until:
-                remaining = max(0, state.prefix_view_until[number] - time.monotonic())
-                if remaining and stop.wait(deadline.allowance(remaining)):
-                    raise ToolError("Đã dừng máy này")
-                finish_view(number)
+                browse_view(number, deadline, stop)
                 return
             width, height = _size(phone, deadline)
             candidates = list(POINTS)
@@ -460,10 +484,10 @@ def build_random_steps(phone: CloudPhone, on_otp,
                 state.prefix_choices[number] = point
                 deadline.recovering(f"b{number}: đã bấm vị trí danh mục ngẫu nhiên")
                 view_seconds = 3 + secrets.randbelow(3)
-                state.prefix_view_until[number] = time.monotonic() + view_seconds
-                if stop.wait(deadline.allowance(view_seconds)):
-                    raise ToolError("Đã dừng máy này")
-                finish_view(number)
+                started = time.monotonic()
+                state.prefix_view_until[number] = started + view_seconds
+                state.prefix_scroll_at[number] = started + view_seconds / 2
+                browse_view(number, deadline, stop)
                 return
             raise RecoverableStepError(
                 f"b{number}: chưa gửi được cú bấm; đang tự thử lại đúng máy")

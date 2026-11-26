@@ -157,13 +157,23 @@ def build_reload_payment_steps(phone, state):
         if number in state.reload_completed:
             return
         if number == 32:
-            if 31 not in state.create_address_completed:
+            if state.flow_mode == 'login' and state.login_followup == 'card_only':
+                if 22 not in state.marketplace_completed:
+                    raise ToolError('Chưa hoàn tất b22 trên máy này')
+            elif 31 not in state.create_address_completed:
                 raise ToolError('Chưa bấm hình người ở b31')
         elif number - 1 not in state.reload_completed and not (
                 number == 36 and 34 in state.reload_completed):
             raise ToolError(f'Chưa xong bước trước b{number}')
         deadline = AttemptDeadline(min(120, outer.remaining()), notice=outer.notice)
         if number == 32:
+            if not (state.flow_mode == 'login' and state.login_followup == 'card_only'):
+                tapped_at = state.create_address_person_tapped_at
+                if tapped_at is None:
+                    tapped_at = state.create_address_person_tapped_at = time.monotonic()
+                remaining = max(0, tapped_at + 2.5 - time.monotonic())
+                if stop.is_set() or (remaining and stop.wait(outer.allowance(remaining))):
+                    raise ToolError('Đã dừng máy này')
             _swipe(phone, deadline)
         elif number == 33:
             for attempt in range(4):
@@ -223,8 +233,8 @@ def build_reload_payment_steps(phone, state):
                         raise ToolError('Đã dừng máy này')
                     try:
                         nodes = _read_text_region(
-                            phone, AttemptDeadline(min(45, deadline.remaining()),
-                            notice=outer.notice), stop, (.05, .58), direct_visual=True)
+                            phone, AttemptDeadline(min(18, deadline.remaining()),
+                            notice=outer.notice), stop, (.05, .58))
                         targets = {index: _field_target(nodes, label, following, placeholders)
                                    for index, (label, following, placeholders, _) in pending}
                         if all(targets.values()):

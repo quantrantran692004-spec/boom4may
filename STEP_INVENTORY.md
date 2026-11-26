@@ -10,15 +10,20 @@ chứng phiên tool hiện hành nạp mã đó. Không đánh dấu Máy 8–12
 
 ## Bản thử q7 State Machine — 14/11/2026
 
-Q7 dùng bản thử nhận diện, kiểm tra và xác minh màn trước/sau b4–b11. B1–b3
-của riêng q7 thêm tổng 30 giây và phải bấm được một mục con có nhãn/vùng
-hợp lệ mỗi lượt mới đánh dấu xong. Sau Create/Verify, q7 nhận Trang chủ có tab
-Browse hiện rõ; b12 mở menu từ tab đó, màn lạ vẫn dừng. Các máy khác vẫn dùng b1–b3 hiện hành.
+Q7 từng dùng bản thử nhận diện, kiểm tra và xác minh màn b4–b11. Từ
+26/11/2026, factory Máy 7 dùng toàn bộ `random_prefix.build_random_steps`
+như 11 máy còn lại: b1–b3 chọn thẻ hoặc mục con, xem 3–5 giây và cuộn một
+lần mỗi lượt; b4–b11 dùng cùng `account_flow.build_common_steps`; b12 trở
+đi cũng dùng chung. Quy tắc pilot thêm 30 giây, bắt buộc bấm mục con và lớp
+State Machine riêng đều không chạy trong factory hiện hành. Lựa chọn ngẫu
+nhiên, dữ liệu hàng và trạng thái Dừng/Tiếp tục vẫn tách riêng từng máy.
 Xem [Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md).
 
 ## B1–B3 hiện hành — Ba lượt ngẫu nhiên q1–q12
 
-B1–b3 xem/bấm ngẫu nhiên các vùng danh mục theo kích thước Android của đúng máy, không cần OCR hay xác nhận màn đã đổi. Mỗi máy nhận điểm b1 riêng trong 12 điểm của mẻ; mẻ mới xáo lại. **Điều chỉnh 17/11:** b2/b3 chờ 0,6 giây sau khi mở menu; sau mỗi cú bấm xem mục 3–5 giây. Nếu Dừng khi đang xem, Tiếp tục chờ phần còn lại mà không bấm lặp. Lệnh bấm ADB lỗi thì thử điểm khác, vuốt rồi tự thử lại cùng bước; không có cú bấm nào thành công thì không chuyển b4. Trước b4 chạm menu ba gạch; b4–b11 giữ quy tắc nhận diện cũ. Các mốc q1–q6 cố định bên dưới là lịch sử. Ảnh tham chiếu ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); chưa thử trên 12 máy thật. **Cập nhật 18/11 theo lời nhắc mới:** B1–b3 chọn ngẫu nhiên cả thẻ và mục con đang hiện, giữ menu đang mở để mục con có thể được chọn ở lượt sau. Nếu cú bấm sang trang khác, vẫn xem đủ thời gian lượt đó, mở lại ba gạch cho lượt tiếp theo và chỉ tới b4 khi cả ba lượt đã hoàn tất. B4 luôn mở lại ba gạch trước Sign In. Sửa vòng phục hồi chậm ngày 18/11 theo ảnh Máy 4: giới hạn 12 giây cũ không có tác dụng vì gọi bộ đọc tự lặp. `_prefix_nodes` nay chỉ gọi một lượt đọc UI/OCR với ngân sách 6 giây của worker riêng; giữ đọc ảnh để chọn mục con, không dùng `_read_nodes` tự lặp. Khi sang trang khác, xem hết lượt rồi ưu tiên tab Browse đang hiện; thiếu nhãn thì dùng kích thước Android. Nếu Browse chưa đổi màn, Back một lần rồi mở lại ba gạch. Nếu mở ứng dụng ngoài thì Back, kiểm tra Amazon ở trước và bỏ locator cũ của ứng dụng ngoài. Không quay được về Amazon hoặc gặp form tài khoản thì dừng riêng máy đó, không vào vòng phục hồi vô hạn. Đọc không ra chữ thì giữ đường bấm theo kích thước cũ; vẫn đủ ba lượt xem 3–5 giây trước b4, giữ mốc Dừng/Tiếp tục. Pilot q7 giữ kỹ thuật riêng và giới hạn 90 giây có sẵn. B12–b15 cũng chọn mục con; khi sang trang khác thì mở lại ba gạch để tiếp tục các lượt còn lại. Không nhảy thẳng từ b1/b2 tới b4.
+**Nhịp cuộn hiện hành, sửa 26/11/2026:** Sáu lượt cuộn xem hàng được chia một lượt cho mỗi bước b1–b3 và b13–b15. B1–b3 chờ nửa nhịp xem sau cú bấm rồi vuốt vừa từ dưới lên một lượt, xem tiếp phần thời gian còn lại; b1–b3 của cả 12 máy đều xem 3–5 giây. Dừng/Tiếp tục giữ mốc chờ và dấu đã vuốt, không bấm hoặc cuộn lại. Đây là mã/test mô phỏng, chưa kiểm trên máy thật hoặc phiên tool đang mở.
+
+B1–b3 xem/bấm ngẫu nhiên các vùng danh mục theo kích thước Android của đúng máy, không cần OCR hay xác nhận màn đã đổi. Mỗi máy nhận điểm b1 riêng trong 12 điểm của mẻ; mẻ mới xáo lại. **Điều chỉnh 17/11:** b2/b3 chờ 0,6 giây sau khi mở menu; sau mỗi cú bấm xem mục 3–5 giây. Nếu Dừng khi đang xem, Tiếp tục chờ phần còn lại mà không bấm lặp. Lệnh bấm ADB lỗi thì thử điểm khác, vuốt rồi tự thử lại cùng bước; không có cú bấm nào thành công thì không chuyển b4. Trước b4 chạm menu ba gạch; b4–b11 giữ quy tắc nhận diện cũ. Các mốc q1–q6 cố định bên dưới là lịch sử. Ảnh tham chiếu ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); chưa thử trên 12 máy thật. **Cập nhật 18/11 theo lời nhắc mới:** B1–b3 chọn ngẫu nhiên cả thẻ và mục con đang hiện, giữ menu đang mở để mục con có thể được chọn ở lượt sau. Nếu cú bấm sang trang khác, vẫn xem đủ thời gian lượt đó, mở lại ba gạch cho lượt tiếp theo và chỉ tới b4 khi cả ba lượt đã hoàn tất. B4 luôn mở lại ba gạch trước Sign In. Sửa vòng phục hồi chậm ngày 18/11 theo ảnh Máy 4: giới hạn 12 giây cũ không có tác dụng vì gọi bộ đọc tự lặp. `_prefix_nodes` nay chỉ gọi một lượt đọc UI/OCR với ngân sách 6 giây của worker riêng; giữ đọc ảnh để chọn mục con, không dùng `_read_nodes` tự lặp. Khi sang trang khác, xem hết lượt rồi ưu tiên tab Browse đang hiện; thiếu nhãn thì dùng kích thước Android. Nếu Browse chưa đổi màn, Back một lần rồi mở lại ba gạch. Nếu mở ứng dụng ngoài thì Back, kiểm tra Amazon ở trước và bỏ locator cũ của ứng dụng ngoài. Không quay được về Amazon hoặc gặp form tài khoản thì dừng riêng máy đó, không vào vòng phục hồi vô hạn. Đọc không ra chữ thì giữ đường bấm theo kích thước cũ; vẫn đủ ba lượt xem 3–5 giây trước b4, giữ mốc Dừng/Tiếp tục. Từ 26/11, q7 dùng toàn bộ factory chung; giới hạn 90 giây thuộc bản thử cũ. B12–b15 cũng chọn mục con; khi sang trang khác thì mở lại ba gạch để tiếp tục các lượt còn lại. Không nhảy thẳng từ b1/b2 tới b4.
 
 Tài liệu này là bản đồ từng mốc để phiên sau không coi ảnh chưa gửi là bước đã hoàn thành. Ảnh gốc q1/q2 đã lưu và ánh xạ tại [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md); mở ảnh đó khi cần xem UI. `Đã nối mã` khác với `đã chạy thật`. Các bước được ghi từ hướng dẫn người dùng và mã hiện tại; không suy ra màn chưa có ảnh. Dữ liệu nhạy cảm không ghi vào file này.
 
@@ -30,7 +35,7 @@ Dán 1–12 hàng `SĐT | Mật khẩu | Tên | Thẻ | URL OTP`. Cột trống,
 
 **Sửa từng máy sau lỗi tạo Profile, 21/11/2026:** Khi mẻ đã khóa, ô dán hàng loạt vẫn không ghi đè 12 máy. Chọn đúng máy có Profile chưa tạo và lỗi/đã dừng, dán một proxy vào ô máy đó hoặc sửa Host/Port/User/Pass, SĐT/Mật khẩu/Tên/Thẻ/URL OTP ngay trong khung chi tiết. Các máy đã có Device ID hoặc kết quả Create chưa chắc chắn không mở sửa proxy. Bấm Tiếp tục sau khi nhập xong để kiểm tra và cập nhật tác vụ riêng của máy đó; không tráo hàng với máy khác. Nếu máy đã chờ tạo lại, thao tác bắt đầu sửa hủy lượt chờ cũ để không dùng dữ liệu đang nhập dở. Đây là mã và test mô phỏng, chưa thử trên phiên tool đang mở.
 
-**Cập nhật 23/11/2026:** Khung máy đang chọn có nút xóa riêng proxy, hàng Amazon và OTP tạm trong RAM; tên Profile và các máy khác giữ nguyên. Ô một hàng nhận `SĐT | Mật khẩu | Tên | Thẻ | URL OTP` (thẻ có thể trống) rồi điền vào đúng máy đã chọn. Với mẻ đã khóa, chỉ máy lỗi/dừng trước Create và chưa có Device ID mới cho xóa hoặc thay hàng. Bấm Tiếp tục sau khi nhập đủ để tạo lại ngay; hai lượt tạo Profile dùng chung khóa cửa sổ Swarmote, không đợi kết thúc cả mẻ. Đây là mã và test mô phỏng; cửa sổ đang mở chưa nạp thay đổi.
+**Cập nhật 23/11/2026; rà soát dán 26/11:** Khung máy đang chọn có nút xóa riêng proxy, hàng Amazon và OTP tạm trong RAM; tên Profile và các máy khác giữ nguyên. Ô một hàng nhận `SĐT | Mật khẩu | Tên | Thẻ | URL OTP` (thẻ có thể trống) rồi điền vào đúng máy đã chọn; nay cũng nhận hàng tab/CSV có cột thừa, giữ hàng ngăn bằng `|` như trước. Với mẻ đã khóa, chỉ máy lỗi/dừng trước Create và chưa có Device ID mới cho xóa hoặc thay hàng. Bấm Tiếp tục sau khi nhập đủ để tạo lại ngay; hai lượt tạo Profile dùng chung khóa cửa sổ Swarmote, không đợi kết thúc cả mẻ. Đây là mã và test mô phỏng; cửa sổ đang mở chưa nạp thay đổi.
 
 ## P02 — Kiểm tra proxy và tên Profile
 
@@ -56,7 +61,9 @@ Bấm Test Proxy; chỉ khi hiện Test Passed mới bấm Create. Nếu form c�
 
 ## P06 — Start điện thoại và chờ slot
 
-Tool gửi Start cho Profile đã xác nhận, tuân giới hạn số máy Running, và đợi slot nếu đủ máy. Mỗi máy có Device ID riêng. Khi máy trước về Offline, Profile chờ tự mở. Nếu Swarmote chưa bật nút Start dù slot đã trống, tool giữ Profile trong hàng đợi và tự thử lại tối đa 60 giây; chỉ áp dụng khi chắc chắn chưa hề gọi nút Start. Lỗi sau khi đã gọi Start vẫn phải xác minh trạng thái, không gửi lặp. **Đã nối mã và test mô phỏng 4 máy/2 slot; chưa xác minh lần chuyển lượt mới trên Swarmote thật.**
+**Xếp cửa sổ 26/11/2026:** Khi cửa sổ điện thoại mới xuất hiện, tool xếp các cửa sổ Swarmote đang hiện trên cùng màn hình theo thứ tự số máy. Chỉ di chuyển cửa sổ Windows khi đủ chỗ, thu nhỏ nếu nhiều cửa sổ không còn vừa màn hình; bước Start, Device ID, ADB và luồng Amazon giữ nguyên. Cửa sổ khác, cửa sổ quản lý và máy đã thu nhỏ không được đưa vào bố cục. Xếp lỗi không chặn P07. Đã kiểm thử mô phỏng, chưa xếp trên phiên người dùng đang mở.
+
+**Sửa 26/11/2026:** Settings đặt N chỉ cho Máy 1–N tự Start khi Chạy mẻ; Profile của máy sau vẫn được tạo nhưng chờ người dùng bấm Tiếp tục. Máy trước Offline không tự mở máy kế tiếp. Nút Tiếp tục Start riêng đúng máy đã chọn, không tính vào N lượt tự Start; bộ điều phối không Start lại máy đó. Mỗi máy giữ Device ID riêng. Nếu nút Start chưa sẵn sàng trước khi gửi, đường tự Start của N máy đầu vẫn thử lại có hạn; lỗi sau khi đã gọi Start phải xác minh trạng thái, không gửi lặp. Đây là mã/test mô phỏng, chưa xác nhận phiên Swarmote đang mở đã nạp thay đổi.
 
 ## P07 — Mở Apps, tìm z và cài Amazon
 
@@ -138,7 +145,7 @@ Chỉ bấm Continue khi form và số US +1 khớp hàng của máy. Nếu Amaz
 
 ## Chung b8 — Proceed to create an account
 
-Xác nhận màn `Looks like you are new to Amazon` và SĐT, rồi bấm `Proceed to create an account`. **Đã nối mã; chưa thử thật.**
+Xác nhận màn `Looks like you are new to Amazon` và SĐT, rồi bấm `Proceed to create an account`. Chờ đọc và xác nhận form nhập tên; chuyển kết quả đọc đã xác nhận cho b9 để tránh đọc toàn màn thêm một lượt. Khi Dừng/Tiếp tục và không còn kết quả đọc trong RAM, b9 đọc lại màn thật trước khi gõ. **Đã nối mã và test mô phỏng; chưa thử thật.**
 
 ## Chung b9 — Nhập tên và Continue
 
@@ -174,6 +181,8 @@ Nếu cây WebView không xuất nút `Verify mobile number`, riêng nhánh đă
 
 ## Chung b12–b15 — Mở ba gạch rồi ba lượt điều hướng ngẫu nhiên
 
+**Nhịp cuộn hiện hành, sửa 26/11/2026:** B13/b14/b15 chờ nửa thời gian xem sau cú bấm, vuốt vừa một lần từ dưới lên trong menu/trang con, rồi xem hết nửa còn lại trước khi Back khỏi trang con. Tổng thời gian xem giữ 16 giây ở Tạo và 1 giây ở Đăng nhập. Dừng/Tiếp tục sau cú vuốt không cuộn hoặc bấm lại. Đây là mã/test mô phỏng; chưa kiểm trên Swarmote thật.
+
 **Bổ sung b13–b15 ngày 20/11/2026:** Sau OTP có thể hiện menu thẻ hoặc menu danh sách. Nếu cây Android chỉ thấy tiêu đề mà thiếu các hàng, đọc OCR ảnh hiện tại để chọn mục trước khi cuộn/dừng. OCR ảnh thật nhận đủ sáu mục danh sách; test mô phỏng đạt, chưa chạy Swarmote thật.
 
 **Bổ sung b13–b15 ngày 21/11/2026:** Ưu tiên bấm mục lớn đang hiện; chỉ dùng mục con nếu các mục lớn không còn lựa chọn hợp lệ. Sau khi xem trang con, đọc trạng thái tối đa 4 giây; nếu chậm/lỗi vẫn cuộn một lượt rồi Back, không chèn thêm lượt đọc giữa hai thao tác. Nếu vẫn ở MENU thì không cuộn/Back. Dừng/Tiếp tục giữ trạng thái lượt đã bấm, thời gian xem hiện hành. 54 test random PASS; chưa thử máy thật và phiên tool đang mở chưa nạp bản mới.
@@ -189,6 +198,8 @@ Nếu cây WebView không xuất nút `Verify mobile number`, riêng nhánh đă
 **Chờ Trang chủ sau OTP và chuyển b15 → b16 — 19/11:** Amazon có thể hiện Trang chủ trước khi menu/cây UI tải xong. B12 đọc lại để mở Browse tối đa 90 giây/8 lượt phục hồi; b13–b15 tối đa 60 giây/5 lượt. Tool báo đang chờ hoặc lỗi cụ thể trên hàng máy, giữ mốc chờ khi Dừng/Tiếp tục. Sau b15 đủ 3–5 giây, đánh dấu hoàn tất và báo chuyển b16 hình người ngay, không bấm lặp mục ngẫu nhiên. Chưa thử lại trên Swarmote thật với phiên mã mới.
 
 ## Tạo tài khoản b23–b31 — Account và Your Addresses
+
+**Nhánh Đăng nhập tùy chọn, cập nhật 26/11/2026:** Hai công tắc mới trong Settings chỉ tác động máy bắt đầu ở chế độ Đăng nhập: “thêm địa chỉ rồi thẻ” nối b23–b39 sau b22, còn “chỉ thêm thẻ” nối b32–b39 sau b22. B32 trong nhánh chỉ thẻ lấy b22 hoàn tất làm điều kiện vào, không cần b31. Hai công tắc loại trừ nhau; nếu đều tắt, Đăng nhập vẫn dừng ở b22. Luồng Tạo vẫn dùng b23–b39 hiện có. Đây là mã và test mô phỏng; chưa xác nhận trên phiên tool thật.
 
 **B28, cập nhật 20/11/2026:** Ảnh mới cho thấy Street address đã có địa chỉ nhưng mã tìm kiếm đôi khi vào ô ngay dưới (Unit). Trước khi gõ, ô focus phải nằm trọn vùng Street và không chồng sang Unit; nếu Street đã có địa chỉ mà ZIP chưa rõ thì dừng b28 để đọc/sửa trên máy, không nhập lại số. Đã kiểm tra test mô phỏng, chưa xác minh thao tác máy thật.
 
@@ -206,7 +217,7 @@ Nếu cây WebView không xuất nút `Verify mobile number`, riêng nhánh đă
 
 **B28–b30, đính chính theo ba ảnh mới 21/11/2026:** Sau khi nhập số ở Street, thấy danh sách gợi ý thì b28 chọn ngay một địa chỉ, không chờ ZIP hoặc kiểm nội dung gợi ý. B29 chỉ dùng OCR tìm chữ Make this my default address để định vị ô vuông bên trái rồi bấm một lần; không đọc trạng thái tích trước hoặc sau, vì ảnh đầu vào cho thấy ô trống. B30 cuộn xuống khi chưa thấy Add address, chụp tìm đúng chữ rồi bấm ngay; sau cú bấm vẫn xác nhận Address saved/Personal Addresses trước khi sang b31. Đây là mã và 24 test mô phỏng PASS, chưa chạy trên máy thật; phiên desktop đang mở không tự nạp mã mới. Các mô tả kiểm pixel/tích trước đó là lịch sử đã được thay bằng chỉ dẫn này.
 
-**B31, đính chính 21/11/2026:** Ảnh 11 cho thấy sau `Address saved`, bấm tab hình người ở thanh dưới. B31 hoàn tất ngay sau cú bấm tab hình người; b32 cuộn ngay, không đọc xác nhận trang Account. Tìm tab từ cây Android một lượt; thiếu nhãn dùng vị trí tab trên máy hiện tại. Đây là mã/test mô phỏng, chưa xác nhận trên máy thật hoặc phiên đang mở.
+**B31, đính chính 21/11; sửa nhịp 26/11/2026:** Ảnh 11 cho thấy sau `Address saved`, bấm tab hình người ở thanh dưới. B31 hoàn tất ngay sau cú bấm; b32 chờ 2,5 giây tính từ cú bấm rồi mới cuộn, không đọc xác nhận trang Account. Tìm tab từ cây Android một lượt; thiếu nhãn dùng vị trí tab trên máy hiện tại. Dừng/Tiếp tục giữ mốc chờ, không bấm hình người thêm lần nữa. Đây là mã/test mô phỏng, chưa xác nhận trên máy thật hoặc phiên đang mở.
 
 **B24–b25, cập nhật 21/11/2026:** Sau b23, b24 chụp OCR tìm đúng chữ Your Addresses; thấy thì chuyển b25, chưa thấy thì cuộn xuống và chụp lại, kể cả ảnh ít chữ. Nếu sau cú cuộn vẫn chỉ là trang chen vào không có nội dung Account, Back một lần rồi chụp tìm tiếp; không bấm lại Account. B25 chụp mới, thấy đúng chữ Your Addresses thì bấm ngay. Các nhãn khác chỉ giúp quyết định Back khỏi trang chen vào, không là điều kiện để chọn Your Addresses. 9 test create_address_flow PASS; chưa có ảnh quảng cáo cụ thể hay thử máy thật, phiên hiện hành chưa nạp mã mới.
 

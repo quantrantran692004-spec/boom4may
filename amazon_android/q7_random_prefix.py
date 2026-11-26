@@ -12,6 +12,7 @@ from .account_flow import (_bounds, _read_hierarchy, _text, _visible,
                            build_common_steps, screen)
 from .cloud import CloudPhone, cloud_adb
 from .core import ToolError
+from .browse_view_scroll import scroll_view, wait_until
 from .post_menu import (AttemptDeadline, PostMenuStep, RecoverableStepError,
                         RegistrationState)
 from .runner import RunJob
@@ -132,6 +133,23 @@ def build_random_steps(phone: CloudPhone, on_otp,
         def run_browse(job: RunJob, deadline: PrefixDeadline,
                        stop: threading.Event) -> None:
             width, height = _size(phone, deadline)
+            def finish_view(point):
+                state.prefix_choices[number] = point
+                until = state.q7_prefix_view_until.setdefault(
+                    number, time.monotonic() + 1 + EXTRA_VIEW_SECONDS / 3)
+                if number not in state.prefix_view_scrolled:
+                    wait_until(until - (1 + EXTRA_VIEW_SECONDS / 3) / 2,
+                               deadline, stop)
+                    scroll_view(phone, width, height, deadline, stop,
+                                number, cloud_adb)
+                    state.prefix_view_scrolled.add(number)
+                wait_until(until, deadline, stop)
+                state.q7_prefix_view_until.pop(number, None)
+                state.prefix_completed.add(number)
+
+            if number in state.q7_prefix_view_until:
+                finish_view(state.prefix_choices[number])
+                return
             candidates = list(POINTS)
             used = set(state.prefix_choices.values())
             for attempt in range(4):
@@ -169,10 +187,7 @@ def build_random_steps(phone: CloudPhone, on_otp,
                 except ToolError:
                     after_card = []
                 if after_card and screen(after_card) != "MENU":
-                    if stop.wait(deadline.allowance(1 + EXTRA_VIEW_SECONDS / 3)):
-                        raise ToolError("Đã dừng máy này")
-                    state.prefix_choices[number] = point
-                    state.prefix_completed.add(number)
+                    finish_view(point)
                     return
                 try:
                     opened_child = _tap_child(phone, deadline, stop)
@@ -184,11 +199,8 @@ def build_random_steps(phone: CloudPhone, on_otp,
                     deadline.recovering(f"b{number}: chưa thấy mục con, thử thẻ khác")
                     continue
                 deadline.recovering(f"b{number}: đã mở một mục con ngẫu nhiên")
-                if stop.wait(deadline.allowance(1 + EXTRA_VIEW_SECONDS / 3)):
-                    raise ToolError("Đã dừng máy này")
                 deadline.remaining()
-                state.prefix_choices[number] = point
-                state.prefix_completed.add(number)
+                finish_view(point)
                 return
             raise RecoverableStepError(
                 f"b{number}: chưa mở được mục con; đang tự thử lại đúng máy")

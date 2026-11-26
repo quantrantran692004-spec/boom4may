@@ -53,7 +53,8 @@ class RunnerTests(unittest.TestCase):
     def execute(self, jobs=None, start_group_size=1, auto_close=True,
                 hide_profile_creation=False, menu_ready=None, stop_after_step=None,
                 proxy_prefix_ready=None, create_result=None,
-                trace_preparation=False):
+                trace_preparation=False, manual_slots=None, manual_override=False,
+                automatic_start_slots=None):
         events = []
         def shell(name, device_id, **kwargs):
             if trace_preparation:
@@ -99,8 +100,29 @@ class RunnerTests(unittest.TestCase):
                                hide_profile_creation=hide_profile_creation,
                                menu_ready=menu_ready,
                                proxy_prefix_ready=proxy_prefix_ready,
-                               stop_after_step=stop_after_step)
+                               stop_after_step=stop_after_step,
+                               manual_slots=manual_slots,
+                               manual_override=manual_override,
+                               automatic_start_slots=automatic_start_slots)
         return result, events
+
+    def test_two_running_slots_start_next_phone_when_one_closes(self):
+        result, events = self.execute(start_group_size=2)
+        self.assertEqual(result['menu_open'], 3)
+        self.assertEqual(result['created'], 3)
+        self.assertEqual(result['stopped'], 0)
+        self.assertEqual([call for call in self.calls if call.startswith('start:')],
+                         ['start:q1', 'start:q2', 'start:q3'])
+        self.assertEqual(self.registry.get('batch', 2)['state'], 'DONE')
+
+    def test_manual_continue_starts_third_after_automatic_two_are_used(self):
+        self.execute(self.jobs[:2], start_group_size=2)
+        result, _ = self.execute(
+            self.jobs[2:], start_group_size=2,
+            automatic_start_slots=frozenset({0, 1}),
+            manual_slots={('batch', 2)}, manual_override=True)
+        self.assertEqual(result['menu_open'], 1)
+        self.assertEqual(self.calls.count('start:q3'), 1)
 
     def test_fresh_install_uses_existing_tunnel_and_reaches_menu_before_panel_cleanup(self):
         def install(name, device_id=None, **_kwargs):
@@ -368,6 +390,55 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertIn("start:q3", self.calls)
         self.assertEqual(result["summary"]["menu_open"], 1)
+
+    def test_manual_running_phone_does_not_use_an_automatic_slot(self):
+        for index in (0, 1, 2):
+            item = self.registry.reserve('batch', index, self.status)
+            self.create(item['name'], self.jobs[index].proxy)
+            self.registry.mark('batch', index, 'READY', device_id=f'ACN{item["name"]}',
+                               stage='PROFILE_CONFIRMED')
+        self.running.update({'q1', 'q2'})
+        result, _ = self.execute(self.jobs[2:], start_group_size=2,
+                                 auto_close=False, manual_slots={('batch', 1)})
+        self.assertEqual(result['menu_open'], 1)
+        self.assertIn('start:q3', self.calls)
+        self.assertEqual(self.running, {'q1', 'q2', 'q3'})
+
+    def test_manual_override_starts_when_two_automatic_phones_are_running(self):
+        for index in (0, 1, 2):
+            item = self.registry.reserve('batch', index, self.status)
+            self.create(item['name'], self.jobs[index].proxy)
+            self.registry.mark('batch', index, 'READY', device_id=f'ACN{item["name"]}',
+                               stage='PROFILE_CONFIRMED')
+        self.running.update({'q1', 'q2'})
+        result, _ = self.execute(self.jobs[2:], start_group_size=2,
+                                 auto_close=False, manual_slots={('batch', 2)},
+                                 manual_override=True)
+        self.assertEqual(result['menu_open'], 1)
+        self.assertIn('start:q3', self.calls)
+
+    def test_queued_phone_claimed_by_continue_is_not_started_by_automatic_runner(self):
+        for index in (0, 1, 2):
+            item = self.registry.reserve('batch', index, self.status)
+            self.create(item['name'], self.jobs[index].proxy)
+            self.registry.mark('batch', index, 'READY', device_id=f'ACN{item["name"]}',
+                               stage='PROFILE_CONFIRMED')
+        self.running.update({'q1', 'q2'})
+        manual_slots = set()
+        result = {}
+        def automatic():
+            result['summary'], _ = self.execute(self.jobs[2:], start_group_size=2,
+                                                 auto_close=False,
+                                                 manual_slots=manual_slots)
+        thread = threading.Thread(target=automatic, daemon=True)
+        thread.start()
+        time.sleep(.2)
+        manual_slots.add(('batch', 2))
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertNotIn('start:q3', self.calls)
+        self.assertEqual(result['summary']['stopped'], 0)
+        self.assertEqual(self.registry.get('batch', 2)['state'], 'READY')
 
     def test_full_resume_counts_running_profiles_before_starting_waiter(self):
         for index in range(3):

@@ -55,7 +55,8 @@ def _phone_preparation_lock(job):
         return _preparation_locks.setdefault((job.batch_id, job.index), threading.RLock())
 
 
-def retry_preparation(job, registry, emit, stop, menu_ready=None, stop_after_step=None):
+def retry_preparation(job, registry, emit, stop, menu_ready=None, stop_after_step=None,
+                      start_if_offline=False):
     """Resume a confirmed phone independently of other phones being prepared."""
     with _phone_preparation_lock(job):
         if stop.is_set() or (stop_after_step is not None and stop_after_step.is_set()):
@@ -67,6 +68,16 @@ def retry_preparation(job, registry, emit, stop, menu_ready=None, stop_after_ste
             raise ToolError("Profile chưa xác nhận Device ID; kiểm tra bước tạo Profile của máy này")
         if item.get("state") == "UNCERTAIN":
             raise ToolError("Kết quả tạo Profile chưa chắc chắn; kiểm tra đúng Profile trước khi nối lại")
+        if start_if_offline:
+            profile = profile_status(item["name"])
+            if profile.get("device_id") != item["device_id"]:
+                raise ToolError("Device ID đã đổi; không Start lại Profile này")
+            if profile["state"] == "Offline":
+                emit(job.index, f"Đang mở thủ công {item['name']}", "running", item["name"])
+                started = _start_and_confirm(item["name"], item["device_id"], stop)
+                if (started.get("device_id") != item["device_id"] or
+                        started.get("state") not in {"Starting", "Running"}):
+                    raise ToolError("Start thủ công chưa xác nhận đúng Device ID")
         if item["stage"] == "MENU_OPEN":
             shell = open_adb_shell(item["name"], item["device_id"], stop=stop)
             if stop.is_set() or (stop_after_step is not None and stop_after_step.is_set()):
@@ -219,10 +230,13 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
               hide_profile_creation: bool = False,
               menu_ready: MenuReady | None = None,
               proxy_prefix_ready: Callable[[int, str], None] | None = None,
-              stop_after_step: Mapping[int, threading.Event] | None = None) -> dict[str, int]:
-    """Create serially, prepare phones concurrently, and fill freed Running slots."""
+              stop_after_step: Mapping[int, threading.Event] | None = None,
+              manual_slots: set[tuple[str, int]] | None = None,
+              manual_override: bool = False,
+              automatic_start_slots: frozenset[int] | None = None) -> dict[str, int]:
+    """Create serially and keep the configured number of phones Running."""
     if not 1 <= start_group_size <= 12:
-        raise ToolError("Giới hạn máy Running phải từ 1 đến 12")
+        raise ToolError("Số máy tự Start phải từ 1 đến 12")
     summary = {"created": 0, "menu_open": 0, "error": 0, "stopped": 0}
     waiting: deque[tuple[RunJob, str, str]] = deque()
     active: dict[str, dict] = {}  # Starting phones reserve a slot until Running.
@@ -247,6 +261,9 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
         event = stop_after_step.get(job.index) if stop_after_step is not None else None
         return event is not None and event.is_set()
 
+    def manually_selected(job: RunJob) -> bool:
+        return manual_slots is not None and (job.batch_id, job.index) in manual_slots
+
     def stop_job(job: RunJob, name: str | None, detail: str) -> None:
         if registry.get(job.batch_id, job.index) is not None:
             registry.mark(job.batch_id, job.index, "STOPPED")
@@ -269,14 +286,23 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
             if state.get("device_id") != item["device_id"]:
                 raise ToolError(f"{item['name']}: Device ID đã đổi; không thể kiểm tra giới hạn máy")
             if state["state"] == "Running":
-                active[item["name"]] = {"device_id": item["device_id"],
-                                        "seen_running": True}
+                if not (manual_slots is not None and
+                        (batch_id, item["slot"]) in manual_slots) and (
+                        automatic_start_slots is None or
+                        item["slot"] in automatic_start_slots):
+                    active[item["name"]] = {"device_id": item["device_id"],
+                                            "seen_running": True,
+                                            "slot": item["slot"], "batch_id": batch_id}
 
     with ThreadPoolExecutor(max_workers=12, thread_name_prefix="swarmote-phone") as pool:
         def refresh_slots() -> None:
             nonlocal slot_warning_sent
             status_unknown = False
             for name in list(active):
+                if (manual_slots is not None and
+                        (active[name]["batch_id"], active[name]["slot"]) in manual_slots):
+                    del active[name]
+                    continue
                 try:
                     state = profile_status(name)
                 except ToolError:
@@ -303,6 +329,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
             if waiting:
                 remaining = deque()
                 for job, name, device_id in waiting:
+                    if manually_selected(job) and not manual_override:
+                        continue  # Continue owns this phone; do not Start it twice.
                     if requested(job):
                         stop_job(job, name, "chưa mở máy")
                     else:
@@ -312,15 +340,22 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
             if start_blocked or stop.is_set():
                 return
             refresh_slots()
-            while waiting and len(active) < start_group_size and not stop.is_set():
+            while waiting and (manual_override or len(active) < start_group_size) and not stop.is_set():
                 job, name, device_id = waiting[0]
+                if manually_selected(job) and not manual_override:
+                    waiting.popleft()
+                    continue
                 if requested(job):
                     waiting.popleft()
                     stop_job(job, name, "chưa mở máy")
                     continue
                 emit(job.index, f"Đang mở máy {name}", "running", name)
                 try:
-                    started = _start_and_confirm(name, device_id, stop)
+                    with _phone_preparation_lock(job):
+                        if manually_selected(job) and not manual_override:
+                            waiting.popleft()
+                            continue
+                        started = _start_and_confirm(name, device_id, stop)
                     if (started["state"] not in {"Starting", "Running"} or
                             started.get("device_id") != device_id):
                         raise ToolError(f"{name}: Start chưa xác nhận đúng Device ID")
@@ -356,8 +391,11 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     return
                 waiting.popleft()
                 start_retry_since.pop(name, None)
+                if manually_selected(job) and not manual_override:
+                    continue  # Manual worker adopts the confirmed Start.
                 active[name] = {"device_id": device_id,
-                                "seen_running": started["state"] == "Running"}
+                                "seen_running": started["state"] == "Running",
+                                "slot": job.index, "batch_id": job.batch_id}
                 if requested(job):
                     stop_job(job, name, "sau khi mở máy")
                     continue
@@ -372,6 +410,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                 future_by_name[name] = future
 
         for position, job in enumerate(jobs):
+            if manually_selected(job) and not manual_override:
+                continue
             if stop.is_set():
                 for remaining in jobs[position:]:
                     emit(remaining.index, "Đã dừng trước khi tạo Profile", "stopped", None)
@@ -470,7 +510,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                              "stopped", name)
                         summary["stopped"] += 1
                         continue
-                    active[name] = {"device_id": device_id, "seen_running": True}
+                    active[name] = {"device_id": device_id, "seen_running": True,
+                                    "slot": job.index, "batch_id": job.batch_id}
                     if menu_ready is not None and job.account is not None:
                         shell = open_adb_shell(name, device_id, stop=stop,
                             progress=lambda message, slot=job.index, profile=name:
@@ -486,7 +527,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     continue
                 emit(job.index, f"Đã xác nhận Profile {name}", "created", name)
                 if found["state"] == "Running":
-                    active[name] = {"device_id": device_id, "seen_running": True}
+                    active[name] = {"device_id": device_id, "seen_running": True,
+                                    "slot": job.index, "batch_id": job.batch_id}
                     future = pool.submit(_prepare_phone, job, name, device_id,
                                          registry, emit, stop, menu_ready,
                                          stop_after_step.get(job.index) if stop_after_step else None)

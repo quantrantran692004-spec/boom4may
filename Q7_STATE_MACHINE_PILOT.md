@@ -4,19 +4,19 @@ Ngày 14/11/2026. Bản này đã nối mã và kiểm thử mô phỏng; ngư�
 q7 trên Swarmote thật. Không tự khởi động lại phiên tool đang mở vì dữ liệu mẻ
 chỉ ở RAM. Tiến trình đang mở không tự nạp mã mới.
 
+**Trạng thái 26/11/2026:** Bản thử này không còn nằm trong factory Máy 7.
+Máy 7 dùng toàn bộ luồng chung `random_prefix.build_random_steps` như 11 máy
+còn lại. Lựa chọn ngẫu nhiên và dữ liệu theo hàng vẫn riêng từng máy. Các mục
+b4–b11 dưới đây chỉ mô tả bản thử cũ để tham chiếu.
+
 ## Phạm vi và quan hệ với luồng cũ
 
-- b1–b3 của q7 vẫn là ba lượt ngẫu nhiên. Mỗi lượt thử mở một thẻ danh
-  mục, đọc cây Android đang hiện và bấm một mục con có nhãn trong 14 ảnh menu.
-  Sau mỗi lượt thành công xem thêm 10 giây, tổng thêm 30 giây cho b1–b3. Nếu
-  mục con mở trang khác, lượt kế chạm Browse menu; trước b4 cũng chạm Browse
-  menu. Cập nhật 18/11: nếu thẻ đã mở sang trang khác thì xem đủ thời gian
-  của lượt đó rồi mới hoàn tất; vẫn phải đủ cả ba lượt trước b4, không nhảy bước.
-  Mỗi lượt q7 có hạn 90 giây để tìm mục con; hết hạn thì dừng tại lượt đó.
-- q1–q6 và q8–q12 dùng `random_prefix.py`, nay chọn cả mục con đang hiện và
-  xem 3–5 giây từng lượt; nhịp thêm 30 giây vẫn riêng trong `q7_random_prefix.py`.
-- Chỉ q7 dùng `q7_state_machine.py` quanh các hành động b4–b11 hiện có trong
-  `account_flow.build_common_steps`. q1–q6 và q8–q12 tiếp tục dùng bộ cũ.
+- Máy 7 hiện dùng b1–b3 chung: chọn ngẫu nhiên thẻ hoặc mục con đang hiện,
+  xem 3–5 giây mỗi lượt và cuộn vừa một lần ở giữa nhịp xem. Nếu mở trang
+  khác thì lượt sau trở lại menu. Dừng/Tiếp tục giữ cú bấm và mốc xem.
+  Quy tắc 11 giây, bắt buộc bấm mục con và hạn 90 giây là bản thử cũ.
+- Máy 7 hiện cũng dùng b4–b11 từ `account_flow.build_common_steps` như 11 máy
+  còn lại. Lớp kiểm tra `q7_state_machine.py` chỉ còn trong mã tham chiếu.
 - Dùng ADB, UI hierarchy và đường OCR dự phòng đã có. Không thêm AI Vision,
   cơ sở dữ liệu hay framework. Trạng thái bước và dấu SMS/Create nằm trong
   `PostMenuSession`/`RegistrationState` của q7 trong RAM.
@@ -75,12 +75,13 @@ người dùng Dừng có loại lỗi riêng trong q7. Lỗi focus/locator từ
 `PostMenuSession` tăng chỉ số bước sau khi action trả về; với q7, action b4–b11
 chỉ trả về sau `ResultVerifier`, nên chưa có bằng chứng thì không tăng bước.
 
-## Cách thử thật q7 sau khi người dùng sẵn sàng
+## Cách thử bản pilot cũ (không áp dụng cho factory hiện hành)
 
 1. Giữ hoặc ghi lại dữ liệu mẻ hiện tại trước khi tự mở bản mã mới; không giả
    định tiến trình đang mở đã nạp thay đổi. Không tạo lại Profile q7 trùng tên.
 2. Chỉ chọn Máy 7 với hàng Amazon và ADB serial đúng q7. Quan sát b1, b2, b3:
-   mỗi lượt mở một mục con, xem thêm khoảng 10 giây; sau lượt ba quay về menu.
+   mỗi lượt bấm thẻ hoặc mục con, cuộn giữa nhịp xem 3–5 giây như máy khác;
+   sau lượt ba mới vào b4.
 3. Ở b4–b11, ghi màn hiện tại và thông báo bước nếu q7 dừng. Bấm Tiếp tục chỉ
    sau khi đã đối chiếu màn. Nếu sau Create/Verify về Trang chủ có tab Browse
    hiện rõ, q7 nối b12 để mở menu; màn lạ thì dừng. Không coi thông báo
@@ -88,10 +89,9 @@ chỉ trả về sau `ResultVerifier`, nên chưa có bằng chứng thì không
 
 ## Giới hạn
 
-- Chưa có ADB/UI dump thật của q7 hoặc màn sau Create. Các mục con chỉ được
-  chọn khi cây Android đưa ra nhãn và vùng bấm hợp lệ; nếu WebView không đưa
-  ra dữ liệu này, b1–b3 có thể tiếp tục thử các thẻ khác nhưng chưa thể khẳng
-  định sẽ mở được mục con trên q7 thật.
+- Chưa có ADB/UI dump thật của q7 hoặc màn sau Create. B1–b3 dùng đường chọn
+  chung: có nhãn/vùng bấm hợp lệ thì có thể chọn mục con; thiếu dữ liệu này
+  thì vẫn có đường bấm thẻ theo kích thước Android. Chưa xác nhận trên q7 thật.
 - OCR dự phòng đã có trong dự án nhưng môi trường `.venv` đang mở từng được
   ghi nhận lỗi ONNX Runtime khi import; chưa thay môi trường của tiến trình
   đang chạy.
