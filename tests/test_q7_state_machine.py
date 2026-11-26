@@ -40,8 +40,7 @@ class Q7StateMachineTests(unittest.TestCase):
         self.assertEqual([step.name for step in steps[3:post_auth]],
                          [spec.name for spec in SPECS])
         self.assertEqual([step.name.split(" ", 1)[0] for step in steps[post_auth:]],
-                         [f'b{i}' for i in range(12, 17)] + ['b16a'] +
-                         [f'b{i}' for i in range(17, 23)])
+                         [f'b{i}' for i in range(12, 23)])
         self.assertEqual([step.name for step in steps[:3]],
                          ["b1 ngẫu nhiên", "b2 ngẫu nhiên", "b3 ngẫu nhiên"])
 

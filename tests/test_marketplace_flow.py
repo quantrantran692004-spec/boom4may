@@ -87,62 +87,67 @@ class MarketplaceFlowTests(unittest.TestCase):
         self.assertIs(tap.call_args.args[1], en)
         self.assertIn(17, state.marketplace_completed)
 
-    def test_b16a_taps_account_waits_four_seconds_and_backs(self):
+    def test_b17_waits_ten_seconds_after_person_tap_then_taps_en(self):
         state = self.state(); state.marketplace_completed.add(16)
-        state.marketplace_account_preview_needed = True
-        target = node('Account', '[30,105][170,145]', vision='true')
+        state.marketplace_person_tapped_at = 100.0
+        en = node('EN', '[372,103][400,122]', vision='true')
         actions = []
-        def pause(stop, seconds):
-            actions.append(('wait', seconds))
-            self.wait(stop, seconds)
-        with patch.object(flow, '_read_text_region', return_value=[target]), \
+        with patch.object(flow, '_read_text_region', return_value=[en]), \
+             patch.object(flow, '_pause', side_effect=lambda stop, seconds:
+                          (actions.append(('wait', seconds)), self.wait(stop, seconds))), \
              patch.object(flow, '_tap_for_transition',
-                          side_effect=lambda *_args: actions.append(('tap', 'Account'))), \
-             patch.object(flow, '_pause', side_effect=pause), \
-             patch.object(flow, 'cloud_adb',
-                          side_effect=lambda *_args, **_kw: actions.append(('back', None))):
-            flow.build_account_preview_step(self.phone, state).action(
-                None, AttemptDeadline(None), self.stop)
-        self.assertEqual(actions, [('tap', 'Account'), ('wait', 4.0), ('back', None)])
-        self.assertTrue(state.marketplace_account_preview_back_sent)
+                          side_effect=lambda *_args: actions.append(('tap', 'EN'))), \
+             patch.object(flow, 'cloud_adb', side_effect=AssertionError('unexpected Back')):
+            self.action(17, state)(None, AttemptDeadline(None), self.stop)
+        self.assertEqual(actions, [('wait', 10.0), ('tap', 'EN')])
+        self.assertIn(17, state.marketplace_completed)
 
-    def test_b16a_resume_waits_remaining_time_without_repeating_account_tap(self):
+    def test_b17_resume_waits_remaining_time_without_repeating_person_tap(self):
         state = self.state(); state.marketplace_completed.add(16)
-        state.marketplace_account_preview_needed = True
-        target = node('Account', '[30,105][170,145]', vision='true')
-        actions = []
-        waits = [True, False]
+        state.marketplace_person_tapped_at = 100.0
+        self.clock[0] = 103.0
+        en = node('EN', '[372,103][400,122]', vision='true')
+        waits = []
+        taps = []
 
         def pause(stop, seconds):
-            actions.append(('wait', seconds))
-            if waits.pop(0):
+            waits.append(seconds)
+            if len(waits) == 1:
                 raise ToolError('Đã dừng máy này')
             self.wait(stop, seconds)
 
-        with patch.object(flow, '_read_text_region', return_value=[target]) as read, \
-             patch.object(flow, '_tap_for_transition',
-                          side_effect=lambda *_args: actions.append(('tap', 'Account'))), \
+        with patch.object(flow, '_read_text_region', return_value=[en]) as read, \
              patch.object(flow, '_pause', side_effect=pause), \
-             patch.object(flow, 'cloud_adb',
-                          side_effect=lambda *_args, **_kw: actions.append(('back', None))):
-            step = flow.build_account_preview_step(self.phone, state)
+             patch.object(flow, '_tap_for_transition',
+                          side_effect=lambda *_args: taps.append('EN')):
             with self.assertRaisesRegex(ToolError, 'Đã dừng'):
-                step.action(None, AttemptDeadline(None), self.stop)
-            self.clock[0] += 1.5
-            step.action(None, AttemptDeadline(None), self.stop)
-        self.assertEqual(actions, [('tap', 'Account'), ('wait', 4.0),
-                                   ('wait', 2.5), ('back', None)])
+                self.action(17, state)(None, AttemptDeadline(None), self.stop)
+            self.clock[0] += 2.0
+            self.action(17, state)(None, AttemptDeadline(None), self.stop)
+        self.assertEqual(waits, [7.0, 5.0])
+        self.assertEqual(taps, ['EN'])
         read.assert_called_once()
 
-    def test_b16a_skips_when_b16_did_not_tap_the_person_tab(self):
+    def test_b17_does_not_wait_when_b16_found_machine_already_advanced(self):
         state = self.state(); state.marketplace_completed.add(16)
-        with patch.object(flow, '_read_text_region',
-                          side_effect=AssertionError('should not read')):
-            flow.build_account_preview_step(self.phone, state).action(
-                None, AttemptDeadline(None), self.stop)
-        self.assertFalse(state.marketplace_account_preview_back_sent)
+        en = node('EN', '[372,103][400,122]', vision='true')
+        with patch.object(flow, '_read_text_region', return_value=[en]), \
+             patch.object(flow, '_pause') as pause, \
+             patch.object(flow, '_tap_for_transition') as tap:
+            self.action(17, state)(None, AttemptDeadline(None), self.stop)
+        pause.assert_not_called()
+        tap.assert_called_once()
 
-    def test_all_factories_place_account_preview_between_b16_and_b17(self):
+    def test_b16_finishes_after_one_person_tap_without_waiting_for_account_content(self):
+        state = self.state()
+        with patch.object(flow, '_read', return_value=[TAB, BROWSE]), \
+             patch.object(flow, '_tap_for_transition') as tap:
+            self.action(16, state)(None, AttemptDeadline(None), self.stop)
+        tap.assert_called_once()
+        self.assertIn(16, state.marketplace_completed)
+        self.assertEqual(state.marketplace_person_tapped_at, 100.0)
+
+    def test_all_factories_connect_b16_directly_to_b17(self):
         for mode in ('create', 'login'):
             for index, factory in POST_MENU_STEP_FACTORIES.items():
                 with self.subTest(mode=mode, slot=index + 1):
@@ -150,7 +155,7 @@ class MarketplaceFlowTests(unittest.TestCase):
                     steps = factory(self.phone, lambda _: None, registration=state)
                     names = [step.name.split(' ', 1)[0] for step in steps]
                     b16 = names.index('b16')
-                    self.assertEqual(names[b16:b16 + 3], ['b16', 'b16a', 'b17'])
+                    self.assertEqual(names[b16:b16 + 2], ['b16', 'b17'])
 
     def test_all_twelve_factories_and_both_modes_run_shared_b16_to_b22(self):
         for mode in ('create', 'login'):
@@ -159,6 +164,7 @@ class MarketplaceFlowTests(unittest.TestCase):
                     phone = CloudPhone(f'127.0.0.1:{5001+index}')
                     state = self.state(); state.flow_mode = mode
                     stages = ['page']; loading = [0]; taps = []; swipes = []
+                    tap_times = {}
                     def read(active_phone, *_args, **_kwargs):
                         self.assertEqual(active_phone.serial, phone.serial)
                         stage = stages[0]
@@ -169,7 +175,6 @@ class MarketplaceFlowTests(unittest.TestCase):
                             stages[0] = 'page'
                             return [TAB, BROWSE]
                         return {'page': [TAB, BROWSE], 'account': ACCOUNT,
-                                'account_detail': [node('Your Addresses')],
                                 'settings': settings('Singapore'), 'top': TOP,
                                 'bottom': BOTTOM, 'us': settings('United States')}[stage]
                     def tap(active_phone, target, *_args):
@@ -177,10 +182,10 @@ class MarketplaceFlowTests(unittest.TestCase):
                         label = target.get('text') or target.get('content-desc')
                         taps.append(label)
                         if target is TAB:
+                            tap_times.setdefault('person', self.clock[0])
                             stages[0] = 'account'
-                        elif label == 'Account':
-                            stages[0] = 'account_detail'
                         elif label == 'EN':
+                            tap_times['en'] = self.clock[0]
                             stages[0] = 'settings'
                         elif label == 'Country/Region:':
                             stages[0] = 'top'
@@ -193,9 +198,7 @@ class MarketplaceFlowTests(unittest.TestCase):
                         if args[:3] == ('shell', 'input', 'swipe'):
                             swipes.append(args); stages[0] = 'bottom'
                         elif args[:3] == ('shell', 'input', 'keyevent'):
-                            self.assertEqual(args[-1], 'KEYCODE_BACK')
-                            self.assertEqual(stages[0], 'account_detail')
-                            stages[0] = 'account'
+                            self.fail('Unexpected Back between b16 and b17')
                         return SimpleNamespace(stdout='Physical size: 420x910')
                     steps = factory(phone, lambda _: None, registration=state)
                     start = next(i for i,s in enumerate(steps) if s.name.startswith('b16 '))
@@ -204,14 +207,15 @@ class MarketplaceFlowTests(unittest.TestCase):
                     with patch.object(flow, '_read', side_effect=read), \
                          patch.object(flow, '_tap_for_transition', side_effect=tap), \
                          patch.object(flow, 'cloud_adb', side_effect=adb):
-                        session.run(RunJob(index, 'market-test', None), steps[:start+8],
+                        session.run(RunJob(index, 'market-test', None), steps[:start+7],
                                     lambda *_: None, self.stop)
                     self.assertEqual(session.state, 'DONE', session.last_error)
                     self.assertEqual(state.marketplace_completed, set(range(16,23)))
                     self.assertTrue(state.marketplace_done_confirmed)
                     self.assertEqual(taps.count('Done'), 1)
-                    self.assertEqual(taps.count('Account'), 1)
+                    self.assertEqual(taps.count('Account'), 0)
                     self.assertEqual(taps.count('Your Account Tab, 2 of 4'), 2)
+                    self.assertGreaterEqual(tap_times['en'] - tap_times['person'], 10)
                     self.assertEqual(len(swipes), 1)
                     self.assertGreater(int(swipes[0][4]), int(swipes[0][6]))
 
@@ -537,14 +541,14 @@ class MarketplaceFlowTests(unittest.TestCase):
                         return {'keyboard': search, 'search': search, 'menu': menu,
                                 'account': ACCOUNT, 'settings': settings('Singapore'),
                                 'top': TOP, 'bottom': BOTTOM, 'us': settings('United States'),
-                                'viewer': viewer, 'account_detail': [node('Your Addresses')]}[stage[0]]
+                                'viewer': viewer}[stage[0]]
                     def adb(active_phone, *args, **kwargs):
                         self.assertEqual(active_phone, phone)
                         if args[:3] == ('shell', 'input', 'keyevent'):
                             self.assertEqual(args[-1], 'KEYCODE_BACK')
                             backs.append(stage[0])
                             stage[0] = {'keyboard': 'search', 'search': 'menu',
-                                        'viewer': 'menu', 'account_detail': 'account'}[stage[0]]
+                                        'viewer': 'menu'}[stage[0]]
                         elif args[:3] == ('shell', 'input', 'swipe'):
                             swipes.append(args); stage[0] = 'bottom'
                         if args[:3] == ('shell', 'dumpsys', 'window'):
@@ -562,8 +566,6 @@ class MarketplaceFlowTests(unittest.TestCase):
                             left, top, right, bottom = flow._bounds(target)
                             self.assertEqual(((left+right)/2, (top+bottom)/2), (150,835))
                             stage[0] = 'account'
-                        elif text == 'Account':
-                            stage[0] = 'account_detail'
                         else:
                             stage[0] = {'EN': 'settings', 'Country/Region:': 'top',
                                         'United States': 'us', 'Done': 'loading'}[text]
@@ -575,12 +577,12 @@ class MarketplaceFlowTests(unittest.TestCase):
                          patch.object(flow, 'cloud_adb', side_effect=adb), \
                          patch.object(flow, '_foreground', side_effect=FOREGROUND_CHECK), \
                          patch.object(flow, '_tap_for_transition', side_effect=tap):
-                        session.run(RunJob(index, 'search-recovery', None), steps[:start+8],
+                        session.run(RunJob(index, 'search-recovery', None), steps[:start+7],
                                     lambda *_: None, self.stop)
                     self.assertEqual(session.state, 'DONE', session.last_error)
                     self.assertEqual(state.marketplace_completed, set(range(16,23)))
-                    self.assertEqual(backs, ['keyboard', 'search', 'account_detail', 'viewer'])
-                    self.assertEqual(taps, ['person', 'Account', 'EN', 'Country/Region:',
+                    self.assertEqual(backs, ['keyboard', 'search', 'viewer'])
+                    self.assertEqual(taps, ['person', 'EN', 'Country/Region:',
                                             'United States', 'Done', 'person'])
                     self.assertEqual(len(swipes), 1)
 
