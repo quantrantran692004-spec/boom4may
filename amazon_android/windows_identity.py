@@ -26,6 +26,13 @@ def set_process_identity() -> None:
         function(APP_ID)
 
 
+def set_tk_icon(root) -> None:
+    """Set the actual Tk window icon in addition to taskbar relaunch metadata."""
+    icon = ROOT / "amazon_android" / "assets" / "swarmote_tool.ico"
+    if sys.platform == "win32" and icon.is_file():
+        root.iconbitmap(str(icon))
+
+
 def set_window_identity(hwnd: int) -> None:
     if sys.platform != "win32":
         return

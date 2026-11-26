@@ -6,6 +6,10 @@ Graphify hiện không trích xuất nội dung pixel của PNG do thiếu backe
 
 1717 × 916 px. Tài nguyên ảnh của giao diện tool, được `desktop.py` nạp vào khung đầu trang.
 
+## amazon_android/assets/swarmote_tool_square.png và swarmote_tool.ico
+
+Icon ứng dụng nền xanh đậm, lăng kính tím sáng, vuông 1254 × 1254 px. `swarmote_tool.ico` được xuất từ PNG này với các cỡ vuông 16–256 px để Windows hiển thị rõ trên Taskbar. Icon cũ là ảnh ngang có nền trong suốt, rất khó thấy ở 16 px; bản cũ còn trong lịch sử Git.
+
 ## assets/ui_history/reset_check.png
 
 1743 × 1047 px. Ảnh PNG ở gốc dự án; nội dung chưa được trích xuất vào graph.

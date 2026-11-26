@@ -1,9 +1,24 @@
 import unittest
 from unittest.mock import patch, Mock
+from PIL import Image
 from amazon_android import windows_identity as identity
 
 
 class WindowsIdentityTests(unittest.TestCase):
+    def test_taskbar_icon_is_square_and_visible_at_small_sizes(self):
+        icon_path = identity.ROOT / 'amazon_android' / 'assets' / 'swarmote_tool.ico'
+        with Image.open(icon_path) as icon:
+            self.assertTrue({(16, 16), (32, 32), (48, 48)}.issubset(icon.info['sizes']))
+            small = icon.ico.getimage((16, 16)).convert('RGBA')
+        self.assertEqual(small.getpixel((0, 0))[3], 255)
+
+    def test_tk_window_receives_project_icon(self):
+        root = Mock()
+        with patch.object(identity.sys, 'platform', 'win32'):
+            identity.set_tk_icon(root)
+        root.iconbitmap.assert_called_once_with(str(
+            identity.ROOT / 'amazon_android' / 'assets' / 'swarmote_tool.ico'))
+
     def test_relaunch_command_opens_workspace_module_with_project_runtime(self):
         command = identity.relaunch_command()
         self.assertIn('pythonw.exe', command)

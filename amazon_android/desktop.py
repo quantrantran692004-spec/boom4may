@@ -22,7 +22,7 @@ from .account_flow import (
     resume_common_index, route_list_menu, verify_menu_open,
 )
 from .random_prefix import build_random_steps
-from .windows_identity import set_process_identity, set_window_identity
+from .windows_identity import set_process_identity, set_tk_icon, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
 from .registration import PHONE
@@ -101,6 +101,7 @@ class Window:
         ctk.set_default_color_theme("blue")
         self.root = ctk.CTk(fg_color=BG)
         self.root.title("Swarmote · Amazon workspace")
+        set_tk_icon(self.root)
         self.root.geometry("1380x800+20+15")
         self.root.minsize(1280, 720)
         self.root.update_idletasks()
