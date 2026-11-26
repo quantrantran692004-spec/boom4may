@@ -1,8 +1,9 @@
-# Kiểm tra độ phủ Graphify — 13/11/2026
+# Kiểm tra độ phủ Graphify — cập nhật 26/11/2026
 
 ## Đã có trong graph
 
 - Các module Python của tool, test và entry point `amazon_android/launcher.py` được lập chỉ mục bằng AST. Các hàm mới gồm `build_q1_steps`, `build_q2_steps`, `build_common_steps`, `_activate_manager`, `_profile_form_open`, `_unfiltered_single_page`, `validate_card` đã xuất hiện khi truy vấn graph.
+- Lần cập nhật 26/11/2026 bằng `graphifyy` 0.9.97 qua `python -m graphify update .` và `python -m graphify tree` đã tạo 2.184 node, 7.617 cạnh, 93 cộng đồng từ 134 file. Truy vấn xác nhận `build_account_preview_step()` tại `amazon_android/marketplace_flow.py` dòng 140; graph ghi nguồn commit `26e359e4`.
 - Các file Markdown có node file và tiêu đề. `STEP_INVENTORY.md` có các mốc P01–P08a, Q1/Q2 b1–b3, b4–b11, E01 và U01–U03 dưới dạng node tiêu đề; `MENU_ROUTING.md` ghi nhánh menu dạng danh sách. Nội dung trong đoạn văn vẫn phải đọc từ file gốc.
 - `PROJECT_HANDOFF.md`, `FLOW_PROGRESS.md`, `AGENTS.md`, `ASSET_INDEX.md` và `SOURCE_INDEX.md` dẫn tới quy trình, mức kiểm chứng và các file Graphify bỏ qua.
 
@@ -16,6 +17,6 @@
 ## Cách kiểm tra sau mỗi sửa đổi
 
 1. Cập nhật `STEP_INVENTORY.md`, `FLOW_PROGRESS.md` và tài liệu máy liên quan nếu yêu cầu đổi.
-2. Chạy `python -m graphify update .` rồi `python -m graphify tree` tại `D:\sinhvien`.
+2. Chạy `python -m graphify update .` rồi `python -m graphify tree` tại `D:\visua_code\bom4may`.
 3. Đối chiếu file/symbol/tiêu đề mới với `graphify-out/graph.json`, rồi đọc file gốc khi cần chi tiết. `graphify.exe` hiện lỗi uv trampoline; dùng `python -m graphify`.
-4. Chạy test bằng thư mục tạm trong workspace nếu sandbox chặn Temp mặc định. Ngày 13/11/2026, `131/131` unittest đã qua với `TMP`, `TEMP`, `TMPDIR` trỏ vào `D:\sinhvien\.test_tmp` sau sửa b4 Sign In có nhãn lặp.
+4. Chạy test bằng `.venv` của dự án. Kết quả gần nhất ngày 26/11/2026: 617 unittest PASS; đây là test mã, không chứng minh phiên tool đang mở đã nạp mã mới.
