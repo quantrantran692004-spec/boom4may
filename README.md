@@ -16,6 +16,8 @@ Trình cài dùng một trong Chrome hoặc Edge để đọc OTP. Java và Andr
 
 Giao diện desktop nhận tối đa 12 Profile Swarmote mỗi mẻ. Sau khi tạo và xác nhận một Profile, tool gửi Start ngay nếu mẻ còn chỗ máy Running, rồi tiếp tục tạo Profile kế tiếp trong khi điện thoại trước đang cài Amazon. Mỗi điện thoại được mở Amazon và đưa tới menu ba gạch. Các lệnh Android Emulator cục bộ nằm ở phần dưới.
 
+**Cấu hình trên máy đang dùng ngày 26/11/2026:** tối đa 2 máy Running tự động, không ẩn cửa sổ tạo Profile, chế độ Đăng nhập và sau đăng nhập chỉ thêm thẻ. Máy bấm **Tiếp tục** không chiếm slot tự động. `settings.json` được lưu tại `%LOCALAPPDATA%\AmazonAndroidTool\`, ngoài repository; trên máy mới chọn lại các giá trị này trong Settings nếu muốn cùng chế độ. Profile Swarmote, Device ID, proxy và dữ liệu mẻ đang chạy cũng không chuyển qua Git; nhập hoặc kết nối lại trên máy mới. Mã, ảnh, tài liệu và trình cài của dự án nằm trong repository.
+
 Người dùng đã chọn hướng điện thoại đám mây Swarmote để tránh thời gian boot emulator cục bộ. Đã xác minh ADB và mở Amazon Shopping trên một Profile Swarmote thật; xem [VERIFICATION.md](VERIFICATION.md). Lệnh emulator ở phần dưới vẫn dành riêng cho Android Emulator cục bộ.
 
 ## Điện thoại đám mây Swarmote
