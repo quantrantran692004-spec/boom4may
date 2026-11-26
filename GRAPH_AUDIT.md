@@ -3,7 +3,7 @@
 ## Đã có trong graph
 
 - Các module Python của tool, test và entry point `amazon_android/launcher.py` được lập chỉ mục bằng AST. Các hàm mới gồm `build_q1_steps`, `build_q2_steps`, `build_common_steps`, `_activate_manager`, `_profile_form_open`, `_unfiltered_single_page`, `validate_card` đã xuất hiện khi truy vấn graph.
-- Lần cập nhật 26/11/2026 bằng `graphifyy` 0.9.97 qua `python -m graphify update .` và `python -m graphify tree` đã tạo 2.184 node, 7.617 cạnh, 93 cộng đồng từ 134 file. Truy vấn xác nhận `build_account_preview_step()` tại `amazon_android/marketplace_flow.py` dòng 140; graph ghi nguồn commit `26e359e4`.
+- Lần cập nhật 26/11/2026 bằng `graphifyy` 0.9.97 qua `python -m graphify update .` và `python -m graphify tree` đã lập chỉ mục từ 134 file; số node/cạnh/cộng đồng và commit nguồn mới nhất nằm trong `graphify-out/GRAPH_REPORT.md`. Truy vấn xác nhận `build_account_preview_step()` tại `amazon_android/marketplace_flow.py` dòng 140 và tiêu đề kế hoạch b16a trong `STEP_INVENTORY.md`.
 - Các file Markdown có node file và tiêu đề. `STEP_INVENTORY.md` có các mốc P01–P08a, Q1/Q2 b1–b3, b4–b11, E01 và U01–U03 dưới dạng node tiêu đề; `MENU_ROUTING.md` ghi nhánh menu dạng danh sách. Nội dung trong đoạn văn vẫn phải đọc từ file gốc.
 - `PROJECT_HANDOFF.md`, `FLOW_PROGRESS.md`, `AGENTS.md`, `ASSET_INDEX.md` và `SOURCE_INDEX.md` dẫn tới quy trình, mức kiểm chứng và các file Graphify bỏ qua.
 
