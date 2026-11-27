@@ -1182,7 +1182,7 @@ class RandomPrefixTests(unittest.TestCase):
                               if command[:3] == ("shell", "input", "swipe")]), 1)
         self.assertEqual(state.prefix_view_scrolled, {1})
         self.assertEqual(next(command for command in commands
-                              if command[:3] == ("shell", "input", "swipe"))[-1], '450')
+                              if command[:3] == ("shell", "input", "swipe"))[-1], '700')
         self.assertEqual(waited.call_count, 3)
 
     def test_b1_b2_wait_two_seconds_after_tap_before_view_scroll(self):

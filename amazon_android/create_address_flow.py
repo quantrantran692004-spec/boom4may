@@ -114,7 +114,7 @@ def build_create_address_steps(phone, state):
             cloud_adb(phone, 'shell', 'input', 'swipe', str(width // 2),
                       str(int(height * (.38 if reverse else .75))), str(width // 2),
                       str(int(height * (.55 if reverse else .32))),
-                      '650' if reverse else '400', timeout=5)
+                      '650' if reverse else '750', timeout=5)
             scrolls += 1
             outer.recovering(f'b{number}: chưa thấy Your Addresses; '
                              f'cuộn rồi chụp lại ({scrolls}/10) '

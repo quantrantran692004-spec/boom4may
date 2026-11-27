@@ -21,5 +21,5 @@ def scroll_view(phone, width, height, deadline, stop, number, adb):
     deadline.recovering(f'b{number}: lướt xem trang một lượt')
     x = width // 2
     adb(phone, 'shell', 'input', 'swipe', str(x), str(round(height * .68)),
-        str(x), str(round(height * .43)), '450',
+        str(x), str(round(height * .43)), '700',
         timeout=max(1, math.ceil(min(5, deadline.remaining()))))

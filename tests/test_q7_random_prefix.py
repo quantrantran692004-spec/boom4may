@@ -69,7 +69,7 @@ class RandomPrefixTests(unittest.TestCase):
         browsing = [command for command in commands
                     if command[:3] == ("shell", "input", "swipe")]
         self.assertEqual(len(browsing), 3)
-        self.assertTrue(all(command[-1] == '450' for command in browsing))
+        self.assertTrue(all(command[-1] == '700' for command in browsing))
         self.assertEqual(child.call_count, 3)
         view_waits = [call.args[0] for call in wait.call_args_list
                       if call.args and call.args[0] > 1]

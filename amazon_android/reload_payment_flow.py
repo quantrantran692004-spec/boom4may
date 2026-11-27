@@ -79,7 +79,7 @@ def _swipe(phone, deadline, *, short=False):
     cloud_adb(phone, 'shell', 'input', 'swipe', str(width // 2),
               str(round(height * (.72 if short else .78))), str(width // 2),
               str(round(height * (.43 if short else .24))),
-              '320' if short else '400', timeout=5)
+              '700' if short else '850', timeout=5)
 
 
 def _card_parts(job):

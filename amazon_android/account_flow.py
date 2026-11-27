@@ -570,9 +570,9 @@ def _scroll_up(phone: CloudPhone, nodes: list[dict[str, str]],
                gentle_reverse: bool = False, force_adb: bool = False,
                first_reverse_triple: bool = False,
                browsing: bool = False) -> None:
-    start, end, duration = (0.72, 0.32, "300")
+    start, end, duration = (0.72, 0.32, "700")
     if browsing:
-        start, end, duration = (0.68, 0.43, "450")
+        start, end, duration = (0.68, 0.43, "700")
     if country_list:
         deadline.remaining()
         from .isolated_reader import current

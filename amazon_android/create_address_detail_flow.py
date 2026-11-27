@@ -266,7 +266,7 @@ def _scroll(phone, deadline):
         raise ToolError('Chưa đọc được kích thước máy để cuộn địa chỉ')
     width, height = map(int, sizes[-1])
     cloud_adb(phone, 'shell', 'input', 'swipe', str(width // 2), str(int(height * .86)),
-              str(width // 2), str(int(height * .18)), '350', timeout=5)
+              str(width // 2), str(int(height * .18)), '900', timeout=5)
 
 
 def _bounded_native(phone, deadline, stop):

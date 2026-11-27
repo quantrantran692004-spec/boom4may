@@ -162,7 +162,7 @@ def build_random_steps(phone: CloudPhone, on_otp,
                     try:
                         cloud_adb(phone, "shell", "input", "swipe",
                                   str(width // 2), str(round(height * 0.73)),
-                                  str(width // 2), str(round(height * 0.35)), "280",
+                                  str(width // 2), str(round(height * 0.35)), "700",
                                   timeout=max(1, int(min(5, deadline.remaining()))))
                     except ToolError:
                         pass
