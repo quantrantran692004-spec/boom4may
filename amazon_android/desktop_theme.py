@@ -324,7 +324,7 @@ def artwork(name, size):
 
 class Entry(ctk.CTkEntry):
     def __init__(self, master, **kwargs):
-        kwargs["font"] = ui_font(17)
+        kwargs["font"] = ui_font(16)
         kwargs.update(fg_color=INPUT, text_color=BODY,
                       placeholder_text_color=PLACEHOLDER, border_color=FIELD_BORDER)
         super().__init__(master, **kwargs)
@@ -377,10 +377,10 @@ class StatusCell(tk.Frame):
         super().__init__(master, bg=background, borderwidth=0)
         self.full_text = ""
         self.primary = TableText(self, text="", bg=background, fg=BODY,
-                                 font=ui_font(16, "semibold"), wraplength=150, anchor="w",
+                                 font=ui_font(15, "semibold"), wraplength=150, anchor="w",
                                  justify="left", padx=6, pady=2)
         self.description = TableText(self, text="", bg=background, fg=MUTED,
-                                     font=ui_font(15), wraplength=150, anchor="w",
+                                     font=ui_font(14), wraplength=150, anchor="w",
                                      justify="left", padx=6, pady=1)
         self.primary.pack(fill="x")
         self.description.pack(fill="x")

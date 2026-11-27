@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "amazon_android/desktop.py": {
-    "mtime": 1795773456.7208104,
-    "seen": 1795773864.1275222,
-    "ast_hash": "36da050d3333abd33e9109a503067537",
+    "mtime": 1795775391.8152223,
+    "seen": 1795775555.6470947,
+    "ast_hash": "10ea7309a1cb52c56c0b7d5ae44ca691",
     "semantic_hash": ""
   },
   "amazon_android/home_menu.py": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "DESIGN.md": {
-    "mtime": 1795773831.4228835,
-    "seen": 1795773864.1275222,
-    "ast_hash": "23be1da9550be6f00ad9c0cf4e7cc949",
+    "mtime": 1795775435.311587,
+    "seen": 1795775555.6470947,
+    "ast_hash": "8922d152ad127c2544e65d02cf7b966c",
     "semantic_hash": ""
   },
   "OTP_DESIGN.md": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1795773831.4168992,
-    "seen": 1795773864.1275222,
-    "ast_hash": "762b12b1c2a40e887faca39d824e2e99",
+    "mtime": 1795775444.882551,
+    "seen": 1795775555.6470947,
+    "ast_hash": "46b6ab50ad04be8118ca79ba27c035d9",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -1668,9 +1668,9 @@
     "semantic_hash": ""
   },
   "amazon_android/desktop_theme.py": {
-    "mtime": 1795773295.5548737,
-    "seen": 1795773864.1275222,
-    "ast_hash": "957898d2caba5af6fa2866986d3d3d8d",
+    "mtime": 1795775360.003116,
+    "seen": 1795775555.6470947,
+    "ast_hash": "c52d95f0469bf75fe2f3c6b715f4309d",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/activity.png": {
