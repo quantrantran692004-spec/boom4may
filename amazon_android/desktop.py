@@ -199,10 +199,7 @@ class Window:
         self.bulk_feedback: dict[str, ctk.CTkLabel] = {}
         self.detail_entries: dict[str, ctk.CTkEntry] = {}
         self.table_rows: list[dict[str, tk.Label]] = []
-        self.table_actions: list[ctk.CTkFrame] = []
         self._display_options: dict[object, dict[str, object]] = {}
-        self._visible_table_rows: int | None = None
-        self._visible_sidebar_rows: int | None = None
         self._editing_display_state: tuple[str, str, int | None] | None = None
         self._refresh_after_id: str | None = None
 
@@ -281,15 +278,15 @@ class Window:
         shell.grid_rowconfigure(0, weight=1)
 
         side = ctk.CTkFrame(shell, fg_color=SIDEBAR, corner_radius=10,
-                            border_width=0, width=190)
+                            border_width=0, width=200)
         side.grid(row=0, column=0, sticky="ns", padx=(0, 14))
-        side.grid_propagate(False)
+        side.pack_propagate(False)
         self._build_sidebar(side)
 
         work_area = ctk.CTkFrame(shell, fg_color="transparent")
         work_area.grid(row=0, column=1, sticky="nsew")
-        work_area.grid_columnconfigure(0, weight=6, minsize=640)
-        work_area.grid_columnconfigure(1, weight=4, minsize=280)
+        work_area.grid_columnconfigure(0, weight=5, minsize=642)
+        work_area.grid_columnconfigure(1, weight=5, minsize=420)
         work_area.grid_rowconfigure(1, weight=1)
         self._build_hero(work_area)
         self.main = ctk.CTkScrollableFrame(work_area, fg_color="transparent",
@@ -336,7 +333,7 @@ class Window:
         count_row = ctk.CTkFrame(side, fg_color="transparent")
         count_row.pack(fill="x", padx=18, pady=(4, 13))
         self._label(count_row, "Số máy trong mẻ", 13,
-                    color=WHITE, weight="bold").pack(side="left")
+                    color=WHITE, weight="bold").pack(anchor="w")
         self.count_menu = ctk.CTkOptionMenu(
             count_row, values=[str(i) for i in range(1, MAX_PROFILES + 1)],
             variable=self.count, command=lambda _: self._refresh_devices(),
@@ -346,7 +343,7 @@ class Window:
             dropdown_fg_color=SURFACE, dropdown_text_color=INK,
             font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
         )
-        self.count_menu.pack(side="right")
+        self.count_menu.pack(anchor="w", pady=(6, 0))
         ctk.CTkFrame(side, fg_color=SIDEBAR_HOVER, height=1).pack(fill="x", padx=18)
 
         device_list = ctk.CTkScrollableFrame(side, fg_color=SIDEBAR, corner_radius=0,
@@ -442,7 +439,7 @@ class Window:
         self.proxy_paste_hint = self._label(
             detail_card,
             "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
-            11, wraplength=305, justify="left")
+            11, wraplength=260, justify="left")
         self.proxy_paste_hint.grid(row=10, column=0, columnspan=2, sticky="w",
                                    padx=20, pady=(0, 12))
 
@@ -468,7 +465,7 @@ class Window:
             self._label(cell, label, 13, color=INK,
                         weight="bold").pack(anchor="w", pady=(0, 5))
             entry = ctk.CTkEntry(
-                cell, height=42, corner_radius=8, border_color=FIELD_BORDER,
+                cell, width=115, height=42, corner_radius=8, border_color=FIELD_BORDER,
                 fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
                 font=ctk.CTkFont("Segoe UI Variable", 13),
                 show="•" if _secret else "",
@@ -493,7 +490,7 @@ class Window:
         self._label(
             detail_card,
             "Điểm dừng: menu ba gạch. Thông tin Amazon chỉ được phân bổ, chưa nhập vào app.",
-            12, color=MUTED,
+            12, color=MUTED, wraplength=280, justify="left",
         ).grid(row=14, column=0, columnspan=2, sticky="w",
                padx=20, pady=(0, 10))
         otp_row = ctk.CTkFrame(detail_card, fg_color=SECONDARY, corner_radius=8)
@@ -507,7 +504,7 @@ class Window:
             otp_row, "—", 18, color=BLUE, weight="bold", anchor="w")
         self.otp_detail_code.grid(row=1, column=0, sticky="w", padx=12, pady=(0, 8))
         self.otp_copy_button = ctk.CTkButton(
-            otp_row, text="Sao chép", width=95, height=36,
+            otp_row, text="Sao chép", width=90, height=36,
             corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
             state="disabled", command=self._copy_otp,
@@ -542,12 +539,12 @@ class Window:
                                       sticky="ew", padx=20, pady=(5, 8))
         self.single_account_line.bind("<Return>", lambda _: self._apply_single_account_line())
         self.apply_single_account_button = ctk.CTkButton(
-            detail_card, text="Điền vào Máy 1", height=38,
+            detail_card, text="Điền vào Máy 1", width=115, height=38,
             command=self._apply_single_account_line)
         self.apply_single_account_button.grid(row=20, column=0, sticky="ew",
                                               padx=(20, 8), pady=(0, 18))
         self.clear_selected_button = ctk.CTkButton(
-            detail_card, text="Xóa dữ liệu Máy 1", height=38,
+            detail_card, text="Xóa dữ liệu Máy 1", width=115, height=38,
             fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, command=self._clear_selected_data)
         self.clear_selected_button.grid(row=20, column=1, sticky="ew",
@@ -687,7 +684,6 @@ class Window:
             self.table_rows.append(cells)
             actions = ctk.CTkFrame(table, fg_color="transparent")
             actions.grid(row=index + 2, column=4, padx=(3, 12), pady=2)
-            self.table_actions.append(actions)
             button = ctk.CTkButton(
                 actions, text="Tiếp tục", width=78, height=28, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
@@ -1038,13 +1034,6 @@ class Window:
         if not self.devices:
             return
         active = int(self.count.get())
-        if getattr(self, "_visible_sidebar_rows", None) != active:
-            for i, button in enumerate(self.devices):
-                if i < active:
-                    button.pack(fill="x", padx=4, pady=(5 if i == 0 else 2, 2))
-                else:
-                    button.pack_forget()
-            self._visible_sidebar_rows = active
         post_busy = any(session.state == "RUNNING"
                         for session in self.post_menu_sessions.values()) or any(
                             worker.is_alive() for worker in
@@ -1193,17 +1182,7 @@ class Window:
 
     def _refresh_table(self) -> None:
         active = int(self.count.get())
-        actions = getattr(self, "table_actions", ())
-        if (len(actions) == len(self.table_rows) and
-                getattr(self, "_visible_table_rows", None) != active):
-            for index, cells in enumerate(self.table_rows):
-                for cell in cells.values():
-                    cell.grid() if index < active else cell.grid_remove()
-                actions[index].grid() if index < active else actions[index].grid_remove()
-            self._visible_table_rows = active
         for index, cells in enumerate(self.table_rows):
-            if index >= active:
-                continue
             values = self.values[index]
             host = values["host"].get()
             proxy_text = (f"{host}:{values['port'].get()}" if host else
@@ -1248,7 +1227,8 @@ class Window:
                     bg=PALE if index == self.selected else
                        ROW_ALT if index % 2 else SURFACE,
                     fg=(status_color if key == "status" else
-                        BLUE if index == self.selected else INK),
+                        BLUE if index == self.selected else
+                        INK if index < active else MUTED),
                 )
 
     def _select(self, index: int) -> None:

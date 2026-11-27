@@ -466,7 +466,7 @@ class StopResetTests(unittest.TestCase):
 
     def test_each_table_row_has_its_own_stop_command(self):
         w=Window.__new__(Window)
-        w.main=Mock(); w.table_rows=[]; w.table_actions=[]
+        w.main=Mock(); w.table_rows=[]
         w.row_buttons=[]; w.row_stop_buttons=[]
         w._label=Mock(side_effect=lambda *args,**kwargs: Mock())
         w._continue_profile=Mock(); w._request_stop_phone=Mock()
