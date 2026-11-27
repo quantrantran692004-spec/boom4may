@@ -336,6 +336,7 @@ Người dùng yêu cầu tiếp tục từ NEXT_SESSION_HANDOFF.md và chỉ ki
 
 - `Install Swarmote Tool.bat` tìm Python 3.11+, mở trang tải Python chính thức nếu chưa có, rồi gọi `setup_windows.py`.
 - `setup_windows.py` kiểm tra Swarmote và Chrome/Edge, hỏi trước khi mở trang tải khi thiếu, tạo `.venv`, hỏi trước khi cài dependencies bằng `pip install -e .`, rồi khởi chạy giao diện qua Python ảo.
+- **Sửa kiểm tra dependencies ngày 27/11/2026:** Sau khi kéo bản V2, `pyproject.toml` chỉ thêm package data cho icon nhưng dấu `.swarmote_tool_ready.json` cũ so thời gian sửa file nên launcher báo sai rằng cần cài lại. `setup_windows.py` nay so tên/phiên bản Python package và danh sách requirements trong metadata đã cài với khai báo hiện tại, rồi thử import runtime; thay đổi icon hoặc thời gian file không còn gây hỏi cài. Nếu requirements thật đổi hoặc import hỏng, bộ cài vẫn hỏi trước khi chạy `pip install -e .`. Trên máy nhận, `.venv` hiện có metadata khớp, import thành công và `pip check` sạch; gọi trực tiếp `_install_python_dependencies()` báo `Python dependencies: ready` mà không tải gói. Đây là kiểm tra mã và môi trường, chưa mở lại EXE/cửa sổ tool đang có; không đóng/reset phiên dữ liệu RAM.
 - Bản cài cần một trong Chrome hoặc Edge cho OTP. Điện thoại Swarmote vẫn cần Profile Running và tunnel được mở bằng **Terminal > ADB Shell**. Java/Android SDK chỉ dành cho Android Emulator cục bộ.
 - Setuptools package discovery được giới hạn vào `amazon_android*` trong `pyproject.toml`; `.venv/` được Git bỏ qua.
 

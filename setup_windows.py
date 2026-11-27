@@ -1,7 +1,6 @@
 """First-run prerequisite check and launcher for the Swarmote desktop tool."""
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
@@ -14,7 +13,6 @@ ROOT = Path(__file__).resolve().parent
 VENV = ROOT / ".venv"
 VENV_PYTHON = VENV / "Scripts" / "python.exe"
 VENV_PYTHONW = VENV / "Scripts" / "pythonw.exe"
-READY_FILE = VENV / ".swarmote_tool_ready.json"
 
 DOWNLOADS = {
     "Python 3.11+": "https://www.python.org/downloads/windows/",
@@ -56,22 +54,37 @@ def _app_installed(app: str) -> bool:
     return shutil.which(executable) is not None
 
 
-def _ready_file_matches() -> bool:
-    if not READY_FILE.is_file():
-        return False
-    try:
-        state = json.loads(READY_FILE.read_text(encoding="utf-8"))
-        return (state.get("root") == str(ROOT)
-                and state.get("pyproject_mtime_ns") == (ROOT / "pyproject.toml").stat().st_mtime_ns)
-    except (OSError, ValueError, AttributeError):
-        return False
-
-
 def _runtime_imports_work() -> bool:
     code = (
         "import psutil, pywinauto, customtkinter, playwright, PIL, rapidocr, onnxruntime, uiautomator2; "
         "from importlib.metadata import version; version('amazon-android-tool')"
     )
+    result = subprocess.run([str(VENV_PYTHON), "-c", code], cwd=ROOT,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return result.returncode == 0
+
+
+def _installed_project_metadata_matches() -> bool:
+    """Check installed requirements instead of the pyproject file timestamp."""
+    code = """
+import tomllib
+from importlib.metadata import metadata
+from pathlib import Path
+from pip._vendor.packaging.requirements import Requirement
+
+project = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']
+installed = metadata(project['name'])
+if (installed.get('Version') != project['version']
+        or installed.get('Requires-Python') != project.get('requires-python')):
+    raise SystemExit(1)
+
+def normalized(requirements):
+    return sorted(str(Requirement(requirement)) for requirement in requirements)
+
+declared = normalized(project.get('dependencies', []))
+recorded = normalized(installed.get_all('Requires-Dist') or [])
+raise SystemExit(0 if declared == recorded else 1)
+"""
     result = subprocess.run([str(VENV_PYTHON), "-c", code], cwd=ROOT,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return result.returncode == 0
@@ -109,7 +122,8 @@ def _check_external_apps() -> bool:
 
 
 def _install_python_dependencies() -> bool:
-    if VENV_PYTHON.is_file() and _ready_file_matches() and _runtime_imports_work():
+    if (VENV_PYTHON.is_file() and _installed_project_metadata_matches()
+            and _runtime_imports_work()):
         print("Python dependencies: ready")
         return True
 
@@ -135,10 +149,6 @@ def _install_python_dependencies() -> bool:
         print("Installed packages could not be imported; the desktop app was not started.")
         return False
 
-    READY_FILE.write_text(json.dumps({
-        "root": str(ROOT),
-        "pyproject_mtime_ns": (ROOT / "pyproject.toml").stat().st_mtime_ns,
-    }, indent=2), encoding="utf-8")
     print("Python dependencies: installed")
     return True
 
