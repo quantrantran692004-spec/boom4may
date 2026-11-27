@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "amazon_android/desktop.py": {
-    "mtime": 1795770727.0390263,
-    "seen": 1795771287.8556137,
-    "ast_hash": "05a786d53f4839c2c90357e17fb1cf50",
+    "mtime": 1795773456.7208104,
+    "seen": 1795773864.1275222,
+    "ast_hash": "36da050d3333abd33e9109a503067537",
     "semantic_hash": ""
   },
   "amazon_android/home_menu.py": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "DESIGN.md": {
-    "mtime": 1795770727.0130947,
-    "seen": 1795771287.8556137,
-    "ast_hash": "7ba981cb2a2274f3af3d6e60fd541f28",
+    "mtime": 1795773831.4228835,
+    "seen": 1795773864.1275222,
+    "ast_hash": "23be1da9550be6f00ad9c0cf4e7cc949",
     "semantic_hash": ""
   },
   "OTP_DESIGN.md": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1795771231.2940004,
-    "seen": 1795771287.8556137,
-    "ast_hash": "66c999cb3498dece71e1c09a78f5e287",
+    "mtime": 1795773831.4168992,
+    "seen": 1795773864.1275222,
+    "ast_hash": "762b12b1c2a40e887faca39d824e2e99",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -756,9 +756,9 @@
     "semantic_hash": ""
   },
   "tests/test_stop_reset.py": {
-    "mtime": 1795770727.1028547,
-    "seen": 1795771287.8556137,
-    "ast_hash": "f8a8c176fb9e04be1b887682d107d83a",
+    "mtime": 1795773770.3353434,
+    "seen": 1795773864.1275222,
+    "ast_hash": "79c3b40d7b1d593cbfb128c8d40983ef",
     "semantic_hash": ""
   },
   "tests/test_swarmote_waits.py": {
@@ -1662,15 +1662,15 @@
     "semantic_hash": ""
   },
   "tests/test_desktop_layout.py": {
-    "mtime": 1795770727.099862,
-    "seen": 1795771287.8556137,
-    "ast_hash": "b6e13dfa188752b645969378a6154467",
+    "mtime": 1795773510.3857932,
+    "seen": 1795773864.1275222,
+    "ast_hash": "7709556264382de5c8efc83a2f46d1da",
     "semantic_hash": ""
   },
   "amazon_android/desktop_theme.py": {
-    "mtime": 1795770727.0400226,
-    "seen": 1795771287.8556137,
-    "ast_hash": "7af1ab293dc29ebce42a15e411e83449",
+    "mtime": 1795773295.5548737,
+    "seen": 1795773864.1275222,
+    "ast_hash": "957898d2caba5af6fa2866986d3d3d8d",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/activity.png": {
@@ -2043,6 +2043,12 @@
     "mtime": 1795771382.2156625,
     "seen": 1795771398.3844998,
     "ast_hash": "7efb32f47fb91a38088075b3be44ea0a",
+    "semantic_hash": ""
+  },
+  "amazon_android/desktop_art.py": {
+    "mtime": 1795772703.2393427,
+    "seen": 1795773864.1275222,
+    "ast_hash": "c93cce79f196dc066f10452d0fc26140",
     "semantic_hash": ""
   }
 }

@@ -8,61 +8,62 @@ from pathlib import Path
 import tkinter as tk
 
 import customtkinter as ctk
-from PIL import Image
+from PIL import Image, ImageTk
+from .desktop_art import rounded_surface, button_face, banner, phone_art, brand_art
 
-BG = "#EDF1F3"
-HEADER = "#B4DFE1"
-HEADER_BORDER = "#B0D2D5"
-HEADER_CONTROL = "#E8F3F4"
-HEADER_TEXT = "#344950"
-SETTINGS_ICON = "#42636A"
-FOOTER = "#F5F7F8"
-SURFACE = "#FAFBFC"
-INPUT = "#F2F5F7"
+BG = "#E9F3FC"
+HEADER = "#DFEFF9"
+HEADER_BORDER = "#B8DCEB"
+HEADER_CONTROL = "#ECF8FF"
+HEADER_TEXT = "#073B54"
+SETTINGS_ICON = "#005370"
+FOOTER = "#F3F9FD"
+SURFACE = "#F5FAFE"
+INPUT = "#F5F8FD"
 WHITE = "#FFFFFF"
-INK = "#1C2833"
-BODY = "#34434D"
-MUTED = "#596873"
-PLACEHOLDER = "#62727C"  # supplied #687983 is only 4.12:1 on INPUT
-BLUE = "#006F7B"
-BLUE_HOVER = "#005C67"
-PALE = "#EAF4F5"
-BORDER = "#DCE3E8"
-FIELD_BORDER = "#CAD5DC"
-FOCUS = "#006F7B"
-SECONDARY = "#FAFBFC"
-SECONDARY_HOVER = "#EDF5F5"
-SECONDARY_BORDER = "#CAD8DC"
-GREEN = "#267451"
-RED = "#AC4149"
-ROW_ALT = "#F5F7F8"
-ROW_HOVER = "#F0F6F7"
-TABLE_HEADER = "#F0F3F5"
-TABLE_HEADER_TEXT = "#596873"
-DISABLED_BG = "#E8EDF0"
-DISABLED_TEXT = "#71808A"
-CONTINUE_BG = "#F3D36C"
-CONTINUE_HOVER = "#EAC65A"
-PRIMARY_PRESSED = "#DEB94E"
-STOP_BG = "#FDF1F2"
-STOP_HOVER = "#F8E2E5"
-STOP_BORDER = "#EACFD2"
-SCROLLBAR = "#C1CCD2"
-SCROLLBAR_HOVER = "#9DADB6"
-ICON_DEFAULT = "#657680"
+INK = "#07132F"
+BODY = "#173F57"
+MUTED = "#496486"
+PLACEHOLDER = "#506A8B"  # supplied #687983 is only 4.12:1 on INPUT
+BLUE = "#0754FB"
+BLUE_HOVER = "#0044D7"
+PALE = "#E7F6FF"
+BORDER = "#D2E4F1"
+FIELD_BORDER = "#B2CBE1"
+FOCUS = "#0754FB"
+SECONDARY = "#F5FAFE"
+SECONDARY_HOVER = "#E4F5FF"
+SECONDARY_BORDER = "#B8DDEB"
+GREEN = "#12831E"
+RED = "#CA1934"
+ROW_ALT = "#F3F9FD"
+ROW_HOVER = "#EDF8FF"
+TABLE_HEADER = "#EFF6FC"
+TABLE_HEADER_TEXT = "#496486"
+DISABLED_BG = "#E5EEF5"
+DISABLED_TEXT = "#8296A9"
+CONTINUE_BG = "#0875F5"
+CONTINUE_HOVER = "#005CE8"
+PRIMARY_PRESSED = "#0044C7"
+STOP_BG = "#FFF0F5"
+STOP_HOVER = "#FADCE7"
+STOP_BORDER = "#FFA5BC"
+SCROLLBAR = "#C0D9E8"
+SCROLLBAR_HOVER = "#80B9D2"
+ICON_DEFAULT = "#006075"
 FONT_FAMILY = "Segoe UI"
 FONT_SEMIBOLD = "Segoe UI Semibold"  # same Windows family, native 600 face
 
-ICON_SECTION = 20
-ICON_BUTTON = 16
-ICON_STATUS = 16
-ICON_TABLE = 14
+ICON_SECTION = 24
+ICON_BUTTON = 20
+ICON_STATUS = 22
+ICON_TABLE = 20
 ICON_GAP = 6
 
 STATES = {
     "success": (GREEN, "#E8F3EC", "circle-check"),
     "processing": (BLUE, PALE, "loader-circle"),
-    "waiting": ("#88651D", "#F8F2E4", "clock"),
+    "waiting": ("#EF7600", "#FFF2E6", "clock"),
     "error": (RED, STOP_BG, "circle-alert"),
     "stopped": (RED, STOP_BG, "square"),
     "inactive": (MUTED, DISABLED_BG, "clock"),
@@ -104,8 +105,8 @@ def ui_font(size=16, weight="normal"):
 
 def startup_geometry(screen_width, screen_height, scale):
     """Open close to full screen while leaving room for native window chrome."""
-    width = max(400, min(1840, screen_width - 32))
-    height = max(300, min(960, screen_height - 104))
+    width = max(400, min(1616, screen_width - 32))
+    height = max(300, min(928, screen_height - 104))
     x = max(0, round((screen_width - width) / 2))
     y = max(12, round((screen_height - height) / 2 - 40))
     return round(width / scale), round(height / scale), x, y
@@ -133,6 +134,15 @@ LABEL_ICONS = {
 }
 
 
+@lru_cache(maxsize=256)
+def _tinted_icon(name, rgb, size):
+    path = Path(__file__).with_name("assets") / "icons" / f"{name}.png"
+    with Image.open(path) as source:
+        tinted = Image.new("RGBA", source.size, rgb)
+        tinted.putalpha(source.getchannel("A"))
+        return tinted.resize((size, size), Image.Resampling.LANCZOS)
+
+
 class Button(ctk.CTkButton):
     """Button skin; command, state and geometry remain owned by the caller."""
     def __init__(self, master, *, role="secondary", icon_name=None,
@@ -142,16 +152,18 @@ class Button(ctk.CTkButton):
         self.accessible_name = accessible_name or kwargs.get("text", "")
         self._skin_ready = False
         super().__init__(master, **kwargs)
-        self._font.configure(weight="normal")
+        self._font.configure(weight="bold" if role in {"primary", "batch-stop"} else "normal")
         self._skin_ready = True
         self._skin()
+        self._canvas.configure(takefocus=1)
+        self._canvas.bind("<Return>", lambda _: self.invoke(), add="+")
+        self._canvas.bind("<space>", lambda _: self.invoke(), add="+")
+        self._canvas.bind("<FocusIn>", lambda _: self._paint_glass(), add="+")
+        self._canvas.bind("<FocusOut>", lambda _: self._paint_glass(), add="+")
         if role == "primary":
             self.bind("<ButtonPress-1>", self._press, add="+")
             self.bind("<ButtonRelease-1>", lambda _: self._skin(), add="+")
         if accessible_name:
-            self._canvas.configure(takefocus=1)
-            self._canvas.bind("<Return>", lambda _: self.invoke(), add="+")
-            self._canvas.bind("<space>", lambda _: self.invoke(), add="+")
             self._tooltip = Tooltip(self, accessible_name)
             # Tk canvas controls do not have an aria-label; expose the native
             # window name as well as the keyboard focus and visible tooltip.
@@ -167,6 +179,7 @@ class Button(ctk.CTkButton):
         super().configure(require_redraw=require_redraw, **kwargs)
         if getattr(self, "_skin_ready", False):
             self._skin()
+            self._paint_glass()
 
     def _skin(self):
         disabled = self.cget("state") == "disabled"
@@ -177,7 +190,11 @@ class Button(ctk.CTkButton):
         if disabled:
             face, hover, text, border = DISABLED_BG, DISABLED_BG, DISABLED_TEXT, BORDER
         elif self.skin_role == "primary":
-            face, hover, text, border = CONTINUE_BG, CONTINUE_HOVER, INK, CONTINUE_BG
+            face, hover, text, border = CONTINUE_BG, CONTINUE_HOVER, WHITE, CONTINUE_BG
+        elif self.skin_role == "batch-stop":
+            face, hover, text, border = RED, STOP_HOVER, WHITE, STOP_BORDER
+        elif self.skin_role == "clipboard":
+            face, hover, text, border = "#007C91", "#006678", WHITE, "#99E6E9"
         elif self.skin_role in {"stop", "danger"}:
             face, hover, text, border = STOP_BG, STOP_HOVER, RED, STOP_BORDER
         elif self.skin_role == "settings":
@@ -196,10 +213,118 @@ class Button(ctk.CTkButton):
             self._skin_key = None
             super().configure(fg_color=PRIMARY_PRESSED, hover_color=PRIMARY_PRESSED)
 
+    def _draw(self, no_color_updates=False):
+        super()._draw(no_color_updates)
+        if hasattr(self, "skin_role"):
+            self._paint_glass()
+
+    def _create_grid(self):
+        super()._create_grid()
+        # Render text on the same Canvas as the gradient to avoid opaque label boxes.
+        for label in (getattr(self, "_text_label", None), getattr(self, "_image_label", None)):
+            if label is not None:
+                label.grid_remove()
+
+    def _paint_glass(self):
+        import tkinter.font as tkfont
+        scale = self._get_widget_scaling()
+        w, h = max(8, round(self._current_width * scale)), max(8, round(self._current_height * scale))
+        disabled = self._state == "disabled"
+        hover = getattr(self, "_glass_hover", False)
+        text = self._textvariable.get() if self._textvariable is not None else self._text
+        focus = self._canvas.focus_get() is self._canvas
+        backing_id = id(getattr(self.master, "_art_pil", None))
+        key = (w, h, self.skin_role, self.icon_name, disabled, hover, text, focus,
+               str(self._font), str(self._text_color),
+               str(self._text_color_disabled), backing_id)
+        if getattr(self, "_glass_key", None) == key:
+            return
+        self._glass_key = key
+        image = button_face(w, h, self.skin_role, disabled, hover)
+        if hasattr(self.master, "_art_pil"):
+            x,y=self.winfo_x(),self.winfo_y()
+            backing=self.master._art_pil.crop((x,y,x+w,y+h))
+            backing.alpha_composite(image)
+            image=backing
+        self._glass_photo = ImageTk.PhotoImage(image, master=self)
+        self._canvas.itemconfigure("inner_parts", state="hidden")
+        self._canvas.itemconfigure("border_parts", state="hidden")
+        self._canvas.delete("glass")
+        self._canvas.create_image(0, 0, image=self._glass_photo, anchor="nw", tags="glass")
+        text_color = self._text_color_disabled if disabled else self._text_color
+        text_color = self._apply_appearance_mode(text_color)
+        font = self._apply_font_scaling(self._font)
+        size = round((21 if self.skin_role in {"primary", "batch-stop"} else 18) * scale)
+        gap = round(8 * scale) if text and self.icon_name else 0
+        text_width = tkfont.Font(font=font).measure(text or "")
+        left = (w - text_width - (size + gap if self.icon_name else 0)) / 2
+        if self.icon_name:
+            rgb = tuple(value // 257 for value in self.winfo_rgb(text_color))
+            tinted = _tinted_icon(self.icon_name, rgb, size)
+            self._glass_icon = ImageTk.PhotoImage(tinted, master=self)
+            self._canvas.create_image(left, (h-4)/2, image=self._glass_icon, anchor="w", tags="glass")
+        self._canvas.create_text(left + (size + gap if self.icon_name else 0), (h-4)/2,
+                                 text=text, font=font, fill=text_color, anchor="w", tags="glass")
+        for label in (self._text_label, self._image_label):
+            if label is not None:
+                label.grid_remove()
+        self._canvas.tag_raise("glass")
+        if focus:
+            self._canvas.create_rectangle(5, 5, w-6, h-9, outline=BLUE, width=2, tags="glass")
+
+    def _on_enter(self, event=None):
+        super()._on_enter(event)
+        self._glass_hover = True
+        self._paint_glass()
+
+    def _on_leave(self, event=None):
+        super()._on_leave(event)
+        self._glass_hover = False
+        self._paint_glass()
+
+
+class ArtFrame(ctk.CTkFrame):
+    """A raster-painted frame; its children and callbacks remain native widgets."""
+    def __init__(self, master, *, art_role="panel", **kwargs):
+        self.art_role = art_role
+        super().__init__(master, **kwargs)
+
+    def configure(self, require_redraw=False, **kwargs):
+        if "bg" in kwargs:
+            kwargs["fg_color"] = kwargs.pop("bg")
+        super().configure(require_redraw=require_redraw, **kwargs)
+
+    def cget(self, key):
+        return super().cget("fg_color" if key == "bg" else key)
+
+    def _draw(self, no_color_updates=False):
+        super()._draw(no_color_updates)
+        if not hasattr(self, "art_role"):
+            return
+        scale = self._get_widget_scaling()
+        w, h = max(8, round(self._current_width*scale)), max(8, round(self._current_height*scale))
+        key = (w, h, self.art_role, str(self._fg_color))
+        if getattr(self, "_art_key", None) == key:
+            return
+        self._art_key = key
+        art = (banner(w, h, self.art_role == "footer") if self.art_role in {"header", "footer"}
+               else rounded_surface(w, h, self.art_role, self._fg_color == PALE,
+                                    self._apply_appearance_mode(self._fg_color)))
+        self._art_pil=art
+        self._art_photo = ImageTk.PhotoImage(art, master=self)
+        self._canvas.delete("glass-surface")
+        self._canvas.create_image(0, 0, image=self._art_photo, anchor="nw", tags="glass-surface")
+
+
+@lru_cache(maxsize=12)
+def artwork(name, size):
+    art = brand_art() if name == "brand" else phone_art(int(name.rsplit("-", 1)[-1]))
+    return ctk.CTkImage(light_image=art, dark_image=art, size=size)
+
 
 class Entry(ctk.CTkEntry):
     def __init__(self, master, **kwargs):
-        kwargs["font"] = ui_font(16)
+        kwargs["font"] = ui_font(17)
         kwargs.update(fg_color=INPUT, text_color=BODY,
                       placeholder_text_color=PLACEHOLDER, border_color=FIELD_BORDER)
         super().__init__(master, **kwargs)
@@ -211,7 +336,7 @@ class FooterNote(ctk.CTkLabel):
     """Routine progress stays quiet; errors retain their meaningful color."""
     def configure(self, require_redraw=False, **kwargs):
         if "text_color" in kwargs and kwargs["text_color"] != RED:
-            kwargs["text_color"] = MUTED
+            kwargs["text_color"] = WHITE
         super().configure(require_redraw=require_redraw, **kwargs)
 
 
@@ -252,10 +377,10 @@ class StatusCell(tk.Frame):
         super().__init__(master, bg=background, borderwidth=0)
         self.full_text = ""
         self.primary = TableText(self, text="", bg=background, fg=BODY,
-                                 font=ui_font(15, "semibold"), wraplength=150, anchor="w",
+                                 font=ui_font(16, "semibold"), wraplength=150, anchor="w",
                                  justify="left", padx=6, pady=2)
         self.description = TableText(self, text="", bg=background, fg=MUTED,
-                                     font=ui_font(14), wraplength=150, anchor="w",
+                                     font=ui_font(15), wraplength=150, anchor="w",
                                      justify="left", padx=6, pady=1)
         self.primary.pack(fill="x")
         self.description.pack(fill="x")

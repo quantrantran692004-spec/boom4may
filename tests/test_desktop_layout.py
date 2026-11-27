@@ -14,8 +14,8 @@ class DesktopLayoutTests(unittest.TestCase):
     def test_startup_size_matches_reference_and_stays_inside_smaller_screen(self):
         for scale in (1, 1.25, 1.5):
             width, height, x, y = startup_geometry(1920, 1080, scale)
-            self.assertAlmostEqual(width * scale, 1840, delta=1)
-            self.assertAlmostEqual(height * scale, 960, delta=1)
+            self.assertAlmostEqual(width * scale, 1616, delta=1)
+            self.assertAlmostEqual(height * scale, 928, delta=1)
             self.assertGreaterEqual(x, 0)
             self.assertGreaterEqual(y, 0)
             width, height, x, y = startup_geometry(1366, 768, scale)
