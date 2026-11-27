@@ -2,6 +2,10 @@
 
 ## Swarmote V3 — nghiệm thu 27/11/2026
 
+**Bổ sung sau khi hoàn tất V3 theo hai ảnh mới:** Cửa sổ lần mở đầu lấy mốc vùng nội dung 1696×878 px (cả khung/title bar khoảng 1698×916 px như ảnh), căn giữa và giới hạn theo màn hình để không vượt vùng nhìn thấy. Trên màn hình 1536×864 của môi trường kiểm tra, kích thước nội dung tự giới hạn còn 1472×724 px. Bảng nay có bốn cột Máy / Amazon / Trạng thái / Thao tác; bỏ riêng cột Proxy và nhường chiều rộng cho trạng thái. Ô dán proxy ở phần nhập liệu và mọi trường proxy ở khung phải giữ nguyên. Đây là yêu cầu sau V3, thay thế quy tắc giữ năm cột của tài liệu ban đầu. Ảnh cuối ở `assets/ui_history/v3_final.png` dùng dữ liệu giả và kích thước mở mặc định thực tế trên màn hình kiểm tra.
+
+Nghiệm thu bản cuối: 628 unittest toàn dự án PASS. Đã kiểm tra thêm focus/hover/pressed, nút khóa, tooltip Cài đặt và hộp thoại native thông tin/lỗi với dữ liệu thử; đóng đúng hộp thoại của tiến trình kiểm tra. Kiểm tra scale 100/125/150% xác nhận cột Proxy không còn trong bảng và các ô Proxy bên phải vẫn hiện. Các callback tự động hóa không được gọi trong kiểm tra giao diện.
+
 V3 thay thế phần màu và trình bày V2 bên dưới; giữ hai cột, dữ liệu và các callback chạy máy. Màu dùng `desktop_theme.py`: nền #EDF1F3, khung #FAFBFC, nhập liệu #F2F5F7, chọn #EAF4F5, header #B4DFE1 và footer #F5F7F8. Các vùng nội dung/ô nhập/nút phụ chuyển về xám lạnh; màu thương hiệu chỉ còn ở header, trạng thái, vùng chọn và chức năng cần nhận diện. Primary vàng chỉ khi khả dụng, secondary trung tính có viền, danger đỏ nhạt cho Dừng/Xóa, disabled cùng màu chữ/icon trung tính.
 
 Typography dùng các face cùng họ Segoe UI: thương hiệu bold, tiêu đề và tên máy Semibold 600, dữ liệu regular, nút regular, trạng thái chính Semibold 15–16, diễn giải regular 14. Bảng giữ nhãn Tk nhẹ có theo dõi DPI, các ô cùng nền toàn hàng, đường ngang 1 px; bỏ icon thừa và vạch trắng ở header. Tóm tắt Amazon còn ba dòng, quyền sửa và dữ liệu gốc không đổi. StatusCell giữ nguyên toàn bộ thông báo, hiển thị nhãn ngắn cùng mô tả rút gọn; hover xem đầy đủ, chọn hàng xem nguyên văn bên phải. Khung trạng thái không còn mảng nền màu lớn.
@@ -27,6 +31,8 @@ Tự đánh giá dưới đây là nhận xét chủ quan dựa trên ảnh và 
 | Bố cục/không gian | 7,8/10 | Hàng gọn hơn; cửa sổ thấp vẫn cần cuộn |
 | Nhất quán | 8,4/10 | Tokens, bốn vai trò nút và cùng hệ chữ |
 | Cảm giác cao cấp | 7,8/10 | Bề mặt/viền tiết chế; cần người dùng xác nhận |
+
+Các file triển khai: `desktop.py` (bố cục bên trong, trạng thái, density và kích thước mở), `desktop_theme.py` (tokens, typography, trạng thái hiển thị, thành phần Tk theo DPI), `assets/icons/` (nét Lucide 1,75 px và list), `tests/test_desktop_layout.py` (DPI, nguyên văn trạng thái, Proxy phải và kích thước mở), `tests/test_stop_reset.py` (cập nhật mock widget, giữ kiểm tra callback), cùng DESIGN/PROJECT_HANDOFF/ASSET_INDEX và Graphify. Không sửa runner, các file flow, registry, parser hoặc dữ liệu Settings/Profile.
 
 ## Hướng thị giác
 

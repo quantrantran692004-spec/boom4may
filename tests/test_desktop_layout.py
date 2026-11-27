@@ -6,11 +6,22 @@ from unittest.mock import patch
 import customtkinter as ctk
 
 from amazon_android import desktop
-from amazon_android.desktop_theme import StatusCell, state_style, status_title
+from amazon_android.desktop_theme import StatusCell, state_style, status_title, startup_geometry
 
 
 @unittest.skipUnless(sys.platform == "win32", "Tk window layout requires Windows")
 class DesktopLayoutTests(unittest.TestCase):
+    def test_startup_size_matches_reference_and_stays_inside_smaller_screen(self):
+        for scale in (1, 1.25, 1.5):
+            width, height, x, y = startup_geometry(1920, 1080, scale)
+            self.assertAlmostEqual(width * scale, 1696, delta=1)
+            self.assertAlmostEqual(height * scale, 878, delta=1)
+            self.assertGreaterEqual(x, 0)
+            self.assertGreaterEqual(y, 0)
+            width, height, x, y = startup_geometry(1366, 768, scale)
+            self.assertLessEqual(width * scale + x, 1366)
+            self.assertLessEqual(height * scale + y + 60, 768)
+
     def test_long_status_keeps_full_message_and_scales_without_horizontal_overflow(self):
         class HiddenRoot(ctk.CTk):
             def __init__(self, *args, **kwargs):
@@ -38,6 +49,9 @@ class DesktopLayoutTests(unittest.TestCase):
                 window._select(11)
                 root.update()
                 cell = window.table_rows[11]["status"]
+                self.assertNotIn("proxy", window.table_rows[11])
+                self.assertTrue(window.proxy_line.winfo_manager())
+                self.assertTrue(window.detail_entries["host"].winfo_manager())
                 self.assertIsInstance(cell, StatusCell)
                 self.assertIn(message, cell.cget("text"))
                 self.assertEqual(status_title("post_paused"), cell.primary.cget("text"))

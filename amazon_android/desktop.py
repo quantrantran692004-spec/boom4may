@@ -40,6 +40,7 @@ from .desktop_theme import (
     LABEL_ICONS, Button, Entry, icon, state_style, status_title, ui_font,
     HEADER_BORDER, HEADER_CONTROL, HEADER_TEXT, ICON_DEFAULT,
     TableText, StatusCell, FooterNote,
+    startup_geometry,
 )
 
 BULK = (
@@ -75,13 +76,13 @@ class Window:
         scale = self.root._get_window_scaling()
         available_width = self.root.winfo_screenwidth() / scale
         available_height = self.root.winfo_screenheight() / scale
-        initial_width = min(1380, int(available_width - 60))
-        initial_height = min(800, int(available_height - 90))
+        initial_width, initial_height, initial_x, initial_y = startup_geometry(
+            self.root.winfo_screenwidth(), self.root.winfo_screenheight(), scale)
         self.root.minsize(
             min(1100, max(760, initial_width - 40)),
             min(600, max(380, initial_height - 30)),
         )
-        self.root.geometry(f"{initial_width}x{initial_height}+20+15")
+        self.root.geometry(f"{initial_width}x{initial_height}+{initial_x}+{initial_y}")
         self.root.update_idletasks()
         set_window_identity(self.root.winfo_id())
 
@@ -576,30 +577,30 @@ class Window:
                              border_width=1, border_color=BORDER)
         self.preview_table = table
         table.grid(row=1, column=0, sticky="ew")
-        for col, weight in enumerate((1, 2, 3, 2, 1)):
+        for col, weight in enumerate((1, 3, 4, 1)):
             table.grid_columnconfigure(col, weight=weight)
         self.table_title = self._label(table, "Máy trong mẻ: 1/12", 20,
                                        color=INK, weight="bold",
                                        image=icon("list", ICON_DEFAULT, 18, gap=6),
                                        compound="left")
-        self.table_title.grid(row=0, column=0, columnspan=3,
+        self.table_title.grid(row=0, column=0, columnspan=2,
                               sticky="w", padx=16, pady=(12, 0))
         self._label(table, "Chọn hàng để xem và sửa", 14).grid(
-            row=0, column=3, columnspan=2, sticky="e", padx=20,
+            row=0, column=2, columnspan=2, sticky="e", padx=20,
             pady=(12, 0))
-        headings = ("MÁY", "PROXY", "AMAZON", "TRẠNG THÁI", "THAO TÁC")
-        keys = ("machine", "proxy", "account", "status")
+        headings = ("MÁY", "AMAZON", "TRẠNG THÁI", "THAO TÁC")
+        keys = ("machine", "account", "status")
         heading_band = tk.Frame(table, bg=TABLE_HEADER, borderwidth=0)
-        heading_band.grid(row=1, column=0, columnspan=5, sticky="nsew", padx=1)
+        heading_band.grid(row=1, column=0, columnspan=4, sticky="nsew", padx=1)
         for col, heading in enumerate(headings):
             self._label(table, heading, 14, color=TABLE_HEADER_TEXT,
                         anchor="w", fg_color=TABLE_HEADER, bg_color=TABLE_HEADER).grid(
                             row=1, column=col, sticky="ew",
-                            padx=(20 if col == 0 else 6, 12 if col == 4 else 6),
+                            padx=(20 if col == 0 else 6, 12 if col == 3 else 6),
                             pady=(7, 5))
         for index in range(MAX_PROFILES):
             band = tk.Frame(table, bg=SURFACE, borderwidth=0)
-            band.grid(row=index + 2, column=0, columnspan=5, sticky="nsew", padx=1)
+            band.grid(row=index + 2, column=0, columnspan=4, sticky="nsew", padx=1)
             self.table_bands.append(band)
             band.bind("<Button-1>", lambda _event, i=index: self._select(i))
             band.bind("<Enter>", lambda _event, i=index: self._hover_table_row(i))
@@ -629,7 +630,7 @@ class Window:
             self.table_rows.append(cells)
             actions = ctk.CTkFrame(table, fg_color="transparent")
             self.table_actions.append(actions)
-            actions.grid(row=index + 2, column=4, sticky="ew", padx=(3, 10), pady=1)
+            actions.grid(row=index + 2, column=3, sticky="ew", padx=(3, 10), pady=1)
             button = Button(
                 actions, text="Tiếp tục", icon_name="circle-play", width=95, height=32, corner_radius=7,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
@@ -652,7 +653,7 @@ class Window:
             self.row_stop_buttons.append(stop_button)
             tk.Frame(band, bg=BORDER, height=1).pack(side="bottom", fill="x")
         ctk.CTkFrame(table, fg_color="transparent", height=5).grid(
-            row=MAX_PROFILES + 2, column=0, columnspan=5)
+            row=MAX_PROFILES + 2, column=0, columnspan=4)
 
     def _hover_table_row(self, index) -> None:
         self._table_hover = index
@@ -661,11 +662,13 @@ class Window:
     def _fit_table_columns(self, _event=None) -> None:
         width = self.main._parent_canvas.winfo_width() / self.main._get_widget_scaling()
         compact = width < 640
-        if getattr(self, "_dense_table", None) == compact:
+        status_wrap = max(150, min(360, width - 415))
+        layout = (compact, round(status_wrap))
+        if getattr(self, "_dense_table", None) == layout:
             return
-        self._dense_table = compact
-        wraps = ({"machine": 56, "proxy": 105, "account": 145, "status": 112}
-                 if compact else {"machine": 68, "proxy": 135, "account": 170, "status": 150})
+        self._dense_table = layout
+        wraps = ({"machine": 56, "account": 145, "status": status_wrap}
+                 if compact else {"machine": 68, "account": 170, "status": status_wrap})
         for cells in self.table_rows:
             for key, cell in cells.items():
                 cell.set_wrap(wraps[key])

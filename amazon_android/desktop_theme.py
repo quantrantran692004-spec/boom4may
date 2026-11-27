@@ -102,6 +102,15 @@ def ui_font(size=16, weight="normal"):
     return ctk.CTkFont(FONT_FAMILY, size, weight=weight)
 
 
+def startup_geometry(screen_width, screen_height, scale):
+    """Reference screenshot: about 1696x878 client pixels, clamped to screen."""
+    width = max(400, min(1696, screen_width - 64))
+    height = max(300, min(878, screen_height - 140))
+    x = max(0, round((screen_width - width) / 2))
+    y = max(12, round((screen_height - height) / 2 - 40))
+    return round(width / scale), round(height / scale), x, y
+
+
 @lru_cache(maxsize=256)
 def icon(name, color=ICON_DEFAULT, size=ICON_BUTTON, gap=0):
     path = Path(__file__).with_name("assets") / "icons" / f"{name}.png"
