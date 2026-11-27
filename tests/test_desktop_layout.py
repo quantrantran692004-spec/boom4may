@@ -10,7 +10,7 @@ from amazon_android import desktop
 
 @unittest.skipUnless(sys.platform == "win32", "Tk window layout requires Windows")
 class DesktopLayoutTests(unittest.TestCase):
-    def test_table_has_all_twelve_slots_and_locked_batch_starts_at_table(self):
+    def test_table_has_all_twelve_slots_and_locked_controls_remain_visible(self):
         class HiddenRoot(ctk.CTk):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -37,10 +37,18 @@ class DesktopLayoutTests(unittest.TestCase):
             card = window.detail_panel.winfo_children()[0]
             self.assertLessEqual(card.winfo_reqwidth(),
                                  window.detail_panel._parent_canvas.winfo_width())
+            self.assertLessEqual(window.preview_table.winfo_reqwidth(),
+                                 window.main._parent_canvas.winfo_width())
             window.draft.locked = True
             window._refresh_devices()
-            self.assertFalse(window.bulk_card.winfo_manager())
-            self.assertFalse(window.proxy_line.winfo_manager())
+            self.assertTrue(window.bulk_card.winfo_manager())
+            self.assertTrue(window.proxy_line.winfo_manager())
+            self.assertTrue(window.single_account_line.winfo_manager())
+            self.assertLess(window.proxy_line.winfo_rooty(),
+                            window.detail_entries["full_name"].winfo_rooty())
+            self.assertLess(window.single_account_line.winfo_rooty(),
+                            window.detail_entries["full_name"].winfo_rooty())
+            self.assertEqual("disabled", window.apply_single_account_button.cget("state"))
             self.assertTrue(window.preview_table.winfo_manager())
             window.draft.locked = False
             window._refresh_devices()

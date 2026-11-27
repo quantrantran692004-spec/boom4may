@@ -2,16 +2,16 @@
 
 ## Hướng thị giác
 
-Màn hình vận hành sáng với nền xanh xám nhạt, thẻ trắng, chữ xanh than và nút chính xanh ngọc đậm. Bảng máy và ô nhập dùng nền sáng để dễ đọc. Trạng thái dùng xanh lá cho thành công, đỏ trầm cho lỗi và luôn kèm chữ. Biểu tượng chỉ dùng cho thao tác tương ứng; không có ảnh trang trí chiếm vùng làm việc.
+Màn hình vận hành sáng với nền xám ấm nhạt, thẻ trắng, chữ xám than và nút chính xanh trầm. Bảng máy và ô nhập dùng nền trung tính để đọc lâu không mỏi mắt; hàng được chọn tô xám xanh rất nhẹ. Trạng thái dùng xanh lá trầm cho thành công, đỏ trầm cho lỗi và luôn kèm chữ. Biểu tượng chỉ dùng cho thao tác tương ứng; không có ảnh trang trí chiếm vùng làm việc.
 
 ## Bố cục
 
 - Thanh đầu: tên công cụ, chọn số máy trong mẻ và Cài đặt.
-- Cột chính: hai ô dán proxy/Amazon khi chưa chạy; bên dưới là bảng đủ 12 máy, kể cả máy chưa dùng trong mẻ. Sau khi mẻ khóa, phần dán hàng loạt ẩn để bảng lên đầu. Bấm một hàng để chọn máy.
-- Cột chi tiết: máy đang chọn, OTP ở đầu, thông tin Amazon và proxy riêng, công cụ sửa dữ liệu và gắn máy từ menu.
+- Cột chính: hai ô dán proxy/Amazon và bảng đủ 12 máy, kể cả máy chưa dùng trong mẻ. Hai ô dán hàng loạt vẫn hiện khi mẻ chạy nhưng bị khóa để tránh ghi đè nhiều máy. Bấm một hàng để chọn máy.
+- Cột chi tiết: máy đang chọn, OTP ở đầu, hai ô dán proxy/hàng Amazon để sửa máy đó, rồi các trường Amazon và proxy riêng. Mọi ô luôn hiện; proxy của máy chưa tạo Profile được sửa khi máy dừng/lỗi, Amazon của máy dừng/lỗi được sửa riêng. Proxy đã gắn vào Profile hiện khóa để tránh báo sai rằng sửa trong tool đã đổi proxy của Swarmote. Công cụ gắn máy từ menu ở cuối khung.
 - Thanh cuối cố định: Chạy, Dừng cả mẻ, Mẻ mới và thông báo. Tiếp tục/Dừng từng máy nằm ngay trong hàng bảng của máy đó.
 - Không có cột danh sách máy trùng bảng, khối hình 3D, hay nút cuộn tới bảng. Các nút thao tác có biểu tượng tương ứng và chữ ngắn để tránh nhầm khi nhiều máy chạy.
-- Chữ dữ liệu trong bảng máy cỡ 16, tiêu đề cột cỡ 13, nút từng hàng cỡ 14 và cao 40; đủ lớn để đọc trên màn hình Windows phóng 125%. Khi cần, cuộn bảng để xem đủ 12 máy.
+- Chữ dữ liệu trong bảng máy cỡ 18 bằng Segoe UI, tên máy đậm; tiêu đề cột và nút từng hàng cỡ 15, nút cao 40. Hai nút của máy đang dùng xếp dọc để dành chiều rộng cho thông tin; không ép đủ 12 máy vào một màn hình, cuộn bảng để xem máy còn lại. Máy chưa nhập Amazon hiện một dòng gọn thay cho nhiều dòng giữ chỗ. Các nhãn và ô ở khung chi tiết dùng cùng font, cỡ 14–20 theo mức quan trọng.
 
 ## Quy tắc
 

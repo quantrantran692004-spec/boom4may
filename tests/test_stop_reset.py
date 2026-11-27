@@ -58,11 +58,12 @@ class StopResetTests(unittest.TestCase):
         self.assertIs(w.jobs,old_jobs)
         w._set_editing.assert_not_called()
 
-    def test_failed_row_can_request_retry_while_another_machine_is_running(self):
+    def test_failed_uncreated_row_retries_creation_while_another_machine_runs(self):
         w=self.window(); w.status=[('failed','error')]
+        w.jobs={0:RunJob(0,'batch',Mock())}
         self.assertTrue(w._may_continue(0,'error',False))
         with patch.object(w,'_launch') as launch, \
-             patch.object(w,'_start_preparation_retry') as retry:
+             patch.object(w,'_start_profile_creation_retry') as retry:
             w._continue_profile(0)
         self.assertEqual(w._pending_retries,set())
         retry.assert_called_once_with(0)
@@ -96,6 +97,46 @@ class StopResetTests(unittest.TestCase):
         create.assert_called_once_with(0)
         launch.assert_not_called()
         self.assertIn(('batch', 0), w.manual_slots)
+
+    def test_reserved_ready_without_device_retries_creation_not_adb(self):
+        w = self.window()
+        w.running = False
+        w.jobs = {0: RunJob(0, 'batch', Mock())}
+        w.registry = Mock()
+        w.registry.get.return_value = {'name': 'q1', 'stage': 'RESERVED',
+                                       'state': 'READY', 'device_id': None}
+        w.status = [('Chờ tạo Profile', 'queued')]
+        with patch.object(w, '_start_profile_creation_retry') as create, \
+             patch.object(w, '_start_preparation_retry') as prepare:
+            w._continue_profile(0)
+        create.assert_called_once_with(0)
+        prepare.assert_not_called()
+
+    def test_reserved_ready_during_batch_does_not_create_twice(self):
+        w = self.window()
+        w.jobs = {0: RunJob(0, 'batch', Mock())}
+        w.registry = Mock()
+        w.registry.get.return_value = {'name': 'q1', 'stage': 'RESERVED',
+                                       'state': 'READY', 'device_id': None}
+        w.status = [('Chờ tạo Profile', 'queued')]
+        with patch.object(w, '_start_profile_creation_retry') as create:
+            w._continue_profile(0)
+        create.assert_not_called()
+        self.assertNotIn(('batch', 0), w.manual_slots)
+
+    def test_uncertain_create_without_device_does_not_retry_blindly(self):
+        w = self.window()
+        w.jobs = {0: RunJob(0, 'batch', Mock())}
+        w.registry = Mock()
+        w.registry.get.return_value = {'name': 'q1', 'stage': 'CREATING',
+                                       'state': 'UNCERTAIN', 'device_id': None}
+        w.status = [('Create chưa chắc chắn', 'uncertain')]
+        with patch.object(w, '_start_profile_creation_retry') as create, \
+             patch.object(w, '_start_preparation_retry') as prepare:
+            w._continue_profile(0)
+        create.assert_not_called()
+        prepare.assert_not_called()
+        self.assertEqual(w.status[0][1], 'uncertain')
 
     def test_queued_phone_continue_starts_manual_preparation(self):
         w = self.window()
@@ -134,6 +175,7 @@ class StopResetTests(unittest.TestCase):
             'https://apifc.net/smsrecord?token=fifth')
         w.proxy_line = Mock()
         w._can_edit_locked_row = Mock(return_value=True)
+        w._can_edit_account_row = Mock(return_value=True)
         w._mark_locked_row_dirty = Mock()
         w._apply_single_account_line()
         self.assertEqual(w.values[4]['phone'].get(), '12025550123')
@@ -227,6 +269,37 @@ class StopResetTests(unittest.TestCase):
             retry_preparation(job, registry, emit, stop, stop_after_step=selected)
         prepare.assert_called_once_with(job, 'q3', 'device-three', registry,
                                          emit, stop, None, selected)
+
+    def test_confirmed_profile_recovers_device_id_before_retry(self):
+        job = RunJob(2, 'batch', None)
+        registry = Mock()
+        registry.get.return_value = {'name': 'q3', 'device_id': None,
+                                     'stage': 'PROFILE_CONFIRMED', 'state': 'ERROR'}
+        registry.mark.return_value = {'name': 'q3', 'device_id': 'device-three',
+                                      'stage': 'PROFILE_CONFIRMED', 'state': 'READY'}
+        with patch('amazon_android.runner.profile_status', return_value={
+                'profile_name': 'q3', 'state': 'Running',
+                'device_id': 'device-three'}), \
+             patch('amazon_android.runner._prepare_phone', return_value='done') as prepare:
+            retry_preparation(job, registry, Mock(), threading.Event())
+        registry.mark.assert_called_once_with('batch', 2, 'READY',
+                                              device_id='device-three',
+                                              stage='PROFILE_CONFIRMED')
+        prepare.assert_called_once()
+
+    def test_confirmed_profile_rejects_wrong_device_identity(self):
+        job = RunJob(2, 'batch', None)
+        registry = Mock()
+        registry.get.return_value = {'name': 'q3', 'device_id': None,
+                                     'stage': 'PROFILE_CONFIRMED', 'state': 'ERROR'}
+        with patch('amazon_android.runner.profile_status', return_value={
+                'profile_name': 'q4', 'state': 'Running',
+                'device_id': 'device-four'}), \
+             patch('amazon_android.runner._prepare_phone') as prepare:
+            with self.assertRaisesRegex(ToolError, 'Device ID'):
+                retry_preparation(job, registry, Mock(), threading.Event())
+        registry.mark.assert_not_called()
+        prepare.assert_not_called()
 
     def test_manual_retry_starts_offline_confirmed_phone(self):
         job = RunJob(2, 'batch', None)

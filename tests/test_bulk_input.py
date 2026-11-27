@@ -6,6 +6,7 @@ from amazon_android.bulk_input import parse_bulk_payload, parse_column, parse_re
 from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
 from amazon_android.desktop import GREEN, Window
+from amazon_android.post_menu import PostMenuSession
 from amazon_android.runner import AccountData, RunJob
 from amazon_android.swarmote_desktop import ProxyConfig
 
@@ -140,6 +141,43 @@ class BulkInputTests(unittest.TestCase):
         window.status[1] = ("Create chưa chắc chắn", "uncertain")
         window._set_editing(False)
         window.detail_entries["host"].configure.assert_called_with(state="disabled")
+        window.status[1] = ("Amazon đã dừng", "post_paused")
+        window.post_menu_sessions[1] = PostMenuSession(window.draft.batch_id, 1,
+                                                       "q2", state="PAUSED")
+        window._set_editing(False)
+        window.detail_entries["host"].configure.assert_called_with(state="disabled")
+        window.detail_entries["full_name"].configure.assert_called_with(state="normal")
+        window.single_account_line.configure.assert_called_with(state="normal")
+
+    def test_paused_machine_can_fix_amazon_without_changing_created_proxy(self):
+        window = self.locked_window()
+        window.status[1] = ("Amazon đã dừng", "post_paused")
+        window.post_menu_sessions[1] = PostMenuSession(window.draft.batch_id, 1,
+                                                       "q2", state="PAUSED")
+        window.post_menu_workers = {}
+        window.phone_stop_after_step = {}
+        window.cancel = threading.Event()
+        window._start_post_menu = Mock()
+        old_proxy = window.jobs[1].proxy
+        old_first = window.jobs[0]
+        window.values[1]["phone"].set("12025550999")
+        window._edited_locked_rows.add(1)
+        window._continue_profile(1)
+        self.assertEqual(window.jobs[1].account.phone, "12025550999")
+        self.assertIs(window.jobs[1].proxy, old_proxy)
+        self.assertIs(window.jobs[0], old_first)
+        window._start_post_menu.assert_called_once_with(1)
+
+    def test_created_profile_error_allows_amazon_but_not_proxy_replacement(self):
+        window = self.locked_window()
+        window.registry.get.return_value = {
+            "stage": "PROFILE_CONFIRMED", "state": "ERROR",
+            "device_id": "device-two"}
+        self.assertFalse(window._can_edit_locked_row(1))
+        self.assertTrue(window._can_edit_account_row(1))
+        window._accept_proxy_text("new.example:2002:newuser:newpass")
+        self.assertEqual(window.values[1]["host"].get(), "old1.example")
+        self.assertEqual(window._edited_locked_rows, set())
 
     def test_editing_queued_machine_cancels_old_retry_before_new_continue(self):
         window = self.locked_window()
@@ -232,6 +270,7 @@ class BulkInputTests(unittest.TestCase):
         window.detail_entries = {key: Mock() for key in keys}
         window.detail_title = Mock()
         window.account_detail_heading = Mock()
+        window.single_account_heading = Mock()
         window.detail_status = Mock()
         window.single_account_line = Mock()
         window.apply_single_account_button = Mock()
@@ -245,6 +284,8 @@ class BulkInputTests(unittest.TestCase):
                 textvariable=window.values[6][key])
         window.account_detail_heading.configure.assert_called_with(
             text="Thông tin Amazon riêng · Máy 7")
+        window.single_account_heading.configure.assert_called_with(
+            text="Dán hàng Amazon · Máy 7")
 
     def test_internal_blank_line_rejected_to_preserve_alignment(self):
         with self.assertRaises(ToolError):

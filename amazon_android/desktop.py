@@ -31,22 +31,22 @@ from .swarmote_desktop import (
 )
 
 
-BG = "#EAF1F4"
+BG = "#F3F5F2"
 SURFACE = "#FFFFFF"
-INPUT = "#F6FAFC"
+INPUT = "#F8F9F7"
 WHITE = "#FFFFFF"
-INK = "#18313E"
-MUTED = "#536C78"
-BLUE = "#126D82"
-BLUE_HOVER = "#0C586A"
-PALE = "#DDEEF1"
-BORDER = "#D1E0E5"
-FIELD_BORDER = "#ACC4CC"
-SECONDARY = "#EDF4F6"
-SECONDARY_HOVER = "#DFECF0"
-GREEN = "#167354"
-RED = "#B23F4A"
-ROW_ALT = "#F7FAFB"
+INK = "#243039"
+MUTED = "#58656C"
+BLUE = "#315F68"
+BLUE_HOVER = "#264E56"
+PALE = "#E7ECE8"
+BORDER = "#D8DFDA"
+FIELD_BORDER = "#B8C5BE"
+SECONDARY = "#F0F3EF"
+SECONDARY_HOVER = "#E4EAE4"
+GREEN = "#2D6B56"
+RED = "#A0444A"
+ROW_ALT = "#F7F8F6"
 
 BULK = (
     ("proxy", "Proxy", "host:port:user:password", "Proxy dư tự dùng thay proxy lỗi"),
@@ -169,7 +169,6 @@ class Window:
                     )
         self.row_buttons: list[ctk.CTkButton] = []
         self.row_stop_buttons: list[ctk.CTkButton] = []
-        self.row_actions: list[ctk.CTkFrame] = []
         self.bulk_boxes: dict[str, ctk.CTkEntry] = {}
         self.bulk_feedback: dict[str, ctk.CTkLabel] = {}
         self.detail_entries: dict[str, ctk.CTkEntry] = {}
@@ -202,7 +201,7 @@ class Window:
                color: str = MUTED, weight: str = "normal", **kwargs):
         return ctk.CTkLabel(
             parent, text=text, text_color=color,
-            font=ctk.CTkFont(family="Segoe UI Variable", size=size, weight=weight),
+            font=ctk.CTkFont(family="Segoe UI", size=size, weight=weight),
             **kwargs,
         )
 
@@ -225,7 +224,7 @@ class Window:
         header.pack_propagate(False)
         self._label(header, "Swarmote", 20,
                     color=INK, weight="bold").pack(side="left", padx=(18, 24))
-        self._label(header, "Số máy", 13,
+        self._label(header, "Số máy", 14,
                     color=INK, weight="bold").pack(side="left")
         self.count_menu = ctk.CTkOptionMenu(
             header, values=[str(i) for i in range(1, MAX_PROFILES + 1)],
@@ -234,7 +233,7 @@ class Window:
             fg_color=SECONDARY, button_color=SECONDARY_HOVER,
             button_hover_color=FIELD_BORDER, text_color=INK,
             dropdown_fg_color=SURFACE, dropdown_text_color=INK,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 14, weight="bold"),
         )
         self.count_menu.pack(side="left", padx=10)
         self.settings_button = ctk.CTkButton(
@@ -272,7 +271,6 @@ class Window:
                                  border_width=1, border_color=BORDER)
         self.bulk_card = bulk_card
         bulk_card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        self._bulk_visible = True
         bulk_card.grid_columnconfigure(1, weight=1)
         self._label(bulk_card, "Dán dữ liệu", 16,
                     color=INK, weight="bold").grid(
@@ -281,7 +279,7 @@ class Window:
         for index, (kind, title, placeholder, hint) in enumerate(BULK):
             self._bulk_row(bulk_card, kind, title, placeholder, hint,
                            index + 1)
-        self.validation_label = self._label(bulk_card, "Cần dán proxy để chạy", 13)
+        self.validation_label = self._label(bulk_card, "Cần dán proxy để chạy", 14)
         self.validation_label.grid(row=3, column=0, columnspan=4,
                                    sticky="w", padx=16, pady=(3, 12))
 
@@ -294,34 +292,34 @@ class Window:
         title_row = ctk.CTkFrame(detail_card, fg_color="transparent")
         title_row.grid(row=0, column=0, columnspan=2, sticky="ew",
                        padx=22, pady=(20, 6))
-        self.detail_title = self._label(title_row, "Máy 1", 18,
+        self.detail_title = self._label(title_row, "Máy 1", 20,
                                         color=INK, weight="bold")
         self.detail_title.pack(side="left")
         self.detail_status = self._label(
-            detail_card, "Chưa chạy", 12, color=MUTED,
+            detail_card, "Chưa chạy", 14, color=MUTED,
             wraplength=305, justify="left",
         )
         self.detail_status.grid(row=2, column=0, columnspan=2,
                                 sticky="w", padx=20, pady=(0, 10))
 
         self.account_detail_heading = self._label(
-            detail_card, "Thông tin Amazon riêng · Máy 1", 14,
+            detail_card, "Thông tin Amazon riêng · Máy 1", 16,
             color=INK, weight="bold")
         self.account_detail_heading.grid(
-            row=3, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 8))
+            row=9, column=0, columnspan=2, sticky="w", padx=20, pady=(8, 8))
 
         self.proxy_paste_heading = self._label(
-            detail_card, "Dán 1–12 proxy để tự điền", 13,
+            detail_card, "Dán 1–12 proxy để tự điền", 15,
             color=INK, weight="bold")
         self.proxy_paste_heading.grid(
-            row=8, column=0, columnspan=2, sticky="w", padx=20)
+            row=3, column=0, columnspan=2, sticky="w", padx=20)
         self.proxy_line = ctk.CTkEntry(
             detail_card, placeholder_text="host:port:user:password",
             height=44, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI Variable", 13),
+            font=ctk.CTkFont("Segoe UI", 15),
         )
-        self.proxy_line.grid(row=9, column=0, columnspan=2,
+        self.proxy_line.grid(row=4, column=0, columnspan=2,
                              sticky="ew", padx=20, pady=(5, 6))
         self.proxy_line.bind("<Control-v>", self._paste_single_proxy, add="+")
         self.proxy_line.bind("<Return>", lambda _: self._split_single_proxy())
@@ -329,21 +327,21 @@ class Window:
         self.proxy_paste_hint = self._label(
             detail_card,
             "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
-            11, wraplength=260, justify="left")
-        self.proxy_paste_hint.grid(row=10, column=0, columnspan=2, sticky="w",
+            13, wraplength=260, justify="left")
+        self.proxy_paste_hint.grid(row=5, column=0, columnspan=2, sticky="w",
                                    padx=20, pady=(0, 12))
 
         fields = [
-            ("Tên Amazon", "full_name", 4, 0, False),
-            ("Số điện thoại", "phone", 4, 1, False),
-            ("Mật khẩu Amazon", "amazon_password", 5, 0, True),
-            ("Thẻ của số điện thoại này", "card", 6, 0, True),
-            ("URL OTP của số điện thoại này", "otp_url", 7, 0, False),
-            ("Host", "host", 11, 0, False),
-            ("Port", "port", 11, 1, False),
-            ("User proxy", "username", 12, 0, False),
-            ("Pass proxy", "proxy_password", 12, 1, True),
-            ("Tên Profile (dự kiến, tự cấp)", "profile_name", 13, 0, False),
+            ("Tên Amazon", "full_name", 10, 0, False),
+            ("Số điện thoại", "phone", 10, 1, False),
+            ("Mật khẩu Amazon", "amazon_password", 11, 0, True),
+            ("Thẻ của số điện thoại này", "card", 12, 0, True),
+            ("URL OTP của số điện thoại này", "otp_url", 13, 0, False),
+            ("Host", "host", 14, 0, False),
+            ("Port", "port", 14, 1, False),
+            ("User proxy", "username", 15, 0, False),
+            ("Pass proxy", "proxy_password", 15, 1, True),
+            ("Tên Profile (dự kiến, tự cấp)", "profile_name", 16, 0, False),
         ]
         for label, key, row, col, _secret in fields:
             cell = ctk.CTkFrame(detail_card, fg_color="transparent")
@@ -352,12 +350,12 @@ class Window:
                        padx=(20, 20) if key in {"card", "otp_url", "profile_name"} else
                            (20 if col == 0 else 8, 20 if col == 1 else 8),
                       pady=(0, 13))
-            self._label(cell, label, 13, color=INK,
+            self._label(cell, label, 15, color=INK,
                         weight="bold").pack(anchor="w", pady=(0, 5))
             entry = ctk.CTkEntry(
                 cell, width=115, height=42, corner_radius=8, border_color=FIELD_BORDER,
                 fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
-                font=ctk.CTkFont("Segoe UI Variable", 13),
+                font=ctk.CTkFont("Segoe UI", 15),
                 show="•" if _secret else "",
             )
             entry.pack(fill="x")
@@ -382,10 +380,10 @@ class Window:
                      padx=20, pady=(0, 10))
         otp_row.grid_columnconfigure(0, weight=1)
         self.otp_detail_status = self._label(
-            otp_row, "OTP · Chưa yêu cầu mã", 12, color=INK, anchor="w")
+            otp_row, "OTP · Chưa yêu cầu mã", 14, color=INK, anchor="w")
         self.otp_detail_status.grid(row=0, column=0, sticky="w", padx=12, pady=(8, 2))
         self.otp_detail_code = self._label(
-            otp_row, "—", 18, color=BLUE, weight="bold", anchor="w")
+            otp_row, "—", 20, color=BLUE, weight="bold", anchor="w")
         self.otp_detail_code.grid(row=1, column=0, sticky="w", padx=12, pady=(0, 8))
         self.otp_copy_button = ctk.CTkButton(
             otp_row, text="Sao chép", width=90, height=36,
@@ -401,38 +399,35 @@ class Window:
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
             command=self._attach_from_menu,
         )
-        self.attach_profile_button.grid(row=16, column=0, columnspan=2,
+        self.attach_profile_button.grid(row=17, column=0, columnspan=2,
                                    sticky="ew", padx=20, pady=(0, 17))
-        self._attach_visible = True
         self.single_account_heading = self._label(
-            detail_card, "Dán 1 hàng Amazon cho máy đang chọn", 13,
+            detail_card, "Dán hàng Amazon · Máy 1", 15,
             color=INK, weight="bold")
         self.single_account_heading.grid(
-            row=18, column=0, columnspan=2, sticky="w", padx=20)
+            row=6, column=0, columnspan=2, sticky="w", padx=20)
         self.single_account_line = ctk.CTkEntry(
             detail_card, placeholder_text="SĐT | Mật khẩu | Tên | Thẻ | URL OTP",
             height=42, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI Variable", 12), show="•")
-        self.single_account_line.grid(row=19, column=0, columnspan=2,
+            font=ctk.CTkFont("Segoe UI", 14), show="•")
+        self.single_account_line.grid(row=7, column=0, columnspan=2,
                                       sticky="ew", padx=20, pady=(5, 8))
         self.single_account_line.bind("<Return>", lambda _: self._apply_single_account_line())
         self.apply_single_account_button = ctk.CTkButton(
             detail_card, text="Điền vào Máy 1", width=115, height=38,
+            fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
+            text_color=INK, text_color_disabled=MUTED,
+            border_color=FIELD_BORDER, border_width=1,
             command=self._apply_single_account_line)
-        self.apply_single_account_button.grid(row=20, column=0, sticky="ew",
-                                              padx=(20, 8), pady=(0, 18))
+        self.apply_single_account_button.grid(row=8, column=0, sticky="ew",
+                                              padx=(20, 8), pady=(0, 10))
         self.clear_selected_button = ctk.CTkButton(
             detail_card, text="Xóa dữ liệu Máy 1", width=115, height=38,
             fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, command=self._clear_selected_data)
-        self.clear_selected_button.grid(row=20, column=1, sticky="ew",
-                                        padx=(8, 20), pady=(0, 18))
-        self._repair_controls = (
-            self.proxy_paste_heading, self.proxy_line, self.proxy_paste_hint,
-            self.single_account_heading, self.single_account_line,
-            self.apply_single_account_button, self.clear_selected_button,
-        )
+        self.clear_selected_button.grid(row=8, column=1, sticky="ew",
+                                        padx=(8, 20), pady=(0, 10))
 
     def _build_actions(self, parent) -> None:
         action = ctk.CTkFrame(parent, fg_color=SURFACE, corner_radius=10,
@@ -443,7 +438,7 @@ class Window:
             corner_radius=10, fg_color=BLUE, hover_color=BLUE_HOVER,
             border_width=1, border_color=BLUE,
             text_color=WHITE,
-            font=ctk.CTkFont("Segoe UI Variable", 14, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 14, weight="bold"),
             command=self._start,
         )
         self.run_button.pack(side="left", padx=(12, 0), pady=8)
@@ -451,7 +446,7 @@ class Window:
             action, text="■  Dừng cả mẻ", width=145, height=42,
             corner_radius=9, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
             state="disabled",
             command=self._request_stop,
         )
@@ -460,7 +455,7 @@ class Window:
             action, text="↻  Mẻ mới", width=125, height=42,
             corner_radius=9, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_color=FIELD_BORDER, border_width=1,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
             command=self._reset,
         )
         self.reset_button.pack(side="left")
@@ -519,15 +514,13 @@ class Window:
             self.root.after(80, self._show_preview_table)
 
     def _build_preview_table(self) -> None:
-        self.row_actions = []
-        self._row_actions_visible = [True] * MAX_PROFILES
         table = ctk.CTkFrame(self.main, fg_color=SURFACE, corner_radius=10,
                              border_width=1, border_color=BORDER)
         self.preview_table = table
         table.grid(row=1, column=0, sticky="ew")
-        for col, weight in enumerate((1, 2, 3, 2, 2)):
+        for col, weight in enumerate((1, 2, 3, 2, 1)):
             table.grid_columnconfigure(col, weight=weight)
-        self.table_title = self._label(table, "Máy trong mẻ: 1/12", 19,
+        self.table_title = self._label(table, "Máy trong mẻ: 1/12", 20,
                                        color=INK, weight="bold")
         self.table_title.grid(row=0, column=0, columnspan=2,
                               sticky="w", padx=16, pady=(12, 0))
@@ -537,7 +530,7 @@ class Window:
         headings = ("MÁY", "PROXY", "AMAZON", "TRẠNG THÁI", "THAO TÁC")
         keys = ("machine", "proxy", "account", "status")
         for col, heading in enumerate(headings):
-            self._label(table, heading, 13, color=MUTED,
+            self._label(table, heading, 15, color=MUTED,
                         weight="bold", anchor="w").grid(
                             row=1, column=col, sticky="ew",
                             padx=(20 if col == 0 else 6, 12 if col == 4 else 6),
@@ -549,9 +542,10 @@ class Window:
                 # whenever Windows resizes the main workspace.
                 label = tk.Label(
                     table, text="", bg=SURFACE, fg=MUTED,
-                    font=ctk.CTkFont("Segoe UI Variable", 16),
-                    anchor="w", justify="left", padx=7, pady=6,
-                    wraplength={"machine": 85, "proxy": 165,
+                    font=ctk.CTkFont("Segoe UI", 18,
+                                     weight="bold" if key == "machine" else "normal"),
+                    anchor="w", justify="left", padx=8, pady=6,
+                    wraplength={"machine": 78, "proxy": 150,
                                 "account": 230, "status": 180}[key],
                     bd=0, highlightthickness=0,
                 )
@@ -562,25 +556,24 @@ class Window:
                 cells[key] = label
             self.table_rows.append(cells)
             actions = ctk.CTkFrame(table, fg_color="transparent")
-            actions.grid(row=index + 2, column=4, padx=(3, 10), pady=1)
-            self.row_actions.append(actions)
+            actions.grid(row=index + 2, column=4, sticky="ew", padx=(3, 10), pady=1)
             button = ctk.CTkButton(
-                actions, text="▶ Tiếp tục", width=94, height=40, corner_radius=8,
+                actions, text="▶ Tiếp tục", width=95, height=40, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=INK, border_width=1, border_color=FIELD_BORDER,
-                font=ctk.CTkFont("Segoe UI Variable", 14, weight="bold"),
+                font=ctk.CTkFont("Segoe UI", 15, weight="bold"),
                 command=lambda i=index: self._continue_profile(i),
             )
-            button.pack(side="left", padx=(0, 4))
+            button.pack(fill="x", pady=(0, 4))
             self.row_buttons.append(button)
             stop_button = ctk.CTkButton(
-                actions, text="■ Dừng", width=78, height=40, corner_radius=8,
+                actions, text="■ Dừng", width=95, height=40, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=RED, border_width=1, border_color=FIELD_BORDER,
-                font=ctk.CTkFont("Segoe UI Variable", 14, weight="bold"),
+                font=ctk.CTkFont("Segoe UI", 15, weight="bold"),
                 state="disabled", command=lambda i=index: self._request_stop_phone(i),
             )
-            stop_button.pack(side="left")
+            stop_button.pack(fill="x")
             self.row_stop_buttons.append(stop_button)
         ctk.CTkFrame(table, fg_color="transparent", height=5).grid(
             row=MAX_PROFILES + 2, column=0, columnspan=5)
@@ -596,7 +589,7 @@ class Window:
                 f"Ctrl+V 1–12 dòng · {placeholder}"),
             height=42, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI Variable", 13),
+            font=ctk.CTkFont("Segoe UI", 13),
         )
         entry.grid(row=row, column=1, sticky="ew", padx=(0, 8), pady=5)
         entry.bind("<Control-v>",
@@ -607,7 +600,7 @@ class Window:
             parent, text="Dán clipboard", width=116, height=42,
             corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_width=1, border_color=FIELD_BORDER,
-            font=ctk.CTkFont("Segoe UI Variable", 12, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 12, weight="bold"),
             command=lambda k=kind: self._paste_from_clipboard(k),
         ).grid(row=row, column=2, padx=(0, 8), pady=5)
         feedback = self._label(parent, "Chưa dán", 12)
@@ -635,8 +628,8 @@ class Window:
 
     def _apply_single_account_line(self) -> None:
         index = self.selected
-        if self.draft.locked and not self._can_edit_locked_row(index):
-            self.run_note.configure(text="Máy đã có Profile hoặc đang chạy; không thể thay hàng Amazon",
+        if self.draft.locked and not self._can_edit_account_row(index):
+            self.run_note.configure(text="Dừng riêng máy này trước khi sửa hàng Amazon",
                                     text_color=RED)
             return
         raw = self.single_account_line.get().strip()
@@ -673,19 +666,24 @@ class Window:
 
     def _clear_selected_data(self) -> None:
         index = self.selected
-        if self.draft.locked and not self._can_edit_locked_row(index):
-            self.run_note.configure(text="Máy đã có Profile hoặc đang chạy; không thể xóa dữ liệu máy này",
+        proxy_editable = self._can_edit_locked_row(index) if self.draft.locked else True
+        account_editable = self._can_edit_account_row(index) if self.draft.locked else True
+        if not proxy_editable and not account_editable:
+            self.run_note.configure(text="Dừng riêng máy này trước khi xóa dữ liệu",
                                     text_color=RED)
             return
         if self.draft.locked:
             self._mark_locked_row_dirty(index)
-        for key in REPAIR_KEYS:
+        keys = REPAIR_KEYS if proxy_editable else (
+            "phone", "amazon_password", "full_name", "card", "otp_url")
+        for key in keys:
             self.values[index][key].set("")
         self.otp_codes[index] = ""
         self.otp_status[index] = "Chưa yêu cầu mã"
-        self.proxy_line.delete(0, "end")
+        if proxy_editable:
+            self.proxy_line.delete(0, "end")
         self.single_account_line.delete(0, "end")
-        self.run_note.configure(text=f"Đã xóa dữ liệu riêng Máy {index + 1}; nhập lại rồi bấm Tiếp tục",
+        self.run_note.configure(text=f"Đã xóa {'dữ liệu' if proxy_editable else 'Amazon'} Máy {index + 1}; nhập lại rồi bấm Tiếp tục",
                                 text_color=BLUE)
         self._refresh_devices()
 
@@ -878,9 +876,14 @@ class Window:
             self._refresh_after_id = self.root.after(40, self._delayed_refresh)
 
     def _on_row_value_changed(self, index: int, key: str) -> None:
-        if (self.draft.locked and key in REPAIR_KEYS and
-                index == self.selected and self._can_edit_locked_row(index)):
+        can_edit = (self._can_edit_locked_row(index) if key in
+                    {"host", "port", "username", "proxy_password"} else
+                    self._can_edit_account_row(index))
+        if self.draft.locked and key in REPAIR_KEYS and index == self.selected and can_edit:
             self._mark_locked_row_dirty(index)
+            if key == "otp_url":
+                self.otp_codes[index] = ""
+                self.otp_status[index] = "Chưa yêu cầu mã"
         self._schedule_refresh()
 
     def _mark_locked_row_dirty(self, index: int) -> None:
@@ -888,7 +891,7 @@ class Window:
         if index in self._pending_retries:
             self._pending_retries.discard(index)
             self.status[index] = (
-                f"Máy {index + 1} đã sửa dữ liệu · bấm Tiếp tục để tạo lại Profile",
+                f"Máy {index + 1} đã sửa dữ liệu · bấm Tiếp tục để áp dụng",
                 "error")
             self.run_note.configure(
                 text=f"Đã hủy lượt tạo lại đang chờ của Máy {index + 1}; bấm Tiếp tục sau khi sửa xong",
@@ -896,7 +899,8 @@ class Window:
 
     def _begin_locked_repair(self) -> None:
         if (self.draft.locked and self.selected in self._pending_retries and
-                self._can_edit_locked_row(self.selected)):
+                (self._can_edit_locked_row(self.selected) or
+                 self._can_edit_account_row(self.selected))):
             self._mark_locked_row_dirty(self.selected)
             self._refresh_devices()
 
@@ -929,12 +933,6 @@ class Window:
             validation = issue
         else:
             validation = f"✓ {active} máy đã phân bổ đúng · thông tin Amazon chưa nhập vào app"
-        if self.draft.locked and self._bulk_visible:
-            self.bulk_card.grid_remove()
-            self._bulk_visible = False
-        elif not self.draft.locked and not self._bulk_visible:
-            self.bulk_card.grid()
-            self._bulk_visible = True
         self.validation_label.configure(
             text=validation,
             text_color=RED if issue else GREEN if not self.draft.locked else MUTED,
@@ -956,25 +954,22 @@ class Window:
         self.attach_profile_button.configure(
             text=f"Thử q{self.selected + 1} từ menu ba gạch",
             state="normal" if can_attach else "disabled")
-        if can_attach and not self._attach_visible:
-            self.attach_profile_button.grid()
-            self._attach_visible = True
-        elif not can_attach and self._attach_visible:
-            self.attach_profile_button.grid_remove()
-            self._attach_visible = False
         if self.selected >= active:
             self.selected = active - 1
             self._select(self.selected)
         for i in range(MAX_PROFILES):
             state = self.status[i][1]
-            if i < active and not self._row_actions_visible[i]:
-                self.row_actions[i].grid()
-                self._row_actions_visible[i] = True
-            elif i >= active and self._row_actions_visible[i]:
-                self.row_actions[i].grid_remove()
-                self._row_actions_visible[i] = False
             may_continue = self._may_continue(i, state, bool(issue))
+            item = (self.registry.get(self.jobs[i].batch_id, i)
+                    if i in self.jobs and self.registry is not None else None)
+            needs_creation = (i in self.jobs and state in
+                              {"error", "stopped", "retry_queued"} and
+                              ((item is None and self.jobs[i].proxy is not None) or
+                               (item is not None and item.get("stage") == "RESERVED" and
+                                item.get("state") in {"READY", "ERROR", "STOPPED"} and
+                                not item.get("device_id"))))
             self._configure_display(self.row_buttons[i],
+                text="▶ Tạo Profile" if needs_creation else "▶ Tiếp tục",
                 state="normal" if i < active and may_continue else "disabled")
             self._configure_display(self.row_stop_buttons[i],
                 state="normal" if i < active and self._can_stop_phone(i) else "disabled")
@@ -1046,15 +1041,25 @@ class Window:
                           "Profile đã tạo" if self.draft.locked and index in self.jobs else "—")
             otp_url = values["otp_url"].get()
             try:
-                url_summary = f"URL …{otp_token(otp_url)[-6:]}" if otp_url else "URL —"
+                url_summary = f"URL OTP …{otp_token(otp_url)[-6:]}" if otp_url else "URL OTP —"
             except ToolError:
-                url_summary = "URL sai"
+                url_summary = "URL OTP sai"
             card = values["card"].get()
             card_summary = f"Thẻ ••••{card.split('|', 1)[0][-4:]}" if card else "Thẻ —"
-            account_text = (f"{values['full_name'].get() or 'Chưa có tên'}\n"
-                            f"{values['phone'].get() or 'Chưa có SĐT'} · "
-                            f"{'MK ✓' if values['amazon_password'].get() else 'MK —'} · {card_summary}\n"
-                            f"{url_summary}")
+            has_account = any(values[key].get() for key in
+                              ("full_name", "phone", "amazon_password", "card", "otp_url"))
+            if has_account:
+                account_lines = [
+                    values["full_name"].get() or "Tên —",
+                    values["phone"].get() or "SĐT —",
+                    "Mật khẩu ✓" if values["amazon_password"].get() else "Mật khẩu —",
+                ]
+                if card:
+                    account_lines.append(card_summary)
+                account_lines.append(url_summary)
+                account_text = "\n".join(account_lines)
+            else:
+                account_text = "Chưa nhập Amazon"
             run_status = {"idle": "Chưa chạy", "running": self.status[index][0],
                           "created": "Profile OK", "started": "Đã mở máy",
                           "installed": "Đã cài app", "queued": "Đợi máy trống",
@@ -1086,7 +1091,6 @@ class Window:
                     bg=PALE if index == self.selected else
                        ROW_ALT if index % 2 else SURFACE,
                     fg=(status_color if key == "status" else
-                        BLUE if index == self.selected else
                         INK if index < active else MUTED),
                 )
 
@@ -1102,6 +1106,7 @@ class Window:
         self.detail_title.configure(text=f"Máy {index + 1}")
         self.account_detail_heading.configure(
             text=f"Thông tin Amazon riêng · Máy {index + 1}")
+        self.single_account_heading.configure(text=f"Dán hàng Amazon · Máy {index + 1}")
         self.detail_status.configure(text=self.status[index][0])
         self.apply_single_account_button.configure(text=f"Điền vào Máy {index + 1}")
         self.clear_selected_button.configure(text=f"Xóa dữ liệu Máy {index + 1}")
@@ -1190,7 +1195,8 @@ class Window:
                 return event is not None and event.is_set()
             return index in self.jobs and state != "menu_only" and (
                 not self.running or state in {"error", "uncertain", "stopped",
-                                              "retry_queued", "queued"})
+                                              "retry_queued", "queued",
+                                              "post_paused", "post_stopped"})
         return not self.running and not issue
 
     def _can_edit_locked_row(self, index: int) -> bool:
@@ -1200,21 +1206,41 @@ class Window:
             return False
         if index in self.phone_serials or index in self.post_menu_sessions:
             return False
-        worker = self.preparation_retry_workers.get(index)
+        worker = getattr(self, "preparation_retry_workers", {}).get(index)
         if worker is not None and worker.is_alive():
             return False
         if self.registry is None:
             return False
         item = self.registry.get(self.jobs[index].batch_id, index)
-        return (isinstance(item, dict) and item.get("stage") == "RESERVED" and
-                item.get("state") in {"ERROR", "STOPPED"} and
+        if item is None:
+            return self.jobs[index].proxy is not None
+        return (item.get("stage") == "RESERVED" and
+                item.get("state") in {"READY", "ERROR", "STOPPED"} and
                 not item.get("device_id"))
+
+    def _can_edit_account_row(self, index: int) -> bool:
+        if not self.draft.locked or index not in self.jobs:
+            return False
+        if self.status[index][1] not in {"error", "uncertain", "stopped",
+                                         "retry_queued", "post_paused", "post_stopped"}:
+            return False
+        session = self.post_menu_sessions.get(index)
+        if session is not None and session.state == "RUNNING":
+            return False
+        for workers in (getattr(self, "preparation_retry_workers", {}),
+                        getattr(self, "post_menu_workers", {})):
+            worker = workers.get(index)
+            if worker is not None and worker.is_alive():
+                return False
+        return True
 
     def _set_editing(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
-        repairing = not enabled and self._can_edit_locked_row(self.selected)
-        detail_state = "normal" if (enabled or repairing) else "disabled"
-        display_state = (state, detail_state, self.selected if repairing else None)
+        proxy_editable = enabled or self._can_edit_locked_row(self.selected)
+        account_editable = enabled or self._can_edit_account_row(self.selected)
+        proxy_state = "normal" if proxy_editable else "disabled"
+        account_state = "normal" if account_editable else "disabled"
+        display_state = (state, proxy_state, account_state, self.selected)
         if getattr(self, "_editing_display_state", None) == display_state:
             return
         self._editing_display_state = display_state
@@ -1222,25 +1248,27 @@ class Window:
             box.configure(state=state)
         for key, entry in self.detail_entries.items():
             if key != "profile_name":
-                entry.configure(state=detail_state)
-        self.proxy_line.configure(state=detail_state)
-        self.single_account_line.configure(state=detail_state)
-        self.apply_single_account_button.configure(state=detail_state)
-        self.clear_selected_button.configure(state=detail_state)
+                entry.configure(state=(proxy_state if key in
+                    {"host", "port", "username", "proxy_password"} else account_state))
+        self.proxy_line.configure(state=proxy_state)
+        self.single_account_line.configure(state=account_state)
+        self.apply_single_account_button.configure(state=account_state)
+        self.clear_selected_button.configure(
+            state="normal" if proxy_editable or account_editable else "disabled",
+            text=(f"Xóa Amazon Máy {self.selected + 1}" if account_editable and
+                  not proxy_editable else f"Xóa dữ liệu Máy {self.selected + 1}"))
         self.count_menu.configure(state=state)
-        for widget in getattr(self, "_repair_controls", ()):
-            if enabled or repairing:
-                widget.grid()
-            else:
-                widget.grid_remove()
         if hasattr(self, "proxy_paste_heading"):
             self.proxy_paste_heading.configure(
-                text=(f"Dán 1 proxy cho Máy {self.selected + 1}" if repairing else
-                      "Dán 1–12 proxy để tự điền"))
+                text=(f"Dán 1 proxy cho Máy {self.selected + 1}" if proxy_editable and not enabled else
+                      "Dán 1–12 proxy để tự điền" if enabled else
+                      "Proxy của Profile đã tạo"))
             self.proxy_paste_hint.configure(
                 text=("Chỉ sửa máy này; nhập xong bấm Tiếp tục để tạo lại Profile."
-                      if repairing else
-                      "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12."))
+                      if proxy_editable and not enabled else
+                      "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12."
+                      if enabled else
+                      "Proxy đã gắn vào Profile; có thể sửa thông tin Amazon ở dưới khi máy dừng/lỗi."))
 
     def _open_settings(self) -> None:
         current = getattr(self, "settings_window", None)
@@ -1269,7 +1297,7 @@ class Window:
             variable=group_size, width=112, height=38, corner_radius=9,
             fg_color=PALE, button_color=PALE, text_color=BLUE,
             dropdown_fg_color=SURFACE, dropdown_text_color=INK,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(10, 14))
         self._label(
             card,
@@ -1283,7 +1311,7 @@ class Window:
             variable=hide_creation, onvalue=True, offvalue=False,
             text_color=INK, fg_color=SECONDARY,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(14, 3))
         self._label(card, "Các điện thoại Running vẫn hiện bình thường.",
                     12, color=MUTED).pack(anchor="w", padx=22)
@@ -1297,7 +1325,7 @@ class Window:
             if not login_mode.get() else None,
             text_color=INK, fg_color=SECONDARY,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(18, 3))
 
         def select_followup(selected, other):
@@ -1311,7 +1339,7 @@ class Window:
             command=lambda: select_followup(address_card, card_only),
             text_color=INK, fg_color=SECONDARY,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(14, 3))
         ctk.CTkSwitch(
             card, text="Đăng nhập · chỉ thêm thẻ",
@@ -1319,7 +1347,7 @@ class Window:
             command=lambda: select_followup(card_only, address_card),
             text_color=INK, fg_color=SECONDARY,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(10, 3))
         self._label(card, "Áp dụng cho các máy bắt đầu luồng Amazon sau khi lưu.",
                     12, color=MUTED).pack(anchor="w", padx=22)
@@ -1351,27 +1379,33 @@ class Window:
         ctk.CTkButton(card, text="Lưu Settings", width=136, height=38,
                       corner_radius=9, fg_color=BLUE, hover_color=BLUE_HOVER,
                       text_color=WHITE,
-                      font=ctk.CTkFont("Segoe UI Variable", 13, weight="bold"),
+                      font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
                       command=save).pack(anchor="e", padx=22, pady=(8, 18))
 
     def _sync_edited_locked_row(self, index: int) -> None:
         if index not in self._edited_locked_rows:
             return
-        if not self._can_edit_locked_row(index):
-            raise ToolError(f"Máy {index + 1} đang chạy hoặc đã có Profile; chưa áp dụng dữ liệu sửa")
+        proxy_editable = self._can_edit_locked_row(index)
+        account_editable = self._can_edit_account_row(index)
+        if not proxy_editable and not account_editable:
+            raise ToolError(f"Máy {index + 1} đang chạy; dừng riêng máy trước khi áp dụng dữ liệu sửa")
         row = self.values[index]
-        try:
-            proxy = ProxyConfig("socks5", row["host"].get().strip(),
-                                int(row["port"].get()), row["username"].get(),
-                                row["proxy_password"].get())
-        except (ToolError, ValueError) as exc:
-            raise ToolError(f"Máy {index + 1}: proxy chưa hợp lệ") from exc
         previous = self.jobs[index]
-        account = (self._account_for_profile(index)
-                   if previous.account is not None or
-                   any(row[key].get() for key in
-                       ("phone", "amazon_password", "full_name", "card", "otp_url"))
-                   else None)
+        proxy = previous.proxy
+        if proxy_editable:
+            try:
+                proxy = ProxyConfig("socks5", row["host"].get().strip(),
+                                    int(row["port"].get()), row["username"].get(),
+                                    row["proxy_password"].get())
+            except (ToolError, ValueError) as exc:
+                raise ToolError(f"Máy {index + 1}: proxy chưa hợp lệ") from exc
+        account = previous.account
+        if account_editable:
+            account = (self._account_for_profile(index)
+                       if previous.account is not None or
+                       any(row[key].get() for key in
+                           ("phone", "amazon_password", "full_name", "card", "otp_url"))
+                       else None)
         if account is not None:
             token = otp_token(account.otp_url)
             if any(other.index != index and other.account is not None and
@@ -1380,7 +1414,8 @@ class Window:
                 raise ToolError(f"Máy {index + 1}: URL OTP trùng máy khác")
         self.jobs[index] = replace(
             previous, proxy=proxy,
-            proxy_fallbacks=(() if proxy != previous.proxy else previous.proxy_fallbacks),
+            proxy_fallbacks=(() if proxy_editable and proxy != previous.proxy
+                             else previous.proxy_fallbacks),
             account=account)
         self._edited_locked_rows.discard(index)
 
@@ -1429,8 +1464,17 @@ class Window:
             return
         item = (self.registry.get(self.jobs[index].batch_id, index)
                 if index in self.jobs and self.registry is not None else None)
-        if (item is not None and item.get("stage") == "RESERVED" and
-                item.get("state") in {"ERROR", "STOPPED"} and not item.get("device_id")):
+        job = self.jobs.get(index)
+        if ((item is None and job is not None and getattr(job, "proxy", None) is not None) or
+                (item is not None and item.get("stage") == "RESERVED" and
+                 item.get("state") in {"READY", "ERROR", "STOPPED"} and
+                 not item.get("device_id"))):
+            if self.running and self.status[index][1] not in {
+                    "error", "stopped", "retry_queued"}:
+                self.run_note.configure(
+                    text=f"Máy {index + 1} vẫn trong hàng tạo Profile; dừng riêng máy trước khi tạo thủ công",
+                    text_color=MUTED)
+                return
             select_manual()
             self._start_profile_creation_retry(index)
             return
@@ -1438,9 +1482,17 @@ class Window:
             select_manual()
             self._start_preparation_retry(index)
             return
-        if self.running or index in getattr(self, 'preparation_retry_workers', {}):
+        if (item is not None and item.get("stage") in
+                {"PROFILE_CONFIRMED", "STARTED", "APP_INSTALLED", "MENU_OPEN"}
+                and item.get("state") != "UNCERTAIN"):
             select_manual()
             self._start_preparation_retry(index)
+            return
+        if job is not None:
+            self.status[index] = (
+                "Chưa xác định được kết quả tạo Profile; cần kiểm tra đúng Profile trước khi Tiếp tục",
+                "uncertain")
+            self._refresh_devices()
             return
         select_manual()
         self._launch([index], manual_override=True)

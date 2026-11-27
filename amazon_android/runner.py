@@ -63,6 +63,16 @@ def retry_preparation(job, registry, emit, stop, menu_ready=None, stop_after_ste
             emit(job.index, "Đã dừng nối lại máy", "stopped", None)
             return
         item = registry.get(job.batch_id, job.index)
+        if (item and not item.get("device_id") and item.get("stage") in
+                {"PROFILE_CONFIRMED", "STARTED", "APP_INSTALLED", "MENU_OPEN"}
+                and item.get("state") != "UNCERTAIN"):
+            profile = profile_status(item["name"])
+            if (profile.get("profile_name") == item["name"] and
+                    profile.get("state") in {"Offline", "Running"} and
+                    profile.get("device_id")):
+                item = registry.mark(job.batch_id, job.index, "READY",
+                                     device_id=profile["device_id"],
+                                     stage=item["stage"])
         if not item or not item.get("device_id") or item["stage"] not in {
                 "PROFILE_CONFIRMED", "STARTED", "APP_INSTALLED", "MENU_OPEN"}:
             raise ToolError("Profile chưa xác nhận Device ID; kiểm tra bước tạo Profile của máy này")
