@@ -6,10 +6,56 @@ from unittest.mock import patch
 import customtkinter as ctk
 
 from amazon_android import desktop
+from amazon_android.desktop_theme import StatusCell, state_style, status_title
 
 
 @unittest.skipUnless(sys.platform == "win32", "Tk window layout requires Windows")
 class DesktopLayoutTests(unittest.TestCase):
+    def test_long_status_keeps_full_message_and_scales_without_horizontal_overflow(self):
+        class HiddenRoot(ctk.CTk):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.withdraw()
+
+        with patch.object(desktop.ctk, "CTk", HiddenRoot):
+            window = desktop.Window()
+        root = window.root
+        base_scale = root._get_window_scaling()
+        try:
+            window.count.set("12")
+            message = "b22 mở tab hình người: màn hình chưa xác nhận; kiểm tra kết nối rồi bấm Tiếp tục."
+            for i in range(12):
+                window.values[i]["full_name"].set(f"Example User {i + 1}")
+                window.values[i]["host"].set("proxy.example")
+                window.values[i]["port"].set("3010")
+                window.status[i] = (message, "post_paused")
+            root.deiconify()
+            for scale in (1, 1.25, 1.5):
+                ctk.set_widget_scaling(scale / base_scale)
+                ctk.set_window_scaling(scale / base_scale)
+                root.minsize(900, 450)
+                root.geometry(f"{int(1460 / scale)}x{int(751 / scale)}+5000+5000")
+                window._select(11)
+                root.update()
+                cell = window.table_rows[11]["status"]
+                self.assertIsInstance(cell, StatusCell)
+                self.assertIn(message, cell.cget("text"))
+                self.assertEqual(status_title("post_paused"), cell.primary.cget("text"))
+                self.assertEqual(message, window.detail_description.cget("text"))
+                self.assertEqual(state_style("post_paused")[0], cell.primary.cget("fg"))
+                self.assertLessEqual(window.preview_table.winfo_reqwidth(),
+                                     window.main._parent_canvas.winfo_width())
+                self.assertLessEqual(window.detail_panel.winfo_children()[0].winfo_reqwidth(),
+                                     window.detail_panel._parent_canvas.winfo_width())
+                self.assertEqual(window.table_bands[11].cget("bg"), cell.cget("bg"))
+        finally:
+            root.withdraw()
+            for callback in root.tk.call("after", "info"):
+                root.after_cancel(callback)
+            root.destroy()
+            ctk.set_widget_scaling(1)
+            ctk.set_window_scaling(1)
+
     def test_table_has_all_twelve_slots_and_locked_controls_remain_visible(self):
         class HiddenRoot(ctk.CTk):
             def __init__(self, *args, **kwargs):
@@ -56,6 +102,8 @@ class DesktopLayoutTests(unittest.TestCase):
             self.assertTrue(window.proxy_line.winfo_manager())
         finally:
             window.root.withdraw()
+            for callback in window.root.tk.call("after", "info"):
+                window.root.after_cancel(callback)
             window.root.destroy()
 
 

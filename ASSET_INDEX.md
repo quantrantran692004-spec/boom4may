@@ -12,7 +12,11 @@ Icon ứng dụng nền xanh đậm, lăng kính tím sáng, vuông 1254 × 1254
 
 ## amazon_android/assets/icons/
 
-27 icon Lucide 0.468.0 từ kho chính thức `lucide-icons/lucide`, có SVG gốc và PNG alpha 96×96 tương thích CustomTkinter. Nét SVG chỉnh thành 1,8 px theo đặc tả Swarmote V2; `LICENSE` giữ giấy phép và ghi công. `desktop_theme.py` tô màu PNG theo design tokens rồi hiển thị ở 14–20 px; không dùng emoji và không cần tải icon khi chạy. Nhóm gồm smartphone, settings, layout-list, clipboard-list, globe, user-round, clipboard-paste, phone, key-round, credit-card, shield-check, link, copy, activity, sliders-horizontal, play, circle-play, square, refresh-cw, lock-keyhole, arrow-down-to-line, trash-2, circle-check, loader-circle, clock, circle-alert và chevron-down. Tk dùng chevron vector sẵn có của OptionMenu; các icon không đủ chỗ trên nhãn hẹp được giữ trong bộ tài nguyên mà không ép vào giao diện.
+28 icon Lucide 0.468.0 từ kho chính thức `lucide-icons/lucide`, có SVG gốc và PNG alpha 96×96 tương thích CustomTkinter. V3 chỉnh nét SVG thành 1,75 px và thêm `list`; `LICENSE` giữ giấy phép và ghi công. `desktop_theme.py` tô màu PNG theo design tokens rồi hiển thị ở 14–20 px; không dùng emoji và không cần tải icon khi chạy. Nhóm gồm smartphone, settings, list, layout-list, clipboard-list, globe, user-round, clipboard-paste, phone, key-round, credit-card, shield-check, link, copy, activity, sliders-horizontal, play, circle-play, square, refresh-cw, lock-keyhole, arrow-down-to-line, trash-2, circle-check, loader-circle, clock, circle-alert và chevron-down. Tk dùng chevron vector sẵn có của OptionMenu; các icon không đủ chỗ trên nhãn hẹp được giữ trong bộ tài nguyên mà không ép vào giao diện.
+
+## assets/ui_history/v3_before.png và v3_after.png
+
+Ảnh Tk trước/sau V3 ở cùng kích thước 1460×750 px, scale 125%, cùng 12 hàng dữ liệu giả. Dùng để kiểm tra màu, phân cấp chữ, mật độ và trạng thái; không phải bằng chứng hoạt động của máy thật. Tự đánh giá và giới hạn trong DESIGN.md.
 
 ## assets/ui_history/reset_check.png
 

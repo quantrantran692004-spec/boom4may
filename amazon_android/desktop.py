@@ -37,7 +37,9 @@ from .desktop_theme import (
     GREEN, RED, ROW_ALT, ROW_HOVER, TABLE_HEADER, TABLE_HEADER_TEXT,
     DISABLED_BG, DISABLED_TEXT, CONTINUE_BG, CONTINUE_HOVER, STOP_BG, STOP_HOVER,
     SCROLLBAR, SCROLLBAR_HOVER, ICON_SECTION, ICON_TABLE, ICON_STATUS,
-    LABEL_ICONS, Button, Entry, icon, state_style,
+    LABEL_ICONS, Button, Entry, icon, state_style, status_title, ui_font,
+    HEADER_BORDER, HEADER_CONTROL, HEADER_TEXT, ICON_DEFAULT,
+    TableText, StatusCell, FooterNote,
 )
 
 BULK = (
@@ -197,15 +199,18 @@ class Window:
         # the minimum window size; preserve its text and field geometry.
         if text == "Mật khẩu Amazon":
             name = None
-        if text == "MÁY":
-            name = "layout-list"
         if name and "image" not in kwargs:
-            kwargs.update(image=icon(name, MUTED, ICON_TABLE if text.isupper() else
+            kwargs.update(image=icon(name, ICON_DEFAULT, ICON_TABLE if text.isupper() else
                                      ICON_SECTION if size >= 18 else ICON_STATUS, gap=6),
                           compound="left", padx=0)
+        if text != "Swarmote" and size < 18:
+            weight = "normal"
+        if text != "Swarmote" and (size >= 18 or text.startswith(
+                ("Dán hàng Amazon", "Thông tin Amazon riêng"))):
+            weight = "semibold"
         return ctk.CTkLabel(
             parent, text=text, text_color=color,
-            font=ctk.CTkFont(family="Segoe UI", size=size, weight=weight),
+            font=ui_font(size, weight),
             **kwargs,
         )
 
@@ -226,6 +231,8 @@ class Window:
                               height=58, border_width=0)
         header.pack(fill="x")
         header.pack_propagate(False)
+        tk.Frame(header, bg=HEADER_BORDER, height=1).place(
+            relx=0, rely=1, relwidth=1, anchor="sw")
         self._label(header, "Swarmote", 20,
                     color=INK, weight="bold").pack(side="left", padx=(18, 24))
         self._label(header, "Số máy", 14,
@@ -234,8 +241,8 @@ class Window:
             header, values=[str(i) for i in range(1, MAX_PROFILES + 1)],
             variable=self.count, command=lambda _: self._refresh_devices(),
             width=70, height=34, corner_radius=8,
-            fg_color=SECONDARY, button_color=SECONDARY_HOVER,
-            button_hover_color=FIELD_BORDER, text_color=INK,
+            fg_color=HEADER_CONTROL, button_color=HEADER_CONTROL,
+            button_hover_color=SECONDARY_HOVER, text_color=HEADER_TEXT,
             dropdown_fg_color=SURFACE, dropdown_text_color=BODY,
             text_color_disabled=DISABLED_TEXT,
             font=ctk.CTkFont("Segoe UI", 14, weight="bold"),
@@ -243,7 +250,7 @@ class Window:
         self.count_menu.pack(side="left", padx=10)
         self.settings_button = Button(
             header, text="", width=40, height=38,
-            icon_name="settings", accessible_name="Cài đặt",
+            icon_name="settings", role="settings", accessible_name="Cài đặt",
             corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             border_width=1, border_color=BORDER, text_color=INK,
             font=ctk.CTkFont("Segoe UI Symbol", 20),
@@ -271,8 +278,13 @@ class Window:
         )
         self.detail_panel.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
         self.detail_panel.grid_columnconfigure(0, weight=1)
+        for panel in (self.main, self.detail_panel):
+            panel._scrollbar.configure(width=16, border_spacing=4,
+                                       corner_radius=8, fg_color=BG)
         self._build_main()
         self._build_actions(work_area)
+        self.main._parent_canvas.bind("<Configure>", self._fit_table_columns, add="+")
+        self.detail_panel._parent_canvas.bind("<Configure>", self._fit_detail_text, add="+")
 
     def _build_main(self) -> None:
         bulk_card = ctk.CTkFrame(self.main, fg_color=SURFACE, corner_radius=10,
@@ -283,13 +295,13 @@ class Window:
         self._label(bulk_card, "Dán dữ liệu", 18,
                     color=INK, weight="bold").grid(
                         row=0, column=0, columnspan=2, sticky="w",
-                        padx=16, pady=(12, 3))
+                        padx=16, pady=(10, 2))
         for index, (kind, title, placeholder, hint) in enumerate(BULK):
             self._bulk_row(bulk_card, kind, title, placeholder, hint,
                            index + 1)
         self.validation_label = self._label(bulk_card, "Cần dán proxy để chạy", 15)
         self.validation_label.grid(row=3, column=0, columnspan=4,
-                                   sticky="w", padx=16, pady=(3, 12))
+                                   sticky="w", padx=16, pady=(2, 8))
 
         self._build_preview_table()
 
@@ -303,18 +315,23 @@ class Window:
         self.detail_title = self._label(title_row, "Máy 1", 20,
                                         color=INK, weight="bold")
         self.detail_title.pack(side="left")
-        self.progress_row = progress_row = ctk.CTkFrame(detail_card, fg_color=PALE, corner_radius=8)
+        self.progress_row = progress_row = ctk.CTkFrame(detail_card, fg_color="transparent", corner_radius=0)
         progress_row.grid(row=1, column=0, columnspan=2, sticky="ew",
                           padx=20, pady=(0, 16))
         self.status_marker = self._label(progress_row, "", 18, color=BLUE,
                                           image=icon("clock", MUTED, ICON_STATUS))
-        self.status_marker.pack(side="left", padx=(12, 10), pady=10)
+        self.status_marker.pack(side="left", anchor="n", padx=(0, 8), pady=(4, 0))
+        progress_text = ctk.CTkFrame(progress_row, fg_color="transparent")
+        progress_text.pack(side="left", fill="x", expand=True)
         self.detail_status = self._label(
-            progress_row, "Chưa chạy", 18, color=INK, weight="bold",
-            wraplength=305, justify="left", anchor="w",
-        )
-        self.detail_status.pack(side="left", fill="x", expand=True,
-                                padx=(0, 12), pady=10)
+            progress_text, "Chưa chạy", 16, color=INK,
+            wraplength=305, justify="left", anchor="w")
+        self.detail_status.configure(font=ui_font(16, "semibold"))
+        self.detail_status.pack(fill="x")
+        self.detail_description = self._label(
+            progress_text, "", 14, color=MUTED,
+            wraplength=305, justify="left", anchor="w")
+        self.detail_description.pack(fill="x", pady=(2, 0))
 
         self.account_detail_heading = self._label(
             detail_card, "Thông tin Amazon riêng · Máy 1", 17,
@@ -360,8 +377,8 @@ class Window:
         for label, key, row, col, _secret in fields:
             cell = ctk.CTkFrame(detail_card, fg_color="transparent")
             cell.grid(row=row, column=col,
-                       columnspan=2 if key in {"card", "otp_url", "profile_name"} else 1, sticky="ew",
-                       padx=(20, 20) if key in {"card", "otp_url", "profile_name"} else
+                       columnspan=2 if key in {"amazon_password", "card", "otp_url", "profile_name"} else 1, sticky="ew",
+                       padx=(20, 20) if key in {"amazon_password", "card", "otp_url", "profile_name"} else
                            (20 if col == 0 else 8, 20 if col == 1 else 8),
                       pady=(0, 13))
             self._label(cell, label, 16, color=INK,
@@ -433,7 +450,7 @@ class Window:
                                       sticky="ew", padx=20, pady=(5, 8))
         self.single_account_line.bind("<Return>", lambda _: self._apply_single_account_line())
         self.apply_single_account_button = Button(
-            detail_card, text="Điền hàng này", icon_name="arrow-down-to-line", width=115, height=38,
+            detail_card, text="Điền dữ liệu", icon_name="arrow-down-to-line", width=115, height=38,
             fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, text_color_disabled=MUTED,
             border_color=FIELD_BORDER, border_width=1,
@@ -442,7 +459,7 @@ class Window:
         self.apply_single_account_button.grid(row=8, column=0, sticky="ew",
                                               padx=(20, 8), pady=(0, 10))
         self.clear_selected_button = Button(
-            detail_card, text="Xóa dữ liệu", icon_name="trash-2", width=115, height=38,
+            detail_card, text="Xóa dữ liệu", role="danger", icon_name="trash-2", width=115, height=38,
             fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, text_color_disabled=DISABLED_TEXT,
             font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
@@ -482,8 +499,9 @@ class Window:
             command=self._reset,
         )
         self.reset_button.pack(side="left")
-        self.run_note = self._label(action, "Sẵn sàng nhập liệu", 14,
-                                    wraplength=260, justify="right")
+        self.run_note = FooterNote(action, text="Sẵn sàng nhập liệu",
+                                   text_color=MUTED, font=ui_font(14),
+                                   wraplength=260, justify="right")
         self.run_note.pack(side="right", padx=15)
 
     def _show_preview_table(self) -> None:
@@ -536,10 +554,12 @@ class Window:
     def _refresh_selected_progress(self) -> None:
         message, state = self.status[self.selected]
         color, background, symbol = state_style(state)
-        self._configure_display(self.detail_status, text=message, text_color=color)
+        self._configure_display(self.detail_status, text=status_title(state), text_color=color)
+        if hasattr(self, "detail_description"):
+            self._configure_display(self.detail_description, text=message, text_color=MUTED)
         if hasattr(self, "status_marker"):
             self._configure_display(self.status_marker, image=icon(symbol, color, ICON_STATUS))
-            self._configure_display(self.progress_row, fg_color=background)
+            self._configure_display(self.progress_row, fg_color="transparent")
 
     def _maybe_show_preview(self) -> None:
         keys = ("host", "port", "full_name", "phone", "amazon_password", "otp_url")
@@ -559,22 +579,24 @@ class Window:
         for col, weight in enumerate((1, 2, 3, 2, 1)):
             table.grid_columnconfigure(col, weight=weight)
         self.table_title = self._label(table, "Máy trong mẻ: 1/12", 20,
-                                       color=INK, weight="bold")
-        self.table_title.grid(row=0, column=0, columnspan=2,
+                                       color=INK, weight="bold",
+                                       image=icon("list", ICON_DEFAULT, 18, gap=6),
+                                       compound="left")
+        self.table_title.grid(row=0, column=0, columnspan=3,
                               sticky="w", padx=16, pady=(12, 0))
         self._label(table, "Chọn hàng để xem và sửa", 14).grid(
-            row=0, column=2, columnspan=3, sticky="e", padx=20,
+            row=0, column=3, columnspan=2, sticky="e", padx=20,
             pady=(12, 0))
         headings = ("MÁY", "PROXY", "AMAZON", "TRẠNG THÁI", "THAO TÁC")
         keys = ("machine", "proxy", "account", "status")
         heading_band = tk.Frame(table, bg=TABLE_HEADER, borderwidth=0)
         heading_band.grid(row=1, column=0, columnspan=5, sticky="nsew", padx=1)
         for col, heading in enumerate(headings):
-            self._label(table, heading, 16, color=TABLE_HEADER_TEXT,
-                        weight="bold", anchor="w", fg_color=TABLE_HEADER).grid(
+            self._label(table, heading, 14, color=TABLE_HEADER_TEXT,
+                        anchor="w", fg_color=TABLE_HEADER, bg_color=TABLE_HEADER).grid(
                             row=1, column=col, sticky="ew",
                             padx=(20 if col == 0 else 6, 12 if col == 4 else 6),
-                            pady=(9, 5))
+                            pady=(7, 5))
         for index in range(MAX_PROFILES):
             band = tk.Frame(table, bg=SURFACE, borderwidth=0)
             band.grid(row=index + 2, column=0, columnspan=5, sticky="nsew", padx=1)
@@ -586,18 +608,17 @@ class Window:
             for col, key in enumerate(keys):
                 # Native labels avoid four extra rounded Canvas redraws per row
                 # whenever Windows resizes the main workspace.
-                font = ctk.CTkFont("Segoe UI", 17,
-                                     weight="bold" if key in {"machine", "status"}
-                                     else "normal")
-                self._table_fonts.append(font)
-                label = tk.Label(
-                    table, text="", bg=SURFACE, fg=BODY,
-                    font=font,
-                    anchor="w", justify="left", padx=8, pady=6,
-                    wraplength={"machine": 78, "proxy": 150,
-                                "account": 230, "status": 180}[key],
-                    bd=0, highlightthickness=0,
-                )
+                if key == "status":
+                    label = StatusCell(table, bg=SURFACE)
+                else:
+                    font = ui_font(16, "semibold" if key == "machine" else "normal")
+                    self._table_fonts.append(font)
+                    label = TableText(
+                        table, text="", bg=SURFACE, fg=BODY, font=font,
+                        anchor="w", justify="left", padx=6, pady=4,
+                        wraplength={"machine": 68, "proxy": 135,
+                                    "account": 170}[key],
+                        bd=0, highlightthickness=0)
                 label.grid(row=index + 2, column=col, sticky="ew",
                            padx=(12 if col == 0 else 3, 4),
                            pady=1)
@@ -610,7 +631,7 @@ class Window:
             self.table_actions.append(actions)
             actions.grid(row=index + 2, column=4, sticky="ew", padx=(3, 10), pady=1)
             button = Button(
-                actions, text="Tiếp tục", icon_name="circle-play", width=95, height=40, corner_radius=8,
+                actions, text="Tiếp tục", icon_name="circle-play", width=95, height=32, corner_radius=7,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=INK, text_color_disabled=DISABLED_TEXT,
                 border_width=1, border_color=FIELD_BORDER,
@@ -620,7 +641,7 @@ class Window:
             button.pack(fill="x", pady=(0, 4))
             self.row_buttons.append(button)
             stop_button = Button(
-                actions, text="Dừng", role="stop", icon_name="square", width=95, height=40, corner_radius=8,
+                actions, text="Dừng", role="stop", icon_name="square", width=95, height=32, corner_radius=7,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=INK, text_color_disabled=DISABLED_TEXT,
                 border_width=1, border_color=FIELD_BORDER,
@@ -629,12 +650,37 @@ class Window:
             )
             stop_button.pack(fill="x")
             self.row_stop_buttons.append(stop_button)
+            tk.Frame(band, bg=BORDER, height=1).pack(side="bottom", fill="x")
         ctk.CTkFrame(table, fg_color="transparent", height=5).grid(
             row=MAX_PROFILES + 2, column=0, columnspan=5)
 
     def _hover_table_row(self, index) -> None:
         self._table_hover = index
         self._refresh_table()
+
+    def _fit_table_columns(self, _event=None) -> None:
+        width = self.main._parent_canvas.winfo_width() / self.main._get_widget_scaling()
+        compact = width < 640
+        if getattr(self, "_dense_table", None) == compact:
+            return
+        self._dense_table = compact
+        wraps = ({"machine": 56, "proxy": 105, "account": 145, "status": 112}
+                 if compact else {"machine": 68, "proxy": 135, "account": 170, "status": 150})
+        for cells in self.table_rows:
+            for key, cell in cells.items():
+                cell.set_wrap(wraps[key])
+
+    def _fit_detail_text(self, _event=None) -> None:
+        width = max(200, self.detail_panel._parent_canvas.winfo_width() /
+                    self.detail_panel._get_widget_scaling() - 40)
+        if getattr(self, "_detail_wrap", None) == width:
+            return
+        self._detail_wrap = width
+        for widget in (self.proxy_paste_hint, self.proxy_paste_heading,
+                       self.account_detail_heading, self.single_account_heading):
+            widget.configure(wraplength=width, justify="left", anchor="w")
+        for widget in (self.detail_status, self.detail_description):
+            widget.configure(wraplength=max(160, width - 28))
 
     def _bulk_row(self, parent, kind: str, title: str,
                   placeholder: str, _hint: str, row: int) -> None:
@@ -1112,14 +1158,10 @@ class Window:
             has_account = any(values[key].get() for key in
                               ("full_name", "phone", "amazon_password", "card", "otp_url"))
             if has_account:
-                account_lines = [
-                    values["full_name"].get() or "Tên —",
-                    values["phone"].get() or "SĐT —",
-                    "Mật khẩu ✓" if values["amazon_password"].get() else "Mật khẩu —",
-                ]
-                if card:
-                    account_lines.append(card_summary)
-                account_lines.append(url_summary)
+                summary = ("MK ✓" if values["amazon_password"].get() else "MK —")
+                summary += " · " + (card_summary if card else "OTP ✓" if otp_url else "OTP —")
+                account_lines = [values["full_name"].get() or "Tên —",
+                                 values["phone"].get() or "SĐT —", summary]
                 account_text = "\n".join(account_lines)
             else:
                 account_text = "Chưa nhập Amazon"
@@ -1141,6 +1183,11 @@ class Window:
                 self._configure_display(self.table_actions[index], fg_color=row_color)
             color, _background, symbol = state_style(self.status[index][1])
             for key, cell in cells.items():
+                if isinstance(cell, StatusCell):
+                    self._configure_display(cell, text=items[key],
+                        title=status_title(self.status[index][1]) if index < active else "—",
+                        bg=row_color, fg=color if index < active else MUTED)
+                    continue
                 self._configure_display(
                     cell,
                     text=(items[key] if key in {"account", "status"} else
@@ -1164,7 +1211,7 @@ class Window:
             text=f"Thông tin Amazon riêng · Máy {index + 1}")
         self.single_account_heading.configure(text=f"Dán hàng Amazon · Máy {index + 1}")
         self._refresh_selected_progress()
-        self.apply_single_account_button.configure(text="Điền hàng này")
+        self.apply_single_account_button.configure(text="Điền dữ liệu")
         self.clear_selected_button.configure(text="Xóa dữ liệu")
         self._refresh_otp_detail()
         self._refresh_devices()
@@ -1334,17 +1381,22 @@ class Window:
         dialog = ctk.CTkToplevel(self.root, fg_color=BG)
         self.settings_window = dialog
         dialog.title("Settings · Swarmote")
-        dialog.geometry("520x650+120+100")
+        scale = self.root._get_window_scaling()
+        dialog_width = min(520, int(self.root.winfo_screenwidth() / scale - 60))
+        dialog_height = min(650, int(self.root.winfo_screenheight() / scale - 90))
+        dialog.geometry(f"{dialog_width}x{dialog_height}+100+20")
         dialog.resizable(False, False)
         # Map the window before building its controls so the click gets
         # immediate visual feedback even on a busy Tk event loop.
         dialog.lift()
         dialog.update_idletasks()
-        card = ctk.CTkFrame(dialog, fg_color=SURFACE, corner_radius=10,
-                            border_width=1, border_color=BORDER)
+        card = ctk.CTkScrollableFrame(dialog, fg_color=SURFACE, corner_radius=10,
+                            border_width=1, border_color=BORDER,
+                            scrollbar_button_color=SCROLLBAR,
+                            scrollbar_button_hover_color=SCROLLBAR_HOVER)
         card.pack(fill="both", expand=True, padx=16, pady=16)
         self._label(card, "Mở máy sau khi tạo Profile", 19,
-                    color=INK, weight="bold").pack(anchor="w", padx=22, pady=(20, 8))
+                    color=INK, weight="normal").pack(anchor="w", padx=22, pady=(20, 8))
         self._label(card, "Số máy Running đồng thời (1–12)", 13,
                     color=INK).pack(anchor="w", padx=22)
         group_size = tk.StringVar(value=str(self.settings.start_group_size))
@@ -1354,7 +1406,7 @@ class Window:
             fg_color=PALE, button_color=PALE, text_color=BLUE,
             dropdown_fg_color=SURFACE, dropdown_text_color=BODY,
             text_color_disabled=DISABLED_TEXT,
-            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
         ).pack(anchor="w", padx=22, pady=(10, 14))
         self._label(
             card,
@@ -1366,9 +1418,9 @@ class Window:
         ctk.CTkSwitch(
             card, text="Ẩn cửa sổ Swarmote khi tạo Profile",
             variable=hide_creation, onvalue=True, offvalue=False,
-            text_color=INK, fg_color=SECONDARY,
+            text_color=BODY, fg_color=BORDER,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
         ).pack(anchor="w", padx=22, pady=(14, 3))
         self._label(card, "Các điện thoại Running vẫn hiện bình thường.",
                     12, color=MUTED).pack(anchor="w", padx=22)
@@ -1380,9 +1432,9 @@ class Window:
             variable=login_mode, onvalue=True, offvalue=False,
             command=lambda: (address_card.set(False), card_only.set(False))
             if not login_mode.get() else None,
-            text_color=INK, fg_color=SECONDARY,
+            text_color=BODY, fg_color=BORDER,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
         ).pack(anchor="w", padx=22, pady=(18, 3))
 
         def select_followup(selected, other):
@@ -1394,17 +1446,17 @@ class Window:
             card, text="Đăng nhập · thêm địa chỉ rồi thẻ",
             variable=address_card, onvalue=True, offvalue=False,
             command=lambda: select_followup(address_card, card_only),
-            text_color=INK, fg_color=SECONDARY,
+            text_color=BODY, fg_color=BORDER,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
         ).pack(anchor="w", padx=22, pady=(14, 3))
         ctk.CTkSwitch(
             card, text="Đăng nhập · chỉ thêm thẻ",
             variable=card_only, onvalue=True, offvalue=False,
             command=lambda: select_followup(card_only, address_card),
-            text_color=INK, fg_color=SECONDARY,
+            text_color=BODY, fg_color=BORDER,
             progress_color=BLUE, button_color=WHITE,
-            font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
         ).pack(anchor="w", padx=22, pady=(10, 3))
         self._label(card, "Áp dụng cho các máy bắt đầu luồng Amazon sau khi lưu.",
                     12, color=MUTED).pack(anchor="w", padx=22)
@@ -1436,7 +1488,7 @@ class Window:
         Button(card, text="Lưu Settings", role="primary", icon_name="settings", width=136, height=38,
                       corner_radius=9, fg_color=BLUE, hover_color=BLUE_HOVER,
                       text_color=WHITE,
-                      font=ctk.CTkFont("Segoe UI", 13, weight="bold"),
+                      font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
                       command=save).pack(anchor="e", padx=22, pady=(8, 18))
 
     def _sync_edited_locked_row(self, index: int) -> None:

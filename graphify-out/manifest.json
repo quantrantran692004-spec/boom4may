@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "amazon_android/desktop.py": {
-    "mtime": 1795755955.0739303,
-    "seen": 1795756041.7823236,
-    "ast_hash": "ba31b9bf6455c81c3996774cf01a9c0c",
+    "mtime": 1795757108.215994,
+    "seen": 1795757184.3515272,
+    "ast_hash": "2440795866a842889142b605df2bd20d",
     "semantic_hash": ""
   },
   "amazon_android/home_menu.py": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "DESIGN.md": {
-    "mtime": 1795755846.0739858,
-    "seen": 1795756041.7823236,
-    "ast_hash": "fbf6c7d616a47f9ce130d5cd258591a5",
+    "mtime": 1795757141.1469169,
+    "seen": 1795757184.3525283,
+    "ast_hash": "c4807b1110ba319eb6b675bb53c1a13b",
     "semantic_hash": ""
   },
   "OTP_DESIGN.md": {
@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1795756067.1658065,
-    "seen": 1795756079.2915428,
-    "ast_hash": "b68c6f57331402d4a817368847f1441d",
+    "mtime": 1795757172.5743642,
+    "seen": 1795757184.3525283,
+    "ast_hash": "bec52222c059e487ad11cd0b6dc8af13",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -360,9 +360,9 @@
     "semantic_hash": ""
   },
   "ASSET_INDEX.md": {
-    "mtime": 1795755846.0866194,
-    "seen": 1795756041.7823236,
-    "ast_hash": "55c0e92bf8a23261d2e3152c73694005",
+    "mtime": 1795757172.5763602,
+    "seen": 1795757184.3525283,
+    "ast_hash": "ce1454ec835f7db4a27b9626bdee6cab",
     "semantic_hash": ""
   },
   "amazon_android/launcher.py": {
@@ -756,9 +756,9 @@
     "semantic_hash": ""
   },
   "tests/test_stop_reset.py": {
-    "mtime": 1795755562.572752,
-    "seen": 1795756041.7823236,
-    "ast_hash": "45495aa0e72334549b4ec055cc5cf087",
+    "mtime": 1795756641.1007347,
+    "seen": 1795757184.3525283,
+    "ast_hash": "f8a8c176fb9e04be1b887682d107d83a",
     "semantic_hash": ""
   },
   "tests/test_swarmote_waits.py": {
@@ -1662,339 +1662,363 @@
     "semantic_hash": ""
   },
   "tests/test_desktop_layout.py": {
-    "mtime": 1795753641.443046,
-    "seen": 1795753704.3417869,
-    "ast_hash": "efa7b41ee95ccaa455df9a52b27d97ae",
+    "mtime": 1795756949.3095987,
+    "seen": 1795757184.3515272,
+    "ast_hash": "09491111eb6374562f7928eb2ef53716",
     "semantic_hash": ""
   },
   "amazon_android/desktop_theme.py": {
-    "mtime": 1795755664.1583788,
-    "seen": 1795756041.7823236,
-    "ast_hash": "aeca355189db3d6bc8e8252588a1eb00",
+    "mtime": 1795756925.3700666,
+    "seen": 1795757184.3515272,
+    "ast_hash": "467baa3397d53ea2b10befd74e09860e",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/activity.png": {
-    "mtime": 1795755382.3952906,
-    "seen": 1795756041.7823236,
-    "ast_hash": "ec9c5782408feab8382934b75aa99daf",
+    "mtime": 1795756678.3022146,
+    "seen": 1795757184.3525283,
+    "ast_hash": "c85c6b7deb603b2a6c9cb576029b3d60",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/activity.svg": {
-    "mtime": 1795755382.389292,
-    "seen": 1795756041.7823236,
-    "ast_hash": "f02e2f38d501d1731f4473e3e12812fb",
+    "mtime": 1795756678.2812126,
+    "seen": 1795757184.3525283,
+    "ast_hash": "04db895969124aca4ebad2160042658b",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/arrow-down-to-line.png": {
-    "mtime": 1795755382.8533847,
-    "seen": 1795756041.7823236,
-    "ast_hash": "0fd630e1e37400b125080fd094768a32",
+    "mtime": 1795756678.3082156,
+    "seen": 1795757184.3525283,
+    "ast_hash": "65dab71bba280629635ae376159fa1bc",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/arrow-down-to-line.svg": {
-    "mtime": 1795755382.8503764,
-    "seen": 1795756041.7823236,
-    "ast_hash": "07d30ead2acfb34658fefdd2ffe788a9",
+    "mtime": 1795756678.3042147,
+    "seen": 1795757184.3525283,
+    "ast_hash": "9f79cb13ab068a88e1e837603cbf7443",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/chevron-down.png": {
-    "mtime": 1795755383.20138,
-    "seen": 1795756041.7823236,
-    "ast_hash": "e65d76be780102423232dc4c48c4bb36",
+    "mtime": 1795756678.3152077,
+    "seen": 1795757184.3525283,
+    "ast_hash": "07f6eedefd4fbe649c4cc0b8c7a1f407",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/chevron-down.svg": {
-    "mtime": 1795755383.1993804,
-    "seen": 1795756041.7823236,
-    "ast_hash": "3160a267a1226c5914186fb0fec0d95d",
+    "mtime": 1795756678.312219,
+    "seen": 1795757184.3525283,
+    "ast_hash": "3204620046207e640597d060783a9749",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/circle-alert.png": {
-    "mtime": 1795755383.1643825,
-    "seen": 1795756041.7823236,
-    "ast_hash": "9eb3b304a47ea843f14e1b7bda3a052c",
+    "mtime": 1795756678.322211,
+    "seen": 1795757184.3525283,
+    "ast_hash": "b245c7755f223e8f36ba128a51104e37",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/circle-alert.svg": {
-    "mtime": 1795755383.1593854,
-    "seen": 1795756041.7823236,
-    "ast_hash": "10d3cdafdad83d4ed90ef2af371fccad",
+    "mtime": 1795756678.3172197,
+    "seen": 1795757184.3525283,
+    "ast_hash": "e1e5ec3aaef43ef2238e6c9d2c6f747c",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/circle-check.png": {
-    "mtime": 1795755382.913378,
-    "seen": 1795756041.7823236,
-    "ast_hash": "91c75a1f9b569070c078f04e26376cdc",
+    "mtime": 1795756678.3292103,
+    "seen": 1795757184.3525283,
+    "ast_hash": "f2a66f86ff8e16b45ad70c4ef9a99ab0",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/circle-check.svg": {
-    "mtime": 1795755382.9104197,
-    "seen": 1795756041.7823236,
-    "ast_hash": "211f77359c402c6ee6a9c1fc3a0d8a80",
+    "mtime": 1795756678.3252127,
+    "seen": 1795757184.3525283,
+    "ast_hash": "b9772d94d0b25f1cbcfea3e57580d2a4",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/circle-play.png": {
-    "mtime": 1795755382.767378,
-    "seen": 1795756041.7823236,
-    "ast_hash": "69afca2ea1cc73436fa241d116f48722",
+    "mtime": 1795756678.3362107,
+    "seen": 1795757184.3525283,
+    "ast_hash": "1623949aa482d60e6099087b09230429",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/circle-play.svg": {
-    "mtime": 1795755382.763408,
-    "seen": 1795756041.7823236,
-    "ast_hash": "903ea8bdbb303b27ccd21bfe9b194b18",
+    "mtime": 1795756678.3302102,
+    "seen": 1795757184.3525283,
+    "ast_hash": "d58bcbbac9ea86b059a00721e37dbd0d",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/clipboard-list.png": {
-    "mtime": 1795755381.9089785,
-    "seen": 1795756041.7823236,
-    "ast_hash": "30b55c33d8b2d0679de2372a1eac160d",
+    "mtime": 1795756678.3552167,
+    "seen": 1795757184.3525283,
+    "ast_hash": "e73e46e3491b3a61990f0bb96d16c966",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/clipboard-list.svg": {
-    "mtime": 1795755381.8859835,
-    "seen": 1795756041.7823236,
-    "ast_hash": "fcba437d672f218e0920220e11ef7081",
+    "mtime": 1795756678.3482068,
+    "seen": 1795757184.3525283,
+    "ast_hash": "32a1f9fb24e395016c3ed5f8f3d4ecdd",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/clipboard-paste.png": {
-    "mtime": 1795755381.8859835,
-    "seen": 1795756041.7823236,
-    "ast_hash": "c5bb022e5cd8dfdf41316a915a32354f",
+    "mtime": 1795756678.366217,
+    "seen": 1795757184.3525283,
+    "ast_hash": "4e51cd3ff3b6a201ebef372cb70801d1",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/clipboard-paste.svg": {
-    "mtime": 1795755381.8759787,
-    "seen": 1795756041.7823236,
-    "ast_hash": "61c3040775c571ceb26c48139bd911e3",
+    "mtime": 1795756678.3622117,
+    "seen": 1795757184.3525283,
+    "ast_hash": "7bbaa218bd1cf8539d91de88624bab93",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/clock.png": {
-    "mtime": 1795755383.1693823,
-    "seen": 1795756041.7823236,
-    "ast_hash": "1787a3372f951c74c414ecda12eaf950",
+    "mtime": 1795756678.3702116,
+    "seen": 1795757184.3525283,
+    "ast_hash": "e470586b26c03c6c3aa1830cd4719c9a",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/clock.svg": {
-    "mtime": 1795755383.1653805,
-    "seen": 1795756041.7823236,
-    "ast_hash": "81f1b1a6e7ba6b2a728092fe11d66c11",
+    "mtime": 1795756678.3672183,
+    "seen": 1795757184.3525283,
+    "ast_hash": "dd29ac13ee3911fbb7a77dcd5163f324",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/copy.png": {
-    "mtime": 1795755382.4222884,
-    "seen": 1795756041.7823236,
-    "ast_hash": "7d1074d00f731b442aa0e14b53dfb9ca",
+    "mtime": 1795756678.3762147,
+    "seen": 1795757184.3525283,
+    "ast_hash": "91949ad312f59afb12303132e6aad2b1",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/copy.svg": {
-    "mtime": 1795755382.3902884,
-    "seen": 1795756041.7823236,
-    "ast_hash": "63d95c5c05026a8e8d06ac97ac969485",
+    "mtime": 1795756678.371214,
+    "seen": 1795757184.3525283,
+    "ast_hash": "71b29e5856ac12f847adbb0a0d36e352",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/credit-card.png": {
-    "mtime": 1795755382.3952906,
-    "seen": 1795756041.7823236,
-    "ast_hash": "35c4e4d0316234f73ed88878e852ba49",
+    "mtime": 1795756678.381219,
+    "seen": 1795757184.3525283,
+    "ast_hash": "7772b2487c25f9229f676b1203aadcf7",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/credit-card.svg": {
-    "mtime": 1795755382.3902884,
-    "seen": 1795756041.7823236,
-    "ast_hash": "8be240342419f963d203d41c8df48a3f",
+    "mtime": 1795756678.378224,
+    "seen": 1795757184.3525283,
+    "ast_hash": "b44a3e3bcc47be56bc2978f2822d8d22",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/globe.png": {
-    "mtime": 1795755381.921981,
-    "seen": 1795756041.7823236,
-    "ast_hash": "579566e150fd3ad1a3d6ea2e1d1948d1",
+    "mtime": 1795756678.3862157,
+    "seen": 1795757184.3525283,
+    "ast_hash": "9bf9cee0d8ee3392ede5509d3807b96b",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/globe.svg": {
-    "mtime": 1795755381.8779829,
-    "seen": 1795756041.7823236,
-    "ast_hash": "1e07b65c3347bc754feb877818ba0d44",
+    "mtime": 1795756678.382222,
+    "seen": 1795757184.3525283,
+    "ast_hash": "20f216431a119181fb158b153e877a3a",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/key-round.png": {
-    "mtime": 1795755382.3312876,
-    "seen": 1795756041.7823236,
-    "ast_hash": "2ced0efd6cdf0119bb74df9498ce28c3",
+    "mtime": 1795756678.3952115,
+    "seen": 1795757184.3525283,
+    "ast_hash": "59355a23f49c484ec31f1de1350bd7c0",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/key-round.svg": {
-    "mtime": 1795755382.328291,
-    "seen": 1795756041.7823236,
-    "ast_hash": "9f036ac075b38b2a4824ad05776838e1",
+    "mtime": 1795756678.3882265,
+    "seen": 1795757184.3525283,
+    "ast_hash": "e005145b758b9bdcb4f64da3da42d4bb",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/layout-list.png": {
-    "mtime": 1795755381.8819766,
-    "seen": 1795756041.7823236,
-    "ast_hash": "294a92edb51fbcdf195bc9ca0311193f",
+    "mtime": 1795756678.399217,
+    "seen": 1795757184.3525283,
+    "ast_hash": "6ed10a6d8c2551808acc110e49774cbd",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/layout-list.svg": {
-    "mtime": 1795755381.8709867,
-    "seen": 1795756041.7823236,
-    "ast_hash": "3e6c3a2a97b3884211101fcc7cb2de66",
+    "mtime": 1795756678.3962152,
+    "seen": 1795757184.3525283,
+    "ast_hash": "99e5393983de465da896be081d7d64bc",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/link.png": {
-    "mtime": 1795755382.3622868,
-    "seen": 1795756041.7823236,
-    "ast_hash": "f4b662a6c6b8c03bd95a64cfbdf02109",
+    "mtime": 1795756678.4062123,
+    "seen": 1795757184.3525283,
+    "ast_hash": "c3e87bdea152b139fa8fe1282d956475",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/link.svg": {
-    "mtime": 1795755382.356294,
-    "seen": 1795756041.7823236,
-    "ast_hash": "f59af4678177504301f118e1da9169c7",
+    "mtime": 1795756678.401215,
+    "seen": 1795757184.3525283,
+    "ast_hash": "aaf2a88138ae1dc57af47779938cb947",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/loader-circle.png": {
-    "mtime": 1795755382.8633788,
-    "seen": 1795756041.7823236,
-    "ast_hash": "f92efe4ce6f550acdd84e63849fcc9ae",
+    "mtime": 1795756678.447209,
+    "seen": 1795757184.3525283,
+    "ast_hash": "a12d57a580aa78f34011c467393fbdcd",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/loader-circle.svg": {
-    "mtime": 1795755382.861379,
-    "seen": 1795756041.7823236,
-    "ast_hash": "bba79108d50cb1b84915e2ef0df1cbd3",
+    "mtime": 1795756678.4432204,
+    "seen": 1795757184.3525283,
+    "ast_hash": "54d386f7f617cfde639a06a684123cc3",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/lock-keyhole.png": {
-    "mtime": 1795755382.842378,
-    "seen": 1795756041.7823236,
-    "ast_hash": "8b81bb66a615ab14acd0c53f728a962c",
+    "mtime": 1795756678.4522116,
+    "seen": 1795757184.3525283,
+    "ast_hash": "a214a4e9a7a3d379519694eabb6f5d5a",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/lock-keyhole.svg": {
-    "mtime": 1795755382.8373816,
-    "seen": 1795756041.7823236,
-    "ast_hash": "762523f4fa2be40dfb246b220af3bc19",
+    "mtime": 1795756678.4482198,
+    "seen": 1795757184.3525283,
+    "ast_hash": "e494d8416f0fbfd81620c332695fc289",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/phone.png": {
-    "mtime": 1795755381.9209788,
-    "seen": 1795756041.7823236,
-    "ast_hash": "cb3ce06a041399a0b9ec9bdb678b2948",
+    "mtime": 1795756678.4572165,
+    "seen": 1795757184.3525283,
+    "ast_hash": "2b2c9d6805671ac2e760bbf644af2b8c",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/phone.svg": {
-    "mtime": 1795755381.8709867,
-    "seen": 1795756041.7823236,
-    "ast_hash": "53e2a4c5c97d4df1c0180281b55b4c9a",
+    "mtime": 1795756678.4532132,
+    "seen": 1795757184.3525283,
+    "ast_hash": "20eba29e0be60a03f0c80697d36e7baa",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/play.png": {
-    "mtime": 1795755382.452287,
-    "seen": 1795756041.7823236,
-    "ast_hash": "4eb0992dbada2f607380b76e4618768e",
+    "mtime": 1795756678.4632127,
+    "seen": 1795757184.3525283,
+    "ast_hash": "df9f4a8b182fb1e7b2d327e7930f2c2b",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/play.svg": {
-    "mtime": 1795755382.4372976,
-    "seen": 1795756041.7823236,
-    "ast_hash": "bc3c2aa6b796ac08f4a4ba7927c25f15",
+    "mtime": 1795756678.458222,
+    "seen": 1795757184.3525283,
+    "ast_hash": "369d9abf5799d0602b59814aad9704d6",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/refresh-cw.png": {
-    "mtime": 1795755382.799377,
-    "seen": 1795756041.7823236,
-    "ast_hash": "41d8ae38d86271bf00571c40579a7a36",
+    "mtime": 1795756678.4692063,
+    "seen": 1795757184.3525283,
+    "ast_hash": "4a41bf286699eddf3982b3d8217f4c8b",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/refresh-cw.svg": {
-    "mtime": 1795755382.7963834,
-    "seen": 1795756041.7823236,
-    "ast_hash": "bf79aa09b08cd954d09b64d14908aacb",
+    "mtime": 1795756678.46421,
+    "seen": 1795757184.3525283,
+    "ast_hash": "4665f52baa8714eb9195670700dee2ca",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/settings.png": {
-    "mtime": 1795755381.8929784,
-    "seen": 1795756041.7823236,
-    "ast_hash": "56aa1561a6f08bd3c0856ebe0b1020e0",
+    "mtime": 1795756678.4742098,
+    "seen": 1795757184.3525283,
+    "ast_hash": "3cc94386c85dcc969e0b0d9d80789a67",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/settings.svg": {
-    "mtime": 1795755381.8759787,
-    "seen": 1795756041.7833192,
-    "ast_hash": "894cb37acdba9720a83314b8b91df2f6",
+    "mtime": 1795756678.47021,
+    "seen": 1795757184.3525283,
+    "ast_hash": "c1e428f9b74703a43c08d5a3d8af50ea",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/shield-check.png": {
-    "mtime": 1795755382.3622868,
-    "seen": 1795756041.7833192,
-    "ast_hash": "5b955feec55c24890d9bd72b8a090935",
+    "mtime": 1795756678.4782114,
+    "seen": 1795757184.3525283,
+    "ast_hash": "a553a7d43b99a9ef17cf265bed6548ca",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/shield-check.svg": {
-    "mtime": 1795755382.359288,
-    "seen": 1795756041.7833192,
-    "ast_hash": "1eb42771a60f0bdba77c936122b7d4e1",
+    "mtime": 1795756678.4752111,
+    "seen": 1795757184.3525283,
+    "ast_hash": "00f29737dcf1586cada10cfe1b2236aa",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/sliders-horizontal.png": {
-    "mtime": 1795755382.39829,
-    "seen": 1795756041.7833192,
-    "ast_hash": "1ce3687564106ed67c5849808c011213",
+    "mtime": 1795756678.4822185,
+    "seen": 1795757184.3525283,
+    "ast_hash": "0b5486d34f3afe778570b20ed4cd416f",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/sliders-horizontal.svg": {
-    "mtime": 1795755382.3952906,
-    "seen": 1795756041.7833192,
-    "ast_hash": "a9c6f4c400d5bd4ccef61169129089a8",
+    "mtime": 1795756678.4792078,
+    "seen": 1795757184.3525283,
+    "ast_hash": "c4f67f7a8950305c44e410046497ac76",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/smartphone.png": {
-    "mtime": 1795755381.8849797,
-    "seen": 1795756041.7833192,
-    "ast_hash": "3a50f4f381d15f27eeb3398bf1611a4e",
+    "mtime": 1795756678.4862132,
+    "seen": 1795757184.3525283,
+    "ast_hash": "87cc4e0599592e2338dfe4f51c2dfabb",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/smartphone.svg": {
-    "mtime": 1795755381.8729794,
-    "seen": 1795756041.7833192,
-    "ast_hash": "f35a48fb2ded11243b6903ab6f769d24",
+    "mtime": 1795756678.4832113,
+    "seen": 1795757184.3525283,
+    "ast_hash": "c8cfc6df816fab0e912c1c71bd44d25d",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/square.png": {
-    "mtime": 1795755382.767378,
-    "seen": 1795756041.7833192,
-    "ast_hash": "d37b9603e0a96359ad75cbd03783751d",
+    "mtime": 1795756678.4892097,
+    "seen": 1795757184.3525283,
+    "ast_hash": "b86132bd67128437adeb46889ccfa83f",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/square.svg": {
-    "mtime": 1795755382.763408,
-    "seen": 1795756041.7833192,
-    "ast_hash": "09cf844951a35609a8a71a6d5bf7d08b",
+    "mtime": 1795756678.487208,
+    "seen": 1795757184.3525283,
+    "ast_hash": "829055507884ff8e27887ac3c3141c16",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/trash-2.png": {
-    "mtime": 1795755382.842378,
-    "seen": 1795756041.7833192,
-    "ast_hash": "70c35877bd438f4dffb466927e4f3f19",
+    "mtime": 1795756678.4992154,
+    "seen": 1795757184.3525283,
+    "ast_hash": "470682658b823cdd7c4b1313bf6cef5e",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/trash-2.svg": {
-    "mtime": 1795755382.8373816,
-    "seen": 1795756041.7833192,
-    "ast_hash": "a8516e3e85337571cf1d9db6c7f0c11d",
+    "mtime": 1795756678.495211,
+    "seen": 1795757184.3525283,
+    "ast_hash": "390f38edb615dcec861b9b9e7ace58c0",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/user-round.png": {
-    "mtime": 1795755381.8329954,
-    "seen": 1795756041.7833192,
-    "ast_hash": "c54a035c019f65b76924413e0e5b970b",
+    "mtime": 1795756678.5062132,
+    "seen": 1795757184.3525283,
+    "ast_hash": "025af74a371cd685f85ec203ef7433bf",
     "semantic_hash": ""
   },
   "amazon_android/assets/icons/user-round.svg": {
-    "mtime": 1795755381.8229816,
-    "seen": 1795756041.7833192,
-    "ast_hash": "b1e0696d4c83a22610dee1b653fefe6b",
+    "mtime": 1795756678.501214,
+    "seen": 1795757184.3525283,
+    "ast_hash": "d3b6c0a4e4ce3abd9f5860fb23cf2145",
+    "semantic_hash": ""
+  },
+  "amazon_android/assets/icons/list.png": {
+    "mtime": 1795756678.4422116,
+    "seen": 1795757184.3525283,
+    "ast_hash": "1ae640161ef977c5c8025e55c88bf627",
+    "semantic_hash": ""
+  },
+  "amazon_android/assets/icons/list.svg": {
+    "mtime": 1795756678.438205,
+    "seen": 1795757184.3525283,
+    "ast_hash": "bf049eee8a20a21b755413640b50dab2",
+    "semantic_hash": ""
+  },
+  "assets/ui_history/v3_after.png": {
+    "mtime": 1795757097.4200344,
+    "seen": 1795757184.3525283,
+    "ast_hash": "d7a073b7a159a5ad435ad54e3f4f9667",
+    "semantic_hash": ""
+  },
+  "assets/ui_history/v3_before.png": {
+    "mtime": 1795756737.3460302,
+    "seen": 1795757184.3525283,
+    "ast_hash": "9e08d22b29d836192e090632ccefa608",
     "semantic_hash": ""
   }
 }

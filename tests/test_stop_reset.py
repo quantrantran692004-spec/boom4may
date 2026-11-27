@@ -546,7 +546,8 @@ class StopResetTests(unittest.TestCase):
         with patch('amazon_android.desktop.ctk.CTkFrame',side_effect=lambda *args,**kwargs: Mock()), \
              patch('amazon_android.desktop.tk.Frame',side_effect=lambda *args,**kwargs: Mock()), \
              patch('amazon_android.desktop.ctk.CTkFont',return_value=Mock()), \
-             patch('amazon_android.desktop.tk.Label',side_effect=lambda *args,**kwargs: Mock()), \
+             patch('amazon_android.desktop.TableText',side_effect=lambda *args,**kwargs: Mock()), \
+             patch('amazon_android.desktop.StatusCell',side_effect=lambda *args,**kwargs: Mock()), \
              patch('amazon_android.desktop.Button',side_effect=lambda *args,**kwargs: Mock()) as make_button:
             w._build_preview_table()
         self.assertEqual(len(w.row_stop_buttons),12)

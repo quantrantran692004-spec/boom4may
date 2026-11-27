@@ -1,5 +1,33 @@
 # Giao diện vận hành
 
+## Swarmote V3 — nghiệm thu 27/11/2026
+
+V3 thay thế phần màu và trình bày V2 bên dưới; giữ hai cột, dữ liệu và các callback chạy máy. Màu dùng `desktop_theme.py`: nền #EDF1F3, khung #FAFBFC, nhập liệu #F2F5F7, chọn #EAF4F5, header #B4DFE1 và footer #F5F7F8. Các vùng nội dung/ô nhập/nút phụ chuyển về xám lạnh; màu thương hiệu chỉ còn ở header, trạng thái, vùng chọn và chức năng cần nhận diện. Primary vàng chỉ khi khả dụng, secondary trung tính có viền, danger đỏ nhạt cho Dừng/Xóa, disabled cùng màu chữ/icon trung tính.
+
+Typography dùng các face cùng họ Segoe UI: thương hiệu bold, tiêu đề và tên máy Semibold 600, dữ liệu regular, nút regular, trạng thái chính Semibold 15–16, diễn giải regular 14. Bảng giữ nhãn Tk nhẹ có theo dõi DPI, các ô cùng nền toàn hàng, đường ngang 1 px; bỏ icon thừa và vạch trắng ở header. Tóm tắt Amazon còn ba dòng, quyền sửa và dữ liệu gốc không đổi. StatusCell giữ nguyên toàn bộ thông báo, hiển thị nhãn ngắn cùng mô tả rút gọn; hover xem đầy đủ, chọn hàng xem nguyên văn bên phải. Khung trạng thái không còn mảng nền màu lớn.
+
+28 icon Lucide nét 1,75 px, thêm `list`; khoảng icon–chữ 6 px. Scrollbar màu #C1CCD2, hover #9DADB6, phần nhìn thấy 8 px trong vùng tương tác 16 px. Bề mặt phân tầng bằng sắc độ/viền; không thêm bóng giả hoặc animation. Nhãn dài đổi wrap theo chiều rộng; ở 150% bảng tự giảm wrap mà không giảm cỡ chữ. Ô mật khẩu bên phải dùng trọn chiều rộng trong khung để tránh ép nhãn. Settings vừa màn hình, nội dung cuộn được để nút Lưu không bị mất ở DPI lớn. Hộp thoại hệ điều hành giữ kiểu native.
+
+Placeholder điều chỉnh nhẹ từ #687983 (4,12:1) sang #62727C để đạt 4,5:1. Các cặp chữ khả dụng và trạng thái đạt 4,5:1; icon/focus đạt 3:1. Border nhập liệu màu tinh tế theo bảng màu không đạt 3:1 nếu xét riêng đường viền; cần xác minh thêm với người dùng cần độ tương phản cao. Disabled không dùng để đánh giá tương phản của chức năng khả dụng.
+
+Kiểm tra: cửa sổ Tk độc lập với dữ liệu giả, trống/3 hàng/12 hàng, chọn/hover, sáu trạng thái, tooltip đầy đủ, Settings, cuộn tới Máy 12. Mức scale ứng dụng tương đương 100%, 125%, 150% và cửa sổ 1460×751/1375×714; không thay DPI toàn Windows hoặc đóng phiên thật. Ở 150%, bảng yêu cầu 876 px trong 877 px, khung phải tối đa 469 px trong 481 px. 627 unittest toàn dự án PASS trước tinh chỉnh cuối kiểu chữ Settings. Ảnh trước/sau cùng kích thước và dữ liệu mẫu ở `assets/ui_history/v3_before.png` và `v3_after.png`.
+
+Mẫu đo một lần ở 125%: V2 mở cửa sổ 1,42 s/RSS 59,45 MB; V3 khoảng 1,34 s/RSS 59,20 MB; 40 lượt hover 0,81/0,92 giây CPU. Dao động này không chứng minh thay đổi hiệu năng dài hạn. Khoảng cách từ hàng 1 tới hàng 12 giảm khoảng 9% ở cùng 125%. Chưa kiểm thử công việc thật nhiều giờ hoặc chuyển cửa sổ giữa các màn hình có DPI khác nhau.
+
+Tự đánh giá dưới đây là nhận xét chủ quan dựa trên ảnh và kiểm tra UI, không phải chứng nhận đạt mục tiêu 9/10.
+
+| Tiêu chí | Tự đánh giá | Bằng chứng và giới hạn |
+|---|---:|---|
+| Phối màu | 8,2/10 | Bề mặt trung tính, màu nhấn theo vai trò; cần phản hồi dùng lâu |
+| Dễ nhìn | 8,2/10 | Đã đo tương phản chữ; viền nhập liệu còn nhẹ |
+| Hiện đại | 8/10 | Bỏ mảng trạng thái và đường trắng dư; vẫn theo giới hạn Tk |
+| Icon | 8,3/10 | Một bộ Lucide 1,75 px, bớt icon header |
+| Phân cấp | 8,3/10 | Trạng thái hai cấp, giảm bold |
+| Font/trình bày | 8,2/10 | Segoe UI/face Semibold, scaling nhất quán |
+| Bố cục/không gian | 7,8/10 | Hàng gọn hơn; cửa sổ thấp vẫn cần cuộn |
+| Nhất quán | 8,4/10 | Tokens, bốn vai trò nút và cùng hệ chữ |
+| Cảm giác cao cấp | 7,8/10 | Bề mặt/viền tiết chế; cần người dùng xác nhận |
+
 ## Hướng thị giác
 
 Theo đặc tả Swarmote V2 ngày 27/11/2026: nền `#E8EEEE`, header `#BCE4E4`, footer `#F0F5F5`, khung `#F8FAFA`, ô nhập `#F0F4F4`. Tiêu đề graphite `#192D31`, nội dung `#293D42`, chữ phụ `#58686D`, thương hiệu/focus `#006D77`. Nút Chạy khả dụng dùng vàng champagne `#F3D36C` (hover `#EAC65A`, pressed `#DEB94E`); nút phụ xanh ngọc nhẹ, Dừng đỏ trầm trên nền đỏ nhạt. Nút khóa và icon cùng màu trung tính. Không phủ vàng lên nền lớn, không gradient hay chuyển động mới.
