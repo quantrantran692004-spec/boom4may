@@ -572,6 +572,8 @@ Máy đang chọn; proxy chuyển xuống dưới. `_select` vẫn gắn từng 
 `values[index]`; test riêng xác nhận Máy 7 không lấy hàng máy khác. Ảnh gốc
 đã lưu tại [ASSET_INDEX.md](ASSET_INDEX.md). Không tự đặt lại phiên tool đang
 mở; phiên cũ chưa nạp bố cục mới.
+
+**Cửa sổ desktop kéo/thu phóng chậm — 27/11/2026:** Giao diện là CustomTkinter trong `amazon_android/desktop.py`, không dùng CSS. Kích thước mở cũ 1380×800 bị nhân mức phóng Windows 125%, vượt màn hình 1536×864 của máy kiểm tra. Cửa sổ nay chọn kích thước mở và giới hạn thu nhỏ theo màn hình cùng mức phóng hiện tại. Bảng phân bổ dùng nhãn Tk nhẹ hơn thay cho 48 CTkLabel vẽ Canvas; chỉ hiện số hàng của mẻ, và các nhãn/nút giữ nguyên cấu hình khi nội dung không đổi. Trạng thái chỉnh sửa cũng không cấu hình lại toàn bộ ô sau mỗi lượt làm mới. Thử tạo cửa sổ riêng ngoài màn hình tại 125% cho thấy kích thước 1460×751 nằm trong màn hình, nút cuối bảng vẫn trong vùng nhìn thấy; đổi số máy 1→12→2 cho đúng số hàng mỗi lần. 618 unittest PASS. Đây là kiểm tra mã/giao diện thử, chưa đo độ trễ kéo/thu phóng trên phiên tool người dùng đang mở; phiên đó không tự nạp mã mới và không được đóng/reset vì dữ liệu mẻ ở RAM.
 Video b6 `cuonus1.mp4` đã đưa vào `flow_images/shared/` để theo mã nguồn
 trên Git. Năm ảnh đính kèm cũ của q3/q4 và b6 được nhắc trong
 `IMAGE_EVIDENCE.md` không còn ở đường dẫn Temp cũ, nên chưa thể sao chép

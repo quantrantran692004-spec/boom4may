@@ -102,8 +102,16 @@ class Window:
         self.root = ctk.CTk(fg_color=BG)
         self.root.title("Swarmote · Amazon workspace")
         set_tk_icon(self.root)
-        self.root.geometry("1380x800+20+15")
-        self.root.minsize(1280, 720)
+        scale = self.root._get_window_scaling()
+        available_width = self.root.winfo_screenwidth() / scale
+        available_height = self.root.winfo_screenheight() / scale
+        initial_width = min(1380, int(available_width - 60))
+        initial_height = min(800, int(available_height - 90))
+        self.root.minsize(
+            min(1100, max(760, initial_width - 40)),
+            min(600, max(380, initial_height - 30)),
+        )
+        self.root.geometry(f"{initial_width}x{initial_height}+20+15")
         self.root.update_idletasks()
         set_window_identity(self.root.winfo_id())
 
@@ -190,7 +198,12 @@ class Window:
         self.bulk_boxes: dict[str, ctk.CTkEntry] = {}
         self.bulk_feedback: dict[str, ctk.CTkLabel] = {}
         self.detail_entries: dict[str, ctk.CTkEntry] = {}
-        self.table_rows: list[dict[str, ctk.CTkLabel]] = []
+        self.table_rows: list[dict[str, tk.Label]] = []
+        self.table_actions: list[ctk.CTkFrame] = []
+        self._display_options: dict[object, dict[str, object]] = {}
+        self._visible_table_rows: int | None = None
+        self._visible_sidebar_rows: int | None = None
+        self._editing_display_state: tuple[str, str, int | None] | None = None
         self._refresh_after_id: str | None = None
 
         self._build()
@@ -220,6 +233,18 @@ class Window:
             font=ctk.CTkFont(family="Segoe UI Variable", size=size, weight=weight),
             **kwargs,
         )
+
+    def _configure_display(self, widget, **options) -> None:
+        """Avoid redrawing unchanged CustomTkinter canvases during status updates."""
+        cache = getattr(self, "_display_options", None)
+        if cache is None:
+            cache = self._display_options = {}
+        previous = cache.setdefault(widget, {})
+        changed = {key: value for key, value in options.items()
+                   if key not in previous or previous[key] != value}
+        if changed:
+            widget.configure(**changed)
+            previous.update(changed)
 
     def _build(self) -> None:
         header = ctk.CTkFrame(self.root, fg_color=SURFACE, corner_radius=0,
@@ -256,15 +281,15 @@ class Window:
         shell.grid_rowconfigure(0, weight=1)
 
         side = ctk.CTkFrame(shell, fg_color=SIDEBAR, corner_radius=10,
-                            border_width=0, width=220)
+                            border_width=0, width=190)
         side.grid(row=0, column=0, sticky="ns", padx=(0, 14))
         side.grid_propagate(False)
         self._build_sidebar(side)
 
         work_area = ctk.CTkFrame(shell, fg_color="transparent")
         work_area.grid(row=0, column=1, sticky="nsew")
-        work_area.grid_columnconfigure(0, weight=6, minsize=580)
-        work_area.grid_columnconfigure(1, weight=4, minsize=340)
+        work_area.grid_columnconfigure(0, weight=6, minsize=640)
+        work_area.grid_columnconfigure(1, weight=4, minsize=280)
         work_area.grid_rowconfigure(1, weight=1)
         self._build_hero(work_area)
         self.main = ctk.CTkScrollableFrame(work_area, fg_color="transparent",
@@ -641,15 +666,20 @@ class Window:
         for index in range(MAX_PROFILES):
             cells = {}
             for col, key in enumerate(keys):
-                label = self._label(
-                    table, "", 13, color=MUTED, anchor="w",
-                    height=62, corner_radius=7,
+                # Native labels avoid four extra rounded Canvas redraws per row
+                # whenever Windows resizes the main workspace.
+                label = tk.Label(
+                    table, text="", bg=SURFACE, fg=MUTED,
+                    font=ctk.CTkFont("Segoe UI Variable", 13),
+                    anchor="w", justify="left", padx=6, pady=6,
+                    wraplength={"machine": 80, "proxy": 120,
+                                "account": 180, "status": 135}[key],
+                    bd=0, highlightthickness=0,
                 )
                 label.grid(row=index + 2, column=col, sticky="ew",
                            padx=(16 if col == 0 else 3, 4),
                            pady=2)
                 if key == "status":
-                    label.configure(wraplength=170)
                     label.bind("<Button-1>", lambda _event, i=index: self._show_row_status(i))
                 else:
                     label.bind("<Button-1>", lambda _event, i=index: self._select(i))
@@ -657,6 +687,7 @@ class Window:
             self.table_rows.append(cells)
             actions = ctk.CTkFrame(table, fg_color="transparent")
             actions.grid(row=index + 2, column=4, padx=(3, 12), pady=2)
+            self.table_actions.append(actions)
             button = ctk.CTkButton(
                 actions, text="Tiếp tục", width=78, height=28, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
@@ -1007,6 +1038,13 @@ class Window:
         if not self.devices:
             return
         active = int(self.count.get())
+        if getattr(self, "_visible_sidebar_rows", None) != active:
+            for i, button in enumerate(self.devices):
+                if i < active:
+                    button.pack(fill="x", padx=4, pady=(5 if i == 0 else 2, 2))
+                else:
+                    button.pack_forget()
+            self._visible_sidebar_rows = active
         post_busy = any(session.state == "RUNNING"
                         for session in self.post_menu_sessions.values()) or any(
                             worker.is_alive() for worker in
@@ -1082,7 +1120,7 @@ class Window:
             )
             marks = "   ".join(f"{label}{'✓' if ok else '·'}"
                                  for label, ok in checks)
-            button.configure(
+            self._configure_display(button,
                 text=f"  Máy {i + 1} · {summary}\n  {marks}",
                 state="normal" if i < active else "disabled",
                 fg_color=SIDEBAR_SELECTED if i == self.selected else SIDEBAR,
@@ -1090,9 +1128,9 @@ class Window:
                 text_color=INK if i == self.selected else WHITE,
             )
             may_continue = self._may_continue(i, state, bool(issue))
-            self.row_buttons[i].configure(
+            self._configure_display(self.row_buttons[i],
                 state="normal" if i < active and may_continue else "disabled")
-            self.row_stop_buttons[i].configure(
+            self._configure_display(self.row_stop_buttons[i],
                 state="normal" if i < active and self._can_stop_phone(i) else "disabled")
         self._refresh_table()
         self._set_editing(not self.draft.locked)
@@ -1154,7 +1192,18 @@ class Window:
         return ""
 
     def _refresh_table(self) -> None:
+        active = int(self.count.get())
+        actions = getattr(self, "table_actions", ())
+        if (len(actions) == len(self.table_rows) and
+                getattr(self, "_visible_table_rows", None) != active):
+            for index, cells in enumerate(self.table_rows):
+                for cell in cells.values():
+                    cell.grid() if index < active else cell.grid_remove()
+                actions[index].grid() if index < active else actions[index].grid_remove()
+            self._visible_table_rows = active
         for index, cells in enumerate(self.table_rows):
+            if index >= active:
+                continue
             values = self.values[index]
             host = values["host"].get()
             proxy_text = (f"{host}:{values['port'].get()}" if host else
@@ -1192,14 +1241,14 @@ class Window:
                             {"running", "created", "started", "installed", "post_running"}
                             else MUTED)
             for key, cell in cells.items():
-                cell.configure(
+                self._configure_display(
+                    cell,
                     text=(items[key] if key in {"account", "status"} else
                           items[key][:46] + ("…" if len(items[key]) > 46 else "")),
-                    fg_color=PALE if index == self.selected else
-                             ROW_ALT if index % 2 else SURFACE,
-                    text_color=(status_color if key == "status" else
-                                BLUE if index == self.selected else
-                                INK if index < int(self.count.get()) else MUTED),
+                    bg=PALE if index == self.selected else
+                       ROW_ALT if index % 2 else SURFACE,
+                    fg=(status_color if key == "status" else
+                        BLUE if index == self.selected else INK),
                 )
 
     def _select(self, index: int) -> None:
@@ -1326,6 +1375,10 @@ class Window:
         state = "normal" if enabled else "disabled"
         repairing = not enabled and self._can_edit_locked_row(self.selected)
         detail_state = "normal" if (enabled or repairing) else "disabled"
+        display_state = (state, detail_state, self.selected if repairing else None)
+        if getattr(self, "_editing_display_state", None) == display_state:
+            return
+        self._editing_display_state = display_state
         for box in self.bulk_boxes.values():
             box.configure(state=state)
         for key, entry in self.detail_entries.items():

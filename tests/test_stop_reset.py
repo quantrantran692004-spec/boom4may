@@ -466,11 +466,13 @@ class StopResetTests(unittest.TestCase):
 
     def test_each_table_row_has_its_own_stop_command(self):
         w=Window.__new__(Window)
-        w.main=Mock(); w.table_rows=[]; w.row_buttons=[]; w.row_stop_buttons=[]
+        w.main=Mock(); w.table_rows=[]; w.table_actions=[]
+        w.row_buttons=[]; w.row_stop_buttons=[]
         w._label=Mock(side_effect=lambda *args,**kwargs: Mock())
         w._continue_profile=Mock(); w._request_stop_phone=Mock()
         with patch('amazon_android.desktop.ctk.CTkFrame',side_effect=lambda *args,**kwargs: Mock()), \
              patch('amazon_android.desktop.ctk.CTkFont',return_value=Mock()), \
+             patch('amazon_android.desktop.tk.Label',side_effect=lambda *args,**kwargs: Mock()), \
              patch('amazon_android.desktop.ctk.CTkButton',side_effect=lambda *args,**kwargs: Mock()) as make_button:
             w._build_preview_table()
         self.assertEqual(len(w.row_stop_buttons),12)
