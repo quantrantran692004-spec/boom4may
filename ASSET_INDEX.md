@@ -18,7 +18,7 @@ Icon ứng dụng nền xanh đậm, lăng kính tím sáng, vuông 1254 × 1254
 
 Ảnh Tk trước/sau V3 ở cùng kích thước 1460×750 px, scale 125%, cùng 12 hàng dữ liệu giả. Dùng để kiểm tra màu, phân cấp chữ, mật độ và trạng thái; không phải bằng chứng hoạt động của máy thật. Tự đánh giá và giới hạn trong DESIGN.md.
 
-Ảnh `v3_final.png` ghi bản sau yêu cầu bỏ cột Proxy và mở lớn mặc định: phần nội dung 1472×724 px sau khi giới hạn theo màn hình kiểm tra 1536×864; giữ nguyên proxy bên phải. Dữ liệu hoàn toàn giả.
+Ảnh `v3_final.png` cập nhật sau yêu cầu mở to hơn nữa và cuộn mượt: phần nội dung 1504×760 px sau khi giới hạn theo màn hình kiểm tra 1536×864; trên Full HD mốc mở mới là 1840×960 px. Giữ nguyên proxy bên phải, bảng không có cột Proxy. Dữ liệu hoàn toàn giả.
 
 ## assets/ui_history/reset_check.png
 

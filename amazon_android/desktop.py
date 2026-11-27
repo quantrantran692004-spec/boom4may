@@ -10,6 +10,7 @@ from dataclasses import replace
 from tkinter import messagebox, simpledialog
 
 import customtkinter as ctk
+from .desktop_scroll import SmoothScrollableFrame
 
 from .bulk_input import MAX_PROFILES, parse_bulk_payload, parse_column, parse_records, validate_card
 from .batch_state import BatchDraft
@@ -268,12 +269,12 @@ class Window:
         work_area.grid_columnconfigure(0, weight=7, minsize=600)
         work_area.grid_columnconfigure(1, weight=4, minsize=350)
         work_area.grid_rowconfigure(0, weight=1)
-        self.main = ctk.CTkScrollableFrame(work_area, fg_color="transparent",
+        self.main = SmoothScrollableFrame(work_area, fg_color="transparent",
                                             corner_radius=0, scrollbar_button_color=SCROLLBAR,
                                             scrollbar_button_hover_color=SCROLLBAR_HOVER)
         self.main.grid(row=0, column=0, sticky="nsew")
         self.main.grid_columnconfigure(0, weight=1)
-        self.detail_panel = ctk.CTkScrollableFrame(
+        self.detail_panel = SmoothScrollableFrame(
             work_area, fg_color="transparent", corner_radius=0,
             scrollbar_button_color=SCROLLBAR, scrollbar_button_hover_color=SCROLLBAR_HOVER,
         )
@@ -506,6 +507,7 @@ class Window:
         self.run_note.pack(side="right", padx=15)
 
     def _show_preview_table(self) -> None:
+        self.main._cancel_scroll()
         self.root.update_idletasks()
         canvas = self.main._parent_canvas
         bounds = canvas.bbox("all")
@@ -1393,7 +1395,7 @@ class Window:
         # immediate visual feedback even on a busy Tk event loop.
         dialog.lift()
         dialog.update_idletasks()
-        card = ctk.CTkScrollableFrame(dialog, fg_color=SURFACE, corner_radius=10,
+        card = SmoothScrollableFrame(dialog, fg_color=SURFACE, corner_radius=10,
                             border_width=1, border_color=BORDER,
                             scrollbar_button_color=SCROLLBAR,
                             scrollbar_button_hover_color=SCROLLBAR_HOVER)
