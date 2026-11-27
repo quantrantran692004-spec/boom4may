@@ -21,6 +21,7 @@ from .account_flow import (
     resume_common_index, route_list_menu, verify_menu_open,
 )
 from .random_prefix import build_random_steps
+from .reg_us_flow import build_reg_us_steps
 from .windows_identity import set_process_identity, set_tk_icon, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
@@ -1428,23 +1429,33 @@ class Window:
         ).pack(anchor="w", padx=22, pady=(14, 3))
         self._label(card, "Các điện thoại Running vẫn hiện bình thường.",
                     12, color=MUTED).pack(anchor="w", padx=22)
-        login_mode = tk.BooleanVar(value=self.settings.account_flow_mode == "login")
+        flow_labels = {"create": "Tạo tài khoản Amazon",
+                       "login": "Đăng nhập Amazon", "reg_us": "Reg US"}
+        flow_modes = {label: mode for mode, label in flow_labels.items()}
+        flow_choice = tk.StringVar(value=flow_labels[self.settings.account_flow_mode])
         address_card = tk.BooleanVar(value=self.settings.login_followup == "address_and_card")
         card_only = tk.BooleanVar(value=self.settings.login_followup == "card_only")
-        ctk.CTkSwitch(
-            card, text="Đăng nhập Amazon (tắt = Tạo tài khoản)",
-            variable=login_mode, onvalue=True, offvalue=False,
-            command=lambda: (address_card.set(False), card_only.set(False))
-            if not login_mode.get() else None,
-            text_color=BODY, fg_color=BORDER,
-            progress_color=BLUE, button_color=WHITE,
+        self._label(card, "Luồng", 13, color=INK).pack(anchor="w", padx=22, pady=(18, 3))
+
+        def select_flow(_selected):
+            if flow_choice.get() != flow_labels["login"]:
+                address_card.set(False)
+                card_only.set(False)
+
+        ctk.CTkOptionMenu(
+            card, values=list(flow_modes), variable=flow_choice,
+            command=select_flow, width=215, height=38, corner_radius=9,
+            fg_color=PALE, button_color=PALE, text_color=BLUE,
+            dropdown_fg_color=SURFACE, dropdown_text_color=BODY,
             font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
-        ).pack(anchor="w", padx=22, pady=(18, 3))
+        ).pack(anchor="w", padx=22, pady=(3, 3))
+        self._label(card, "Reg US dùng chung phần chuẩn bị, rồi dừng tại b1.",
+                    12, color=MUTED).pack(anchor="w", padx=22)
 
         def select_followup(selected, other):
             if selected.get():
                 other.set(False)
-                login_mode.set(True)
+                flow_choice.set(flow_labels["login"])
 
         ctk.CTkSwitch(
             card, text="Đăng nhập · thêm địa chỉ rồi thẻ",
@@ -1473,14 +1484,15 @@ class Window:
                 followup = ("address_and_card" if address_card.get() else
                             "card_only" if card_only.get() else "none")
                 updated = AppSettings(int(group_size.get()), hide_creation.get(),
-                                      "login" if login_mode.get() else "create", followup)
+                                      flow_modes[flow_choice.get()], followup)
                 save_settings(updated)
             except (ToolError, OSError, ValueError) as exc:
                 messagebox.showerror("Không lưu được Settings", str(exc))
                 return
             self.settings = updated
             dialog.destroy()
-            mode_label = ("Đăng nhập + địa chỉ + thẻ" if updated.login_followup == "address_and_card"
+            mode_label = ("Reg US" if updated.account_flow_mode == "reg_us"
+                          else "Đăng nhập + địa chỉ + thẻ" if updated.login_followup == "address_and_card"
                           else "Đăng nhập + thẻ" if updated.login_followup == "card_only"
                           else "Đăng nhập" if updated.account_flow_mode == "login"
                           else "Tạo tài khoản")
@@ -1860,6 +1872,8 @@ class Window:
         if session.state == "READY" and session.attempts == 0:
             session.registration.flow_mode = self.settings.account_flow_mode
             session.registration.login_followup = self.settings.login_followup
+        if session.registration.flow_mode == "reg_us":
+            factory = build_reg_us_steps
         if session.state not in {"READY", "PAUSED"}:
             return
         worker = self.post_menu_workers.get(index)
@@ -1907,6 +1921,8 @@ class Window:
             "after_step": self.phone_stop_after_step.setdefault(job.index, threading.Event())}
         try:
             def route(current, active_job, deadline, active_stop):
+                if session.registration.flow_mode == "reg_us":
+                    return None
                 if context["factories"].get(active_job.index) is build_random_steps:
                     return None  # The random prefix also runs on list menus.
                 phone = CloudPhone(context["serials"][active_job.index])
@@ -1915,6 +1931,8 @@ class Window:
 
             def reconcile(current, active_job, deadline, active_stop):
                 nonlocal steps
+                if session.registration.flow_mode == "reg_us":
+                    return None
                 phone = CloudPhone(context["serials"][active_job.index])
                 target = resume_common_index(phone, steps, current,
                                              deadline, active_stop,

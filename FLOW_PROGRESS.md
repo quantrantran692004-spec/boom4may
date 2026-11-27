@@ -1,5 +1,7 @@
 # Tiến độ hướng dẫn bằng ảnh — cập nhật 13/11/2026
 
+**Reg US, 27/11/2026:** Người dùng chọn dùng chung phần chuẩn bị hiện có tới menu Amazon, sau đó tách luồng. Đã nối điểm dừng b1 riêng trong mã; hành động b1 và toàn bộ phần tiếp theo chưa được hướng dẫn, chưa thử trên máy thật. Không dùng ảnh hoặc bước b1–b39 của Tạo/Đăng nhập để suy ra Reg US.
+
 **Phản hồi người dùng 17/11/2026:** Máy 1–6 đã chạy ổn b1–b3 ngẫu nhiên; Máy 7
 đang thử kỹ thuật riêng và dừng ở b4; Máy 8–12 chưa có b1–b3 và chưa nối bước
 chung trong phiên người dùng đang đánh giá. Mã checkout có factory ngẫu nhiên

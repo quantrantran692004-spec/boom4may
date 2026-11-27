@@ -23,8 +23,8 @@ class AppSettings:
         if not isinstance(self.hide_profile_creation, bool):
             raise ToolError("Tùy chọn ẩn cửa sổ tạo Profile không hợp lệ")
         if (not isinstance(self.account_flow_mode, str) or
-                self.account_flow_mode not in {"create", "login"}):
-            raise ToolError("Chế độ Amazon phải là Tạo tài khoản hoặc Đăng nhập")
+                self.account_flow_mode not in {"create", "login", "reg_us"}):
+            raise ToolError("Luồng phải là Tạo tài khoản, Đăng nhập hoặc Reg US")
         if (not isinstance(self.login_followup, str) or
                 self.login_followup not in {"none", "address_and_card", "card_only"}):
             raise ToolError("Tùy chọn sau Đăng nhập không hợp lệ")

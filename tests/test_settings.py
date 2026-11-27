@@ -20,6 +20,9 @@ class SettingsTests(unittest.TestCase):
                 selected = AppSettings(2, False, "login", choice)
                 save_settings(selected, path)
                 self.assertEqual(load_settings(path), selected)
+            reg_us = AppSettings(2, False, "reg_us")
+            save_settings(reg_us, path)
+            self.assertEqual(load_settings(path), reg_us)
 
     def test_old_settings_file_keeps_creation_window_visible(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -41,6 +44,8 @@ class SettingsTests(unittest.TestCase):
             AppSettings(2, False, "login", ["card_only"])
         with self.assertRaises(ToolError):
             AppSettings(2, False, "create", "card_only")
+        with self.assertRaises(ToolError):
+            AppSettings(2, False, "reg_us", "card_only")
 
 
 if __name__ == "__main__":

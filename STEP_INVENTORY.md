@@ -21,6 +21,8 @@ Xem [Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md).
 
 ## B1–B3 hiện hành — Ba lượt ngẫu nhiên q1–q12
 
+**Reg US, 27/11/2026:** Settings có luồng Reg US độc lập. Phần chuẩn bị Profile, cài/mở Amazon và xác nhận menu được dùng chung đến P08. Ngay sau menu, Reg US dừng tại b1 mà chưa gửi thao tác Android nào; b1 và các bước sau chờ người dùng hướng dẫn. Các quy tắc b1–b39 dưới đây chỉ thuộc luồng Tạo/Đăng nhập hiện có, không tự áp dụng cho Reg US. Đây là mã và test mô phỏng; chưa thử trên phiên tool thật.
+
 **Nhịp cuộn hiện hành, sửa 26/11/2026:** B1/b2 chờ đủ 2 giây sau cú bấm rồi vuốt vừa từ dưới lên một lượt; b3 không vuốt, kể cả khi phải thử lại cú bấm lỗi. Cả ba bước của 12 máy đều xem 3–5 giây. Dừng/Tiếp tục giữ mốc chờ và dấu đã vuốt của b1/b2, không bấm hoặc cuộn lại. B13–b15 giữ quy tắc cuộn riêng của chúng. Đây là mã/test mô phỏng, chưa kiểm trên máy thật hoặc phiên tool đang mở.
 
 **Nhịp vuốt 27/11/2026:** Giữ nguyên điểm đầu/cuối và một cú lướt liên tục của mã cũ; tăng thời gian cuộn xem b1/b2 từ 450 lên 700 ms và cú cuộn tìm hàng dự phòng từ 280 lên 700 ms. B3 vẫn không cuộn trong factory hiện hành. Bản q7 pilot cũ cũng chỉ đổi thời gian cú vuốt dự phòng; không nối pilot vào factory.
