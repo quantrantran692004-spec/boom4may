@@ -17,4 +17,4 @@ build-backend = "setuptools.build_meta"
 include = ["amazon_android*"]
 
 [tool.setuptools.package-data]
-amazon_android = ["assets/*.png", "assets/*.ico"]
+amazon_android = ["assets/*.png", "assets/*.ico", "assets/icons/*.png", "assets/icons/*.svg", "assets/icons/LICENSE"]
