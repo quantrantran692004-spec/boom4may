@@ -1,4 +1,4 @@
-"""Check the desktop layout that regressed on a scaled Windows display."""
+"""Check the compact desktop layout on a scaled Windows display."""
 import sys
 import unittest
 from unittest.mock import patch
@@ -10,7 +10,7 @@ from amazon_android import desktop
 
 @unittest.skipUnless(sys.platform == "win32", "Tk window layout requires Windows")
 class DesktopLayoutTests(unittest.TestCase):
-    def test_all_twelve_slots_remain_visible_and_details_fit(self):
+    def test_table_has_all_twelve_slots_and_locked_batch_starts_at_table(self):
         class HiddenRoot(ctk.CTk):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -27,16 +27,25 @@ class DesktopLayoutTests(unittest.TestCase):
             root.deiconify()
             root.update()
 
-            self.assertEqual(12, sum(bool(button.winfo_manager()) for button in window.devices))
             self.assertEqual(12, sum(bool(row["machine"].winfo_manager())
                                      for row in window.table_rows))
             window.count.set("12")
             window._refresh_devices()
-            self.assertEqual(12, sum(button.cget("state") == "normal"
-                                     for button in window.devices))
+            window._select(11)
+            self.assertEqual(11, window.selected)
+            self.assertEqual("Máy 12", window.detail_title.cget("text"))
             card = window.detail_panel.winfo_children()[0]
             self.assertLessEqual(card.winfo_reqwidth(),
                                  window.detail_panel._parent_canvas.winfo_width())
+            window.draft.locked = True
+            window._refresh_devices()
+            self.assertFalse(window.bulk_card.winfo_manager())
+            self.assertFalse(window.proxy_line.winfo_manager())
+            self.assertTrue(window.preview_table.winfo_manager())
+            window.draft.locked = False
+            window._refresh_devices()
+            self.assertTrue(window.bulk_card.winfo_manager())
+            self.assertTrue(window.proxy_line.winfo_manager())
         finally:
             window.root.withdraw()
             window.root.destroy()

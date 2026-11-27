@@ -476,7 +476,8 @@ class StopResetTests(unittest.TestCase):
              patch('amazon_android.desktop.ctk.CTkButton',side_effect=lambda *args,**kwargs: Mock()) as make_button:
             w._build_preview_table()
         self.assertEqual(len(w.row_stop_buttons),12)
-        stop_calls=[call for call in make_button.call_args_list if call.kwargs.get('text')=='Dừng']
+        stop_calls=[call for call in make_button.call_args_list
+                    if call.kwargs.get('text', '').endswith('Dừng')]
         self.assertEqual(len(stop_calls),12)
         stop_calls[1].kwargs['command']()
         stop_calls[8].kwargs['command']()
