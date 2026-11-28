@@ -13,7 +13,8 @@ from amazon_android.change_us_flow import (_ICON, _account_icon_from_image,
                                             build_change_us_steps)
 from amazon_android.cloud import CloudPhone
 from amazon_android.core import ToolError
-from amazon_android.post_menu import AttemptDeadline, RegistrationState
+from amazon_android.post_menu import (AttemptDeadline, PostMenuSession,
+                                      RegistrationState)
 from amazon_android.runner import AccountData, RunJob
 
 
@@ -48,23 +49,53 @@ class ChangeUsFlowTests(unittest.TestCase):
         self.assertGreater(pause.call_args.args[1], 3.5)
         self.assertIsNotNone(self.state.early_us_menu_until)
 
-    def test_b2_requires_person_label_or_live_icon(self):
-        person = node('', '[55,170][80,195]', **{'content-desc': 'Your Account Tab'})
-        with patch('amazon_android.change_us_flow._observe', return_value=(
-                person, [person])), \
-             patch('amazon_android.change_us_flow._foreground'), \
-             patch('amazon_android.change_us_flow._tap_for_transition') as tap:
-            self.steps[1].action(None, self.outer, self.stop)
-        self.assertEqual(tap.call_args.args[1], person)
+    def test_b2_taps_person_position_without_reading_screen(self):
+        for serial, size, expected in (
+                ('127.0.0.1:5001', (1080, 2388), ('405', '2209')),
+                ('127.0.0.1:5002', (1440, 3120), ('540', '2886'))):
+            with self.subTest(serial=serial), \
+                 patch('amazon_android.change_us_flow._size', return_value=size), \
+                 patch('amazon_android.change_us_flow._observe') as observe, \
+                 patch('amazon_android.change_us_flow._account_icon_from_image') as image, \
+                 patch('amazon_android.change_us_flow._foreground') as foreground, \
+                 patch('amazon_android.change_us_flow.cloud_adb') as adb:
+                phone = CloudPhone(serial)
+                build_change_us_steps(phone, RegistrationState())[1].action(
+                    None, self.outer, self.stop)
+                self.assertEqual(adb.call_args.args[:3],
+                                 (phone, 'shell', 'input'))
+                self.assertEqual(adb.call_args.args[3:],
+                                 ('tap', *expected))
+                observe.assert_not_called()
+                image.assert_not_called()
+                foreground.assert_not_called()
 
-    def test_b2_adb_focus_error_pauses_this_step(self):
-        person = node('', '[55,170][80,195]', **{'content-desc': 'Your Account Tab'})
-        with patch('amazon_android.change_us_flow._observe', return_value=(
-                person, [person])), \
-             patch('amazon_android.change_us_flow._foreground',
-                   side_effect=ToolError('Amazon chưa ở phía trước')):
-            with self.assertRaises(_StepBlocked):
+    def test_b2_stopped_phone_does_not_tap(self):
+        self.stop.set()
+        with patch('amazon_android.change_us_flow._size') as size, \
+             patch('amazon_android.change_us_flow.cloud_adb') as adb:
+            with self.assertRaises(ToolError):
                 self.steps[1].action(None, self.outer, self.stop)
+        size.assert_not_called()
+        adb.assert_not_called()
+
+    def test_resume_at_b2_advances_to_b3_after_direct_tap(self):
+        session = PostMenuSession('batch', 0, 'q1', next_step=1,
+                                  state='PAUSED', registration=self.state)
+        events = []
+        with patch('amazon_android.change_us_flow._size',
+                   return_value=(1080, 2388)), \
+             patch('amazon_android.change_us_flow.cloud_adb') as adb, \
+             patch('amazon_android.change_us_flow._observe') as observe, \
+             patch('amazon_android.change_us_flow._wait_target',
+                   side_effect=_StepBlocked('b3 paused')):
+            session.run(self.job, self.steps,
+                        lambda *event: events.append(event), self.stop)
+        self.assertEqual(session.next_step, 2)
+        self.assertEqual(session.state, 'PAUSED')
+        self.assertEqual(adb.call_count, 1)
+        observe.assert_not_called()
+        self.assertTrue(any('Đã xong b2' in event[1] for event in events))
 
     def test_person_icon_template_matches_only_live_bottom_bar(self):
         icon = Image.open(_ICON).convert('RGB')

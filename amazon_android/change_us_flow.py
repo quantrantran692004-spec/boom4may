@@ -18,7 +18,7 @@ from .account_flow import (NAME_FIELD, OTP_FIELD, PHONE_FIELD, _button,
 from .cloud import cloud_adb, cloud_screenshot
 from .core import ToolError
 from .marketplace_flow import (_country_card, _en_button, _foreground, _is_account_tab,
-                               _one, _read, _resolve, _scroll_country, _us_row,
+                               _one, _read, _resolve, _scroll_country, _size, _us_row,
                                _us_selected, _pause, _tap_for_transition)
 from .marketplace_flow import marketplace_screen
 from .post_menu import AttemptDeadline, PostMenuStep
@@ -242,11 +242,15 @@ def build_change_us_steps(phone, state, on_otp=lambda _code: None,
             _pause(stop, remaining)
 
     def b2(job, outer, stop):
-        target, _, deadline = _wait_target(
-            phone, outer, stop, lambda ns: _person(phone, ns, AttemptDeadline(8)),
-            'tab hình người', navigation=True)
-        _foreground(phone, deadline)
-        _tap_for_transition(phone, target, deadline)
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        deadline = AttemptDeadline(10, notice=outer.notice)
+        width, height = _size(phone, deadline)
+        if stop.is_set():
+            raise ToolError('Đã dừng máy này')
+        cloud_adb(phone, 'shell', 'input', 'tap', str(round(width * .375)),
+                  str(round(height * .925)),
+                  timeout=max(1, math.ceil(min(6, deadline.remaining()))))
 
     def b3(job, outer, stop):
         target, _, deadline = _wait_target(phone, outer, stop,

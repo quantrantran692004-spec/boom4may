@@ -258,9 +258,9 @@
     "semantic_hash": ""
   },
   "PROJECT_HANDOFF.md": {
-    "mtime": 1795829968.646503,
-    "seen": 1795829993.1778347,
-    "ast_hash": "07fa7dd8ab1026fc2b8158e851421b33",
+    "mtime": 1795832172.7331991,
+    "seen": 1795832184.4056828,
+    "ast_hash": "c4169a458ece592ec3b34acffa984815",
     "semantic_hash": ""
   },
   "Q1_FLOW.md": {
@@ -348,9 +348,9 @@
     "semantic_hash": ""
   },
   "STEP_INVENTORY.md": {
-    "mtime": 1795829405.9949582,
-    "seen": 1795829536.9299784,
-    "ast_hash": "a873ba86e0e14301c8b327ccb4ae29e9",
+    "mtime": 1795832125.1833198,
+    "seen": 1795832184.4066813,
+    "ast_hash": "a6888a237788161c80d01c03e64d58db",
     "semantic_hash": ""
   },
   "amazon_android/account_flow.py": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "IMAGE_EVIDENCE.md": {
-    "mtime": 1795829962.0668054,
-    "seen": 1795829993.1778347,
-    "ast_hash": "414d0867a897471b51f70c1aa7c019cb",
+    "mtime": 1795832060.3507252,
+    "seen": 1795832076.9630163,
+    "ast_hash": "7e1643f79fa7200ec4cdd42f197ed2f3",
     "semantic_hash": ""
   },
   "PROJECT_INDEX.md": {
@@ -2070,15 +2070,15 @@
     "semantic_hash": ""
   },
   "amazon_android/change_us_flow.py": {
-    "mtime": 1795829369.1628993,
-    "seen": 1795829536.920113,
-    "ast_hash": "678ab9acee221c59273047efba7036f4",
+    "mtime": 1795831847.7296162,
+    "seen": 1795832076.9630163,
+    "ast_hash": "0b8373eb3ea014b1dbd651587d6c34e0",
     "semantic_hash": ""
   },
   "tests/test_change_us_flow.py": {
-    "mtime": 1795829578.7403488,
-    "seen": 1795829605.5617146,
-    "ast_hash": "b281c8361d0c3b4d52fb71390984fd64",
+    "mtime": 1795832154.959345,
+    "seen": 1795832184.4056828,
+    "ast_hash": "f29cbe1cd837416b047fa4c38c985be9",
     "semantic_hash": ""
   },
   "flow_images/shared/change_us_from_start/01_account_tab.png": {
@@ -2163,6 +2163,12 @@
     "mtime": 1795828265.6331377,
     "seen": 1795829993.1788352,
     "ast_hash": "ae09042667191a8cc9965fab13a94dbd",
+    "semantic_hash": ""
+  },
+  "flow_images/shared/change_us_from_start/05_b2_account_selected.png": {
+    "mtime": 1795831996.1493628,
+    "seen": 1795832076.9630163,
+    "ast_hash": "c6eaaa2f4b55d8167ca09336c7de810d",
     "semantic_hash": ""
   }
 }
