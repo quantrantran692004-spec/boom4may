@@ -12,7 +12,8 @@ from tkinter import messagebox, simpledialog
 import customtkinter as ctk
 from .desktop_scroll import SmoothScrollableFrame
 
-from .bulk_input import MAX_PROFILES, parse_bulk_payload, parse_column, parse_records, validate_card
+from .bulk_input import (MAX_PROFILES, MAX_PROXY_CANDIDATES, parse_bulk_payload,
+                         parse_column, parse_records, validate_card)
 from .batch_state import BatchDraft
 from .core import ToolError
 from .otp import extract_otp, otp_token, validate_otp_url
@@ -49,8 +50,8 @@ from .desktop_theme import (
 )
 
 BULK = (
-    ("proxy", "Proxy", "host:port:user:password", "Proxy dư tự dùng thay proxy lỗi"),
-    ("account", "Thông tin Amazon", "SĐT | Mật khẩu | Tên | URL OTP (thẻ tùy chọn)", "Dán 1 lần: tối đa 12 hàng"),
+    ("proxy", "Proxy", "host:port:user:password", "Dán tiếp vào máy trống; proxy dư làm dự phòng"),
+    ("account", "Thông tin Amazon", "SĐT | Mật khẩu | Tên | URL OTP (thẻ tùy chọn)", "Có thể dán nhiều lần; tối đa 12 máy"),
 )
 
 FIELD_KEYS = (
@@ -824,29 +825,118 @@ class Window:
                                 text_color=BLUE)
         self._refresh_devices()
 
-    def _apply_account_records(self, records) -> None:
-        self.draft.replace("account", len(records))
-        for target in self.values:
-            for key in ("phone", "amazon_password", "full_name", "card", "otp_url"):
-                target[key].set("")
-        self.otp_status = ["Chưa yêu cầu mã" for _ in range(MAX_PROFILES)]
-        self.otp_codes = ["" for _ in range(MAX_PROFILES)]
-        for index, record in enumerate(records):
+    def _empty_data_slots(self, keys) -> list[int]:
+        return [index for index, row in enumerate(self.values)
+                if not any(row[key].get().strip() for key in keys)]
+
+    @staticmethod
+    def _slot_summary(slots: list[int]) -> str:
+        if not slots:
+            return "không có máy mới"
+        if slots == list(range(slots[0], slots[-1] + 1)):
+            return f"Máy {slots[0] + 1}–{slots[-1] + 1}"
+        return "Máy " + ", ".join(str(index + 1) for index in slots)
+
+    def _plan_account_append(self, records):
+        keys = ("phone", "amazon_password", "full_name", "card", "otp_url")
+        by_phone = {}
+        by_token = {}
+        for row in self.values:
+            data = tuple(row[key].get().strip() if key in {"phone", "otp_url"}
+                         else row[key].get() for key in keys)
+            if data[0]:
+                by_phone[data[0]] = data
+            try:
+                by_token[otp_token(data[-1])] = data
+            except ToolError:
+                pass
+        new_records = []
+        for record in records:
+            data = (record.phone, record.password, record.full_name,
+                    record.card, record.otp_url)
+            token = otp_token(record.otp_url)
+            previous = [value for value in (by_phone.get(record.phone),
+                                            by_token.get(token)) if value is not None]
+            if previous:
+                if any(value != data for value in previous):
+                    raise ToolError("SĐT hoặc URL OTP đã có với dữ liệu khác; hãy sửa đúng một máy")
+                continue  # A cumulative paste includes rows already assigned.
+            by_phone[record.phone] = data
+            by_token[token] = data
+            new_records.append(record)
+        slots = self._empty_data_slots(keys)
+        if len(new_records) > len(slots):
+            raise ToolError(f"Chỉ còn {len(slots)} máy trống cho thông tin Amazon; dữ liệu cũ được giữ nguyên")
+        return slots[:len(new_records)], new_records
+
+    def _plan_proxy_append(self, proxies):
+        keys = ("host", "port", "username", "proxy_password")
+        existing = {(proxy.host.casefold(), proxy.port, proxy.username, proxy.password)
+                    for proxy in self.proxy_fallbacks}
+        for row in self.values:
+            host, port, user, password = (row[key].get().strip() for key in keys)
+            if host and port and user and password:
+                try:
+                    existing.add((host.casefold(), int(port), user, password))
+                except ValueError:
+                    pass
+        new_proxies = []
+        for proxy in proxies:
+            identity = (proxy.host.casefold(), proxy.port, proxy.username,
+                        proxy.password)
+            if identity not in existing:
+                new_proxies.append(proxy)
+        slots = self._empty_data_slots(keys)
+        assigned = slots[:len(new_proxies)]
+        extras = new_proxies[len(assigned):]
+        occupied = [index for index in range(MAX_PROFILES) if index not in slots]
+        high_water = max((index + 1 for index in occupied + assigned), default=0)
+        current = max(self.draft.proxy_count, high_water,
+                      MAX_PROFILES + len(self.proxy_fallbacks) if self.proxy_fallbacks else 0)
+        new_count = current + len(extras)
+        if new_count > MAX_PROXY_CANDIDATES:
+            raise ToolError("Tổng proxy vượt 100 mục; dữ liệu cũ được giữ nguyên")
+        return assigned, extras, new_count, new_proxies
+
+    def _append_proxy_records(self, proxies, plan=None) -> list[int]:
+        assigned, extras, count, new_proxies = (plan if plan is not None else
+                                                self._plan_proxy_append(proxies))
+        if new_proxies:
+            self.draft.replace("proxy", count)
+        for index, value in zip(assigned, new_proxies):
+            target = self.values[index]
+            target["host"].set(value.host)
+            target["port"].set(str(value.port))
+            target["username"].set(value.username)
+            target["proxy_password"].set(value.password)
+        self.proxy_fallbacks.extend(extras)
+        if "proxy" in getattr(self, "bulk_feedback", {}):
+            self.bulk_feedback["proxy"].configure(
+                text=f"✓ {self._slot_summary(assigned)} · {len(self.proxy_fallbacks)} dự phòng",
+                text_color=GREEN)
+        return assigned
+
+    def _apply_account_records(self, records, slots=None) -> None:
+        slots, new_records = (self._plan_account_append(records) if slots is None
+                              else slots)
+        if new_records:
+            self.draft.replace("account", max(self.draft.account_count, slots[-1] + 1))
+        for index, record in zip(slots, new_records):
             target = self.values[index]
             target["phone"].set(record.phone)
             target["amazon_password"].set(record.password)
             target["full_name"].set(record.full_name)
             target["card"].set(record.card)
             target["otp_url"].set(record.otp_url)
-        self.count.set(str(self.draft.count))
+            self.otp_status[index] = "Chưa yêu cầu mã"
+            self.otp_codes[index] = ""
+        self.count.set(str(max(int(self.count.get()), self.draft.count)))
         self._refresh_devices()
         self.bulk_feedback["account"].configure(
-            text=f"✓ {len(records)} máy", text_color=GREEN)
-        if all(record.proxy for record in records):
-            self.bulk_feedback["proxy"].configure(
-                text=f"✓ {len(records)} máy", text_color=GREEN)
+            text=f"✓ {self._slot_summary(slots)}", text_color=GREEN)
         self.run_note.configure(
-            text=f"Đã gán {len(records)} hàng vào mẻ; chưa nhập vào Amazon", text_color=GREEN)
+            text=f"Đã thêm {len(new_records)} hàng Amazon vào {self._slot_summary(slots)}",
+            text_color=GREEN)
         self.bulk_boxes["account"].delete(0, "end")
         self._refresh_otp_detail()
         self._maybe_show_preview()
@@ -859,37 +949,28 @@ class Window:
             if self.draft.locked:
                 raise ToolError("Mẻ đã chạy; bấm Mẻ mới để nhập dữ liệu khác")
             proxies, accounts = parse_bulk_payload(content)
+            proxy_plan = self._plan_proxy_append(proxies) if proxies else None
+            account_slots = self._plan_account_append(accounts) if accounts else None
         except (ToolError, ValueError) as exc:
             self.bulk_feedback[kind].configure(text=str(exc), text_color=RED)
             self.run_note.configure(text=str(exc), text_color=RED)
             return
         if proxies:
-            self.draft.replace("proxy", len(proxies))
-            for target in self.values:
-                for key in ("host", "port", "username", "proxy_password"):
-                    target[key].set("")
-            for index, value in enumerate(proxies[:MAX_PROFILES]):
-                target = self.values[index]
-                target["host"].set(value.host)
-                target["port"].set(str(value.port))
-                target["username"].set(value.username)
-                target["proxy_password"].set(value.password)
-            self.proxy_fallbacks = proxies[MAX_PROFILES:]
-            self.bulk_feedback["proxy"].configure(
-                text=f"✓ {min(len(proxies), MAX_PROFILES)} máy · {len(self.proxy_fallbacks)} dự phòng",
-                text_color=GREEN)
+            self._append_proxy_records(proxies, proxy_plan)
         if accounts:
-            self._apply_account_records(accounts)
+            self._apply_account_records(accounts, account_slots)
         if kind == "proxy" and not proxies:
             self.bulk_feedback["proxy"].configure(
                 text="Đã chuyển vào Thông tin Amazon", text_color=GREEN)
         elif kind == "account" and not accounts:
             self.bulk_feedback["account"].configure(
                 text="Đã chuyển vào Proxy", text_color=GREEN)
-        self.count.set(str(self.draft.count))
+        self.count.set(str(max(int(self.count.get()), self.draft.count)))
         self._refresh_devices()
         self.run_note.configure(
-            text=f"Đã nhận {len(proxies)} proxy, {len(accounts)} hàng Amazon hợp lệ",
+            text=(f"Đã thêm {len(proxy_plan[3]) if proxy_plan else 0} proxy, "
+                  f"{len(account_slots[1]) if account_slots else 0} hàng Amazon; "
+                  "hàng đã có được giữ nguyên"),
             text_color=GREEN)
         self.bulk_boxes[kind].delete(0, "end")
         self._maybe_show_preview()
@@ -930,16 +1011,37 @@ class Window:
             return None
         try:
             parsed = parse_column(kind, copied)
+            key = {"name": "full_name", "phone": "phone",
+                   "password": "amazon_password"}[kind]
+            prefix = []
+            for row in self.values:
+                value = row[key].get()
+                if not value:
+                    break
+                prefix.append(value)
+            if prefix and parsed[:len(prefix)] == prefix:
+                parsed = parsed[len(prefix):]  # Accept a full cumulative column paste.
+            if not parsed:
+                self.run_note.configure(text="Các giá trị trong cột đã có; giữ nguyên 12 máy",
+                                        text_color=GREEN)
+                return "break"
+            slots = self._empty_data_slots((key,))
+            if len(parsed) > len(slots):
+                raise ToolError(f"Chỉ còn {len(slots)} máy trống cho cột này; dữ liệu cũ được giữ nguyên")
+            if kind == "phone":
+                existing = {row[key].get().strip() for row in self.values
+                            if row[key].get().strip()}
+                if any(value in existing for value in parsed) or len(set(parsed)) != len(parsed):
+                    raise ToolError("SĐT đã có ở máy khác; dữ liệu cũ được giữ nguyên")
         except (ToolError, ValueError) as exc:
             self.run_note.configure(text=str(exc), text_color=RED)
             return "break"
-        key = {"name": "full_name", "phone": "phone",
-               "password": "amazon_password"}[kind]
-        for index, value in enumerate(parsed):
+        slots = slots[:len(parsed)]
+        for index, value in zip(slots, parsed):
             self.values[index][key].set(value)
-        self.count.set(str(max(int(self.count.get()), len(parsed))))
+        self.count.set(str(max(int(self.count.get()), slots[-1] + 1)))
         self.run_note.configure(
-            text=f"Đã tự điền {len(parsed)} {kind} vào Máy 1–{len(parsed)}",
+            text=f"Đã thêm {len(parsed)} {kind} vào {self._slot_summary(slots)}",
             text_color=GREEN,
         )
         self._refresh_devices()
@@ -982,29 +1084,30 @@ class Window:
                 return
             parsed = parse_column("proxy", raw)
             if len(parsed) > 1:
-                self.draft.replace("proxy", len(parsed))
-                self.proxy_fallbacks = parsed[MAX_PROFILES:]
+                plan = self._plan_proxy_append(parsed)
             else:
-                self.draft.replace("proxy", max(self.draft.proxy_count, self.selected + 1))
+                empty = self._empty_data_slots(("host", "port", "username",
+                                                "proxy_password"))
+                target_index = (self.selected if self.selected in empty or not empty
+                                else empty[0])
+                self.draft.replace("proxy", max(self.draft.proxy_count, target_index + 1))
         except (ToolError, ValueError) as exc:
             self.run_note.configure(text=str(exc), text_color=RED)
             return
         if len(parsed) > 1:
-            for target in self.values:
-                for key in ("host", "port", "username", "proxy_password"):
-                    target[key].set("")
-        for index, proxy in enumerate(parsed[:MAX_PROFILES]):
-            row = self.values[self.selected if len(parsed) == 1 else index]
-            for key, value in (
-                ("host", proxy.host), ("port", str(proxy.port)),
-                ("username", proxy.username), ("proxy_password", proxy.password),
-            ):
+            assigned = self._append_proxy_records(parsed, plan)
+        else:
+            assigned = [target_index]
+            row = self.values[target_index]
+            proxy = parsed[0]
+            for key, value in (("host", proxy.host), ("port", str(proxy.port)),
+                               ("username", proxy.username), ("proxy_password", proxy.password)):
                 row[key].set(value)
-        self.count.set(str(self.draft.count))
+        self.count.set(str(max(int(self.count.get()), self.draft.count)))
         self.proxy_line.delete(0, "end")
-        result = (f"Đã tự điền {len(parsed)} proxy vào Máy 1–{len(parsed)}"
+        result = (f"Đã thêm {len(plan[3])} proxy vào {self._slot_summary(assigned)}"
                   if len(parsed) > 1 else
-                  f"Đã điền proxy vào Máy {self.selected + 1}")
+                  f"Đã điền proxy vào Máy {assigned[0] + 1}")
         self.run_note.configure(text=result, text_color=GREEN)
         self._refresh_devices()
 

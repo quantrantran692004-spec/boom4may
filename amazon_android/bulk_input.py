@@ -181,7 +181,9 @@ def parse_bulk_payload(text: str) -> tuple[list[ProxyConfig], list[BulkRecord]]:
         if records:
             record = records[0]
             token = otp_token(record.otp_url)
-            if token not in seen_tokens and len(accounts) < MAX_PROFILES:
+            if token not in seen_tokens:
+                if len(accounts) >= MAX_PROFILES:
+                    raise ToolError("Bảng có hơn 12 hàng Amazon hợp lệ; dữ liệu chưa được gán")
                 seen_tokens.add(token)
                 accounts.append(replace(record, profile_name=f"q{len(accounts) + 1}"))
             continue
@@ -194,7 +196,9 @@ def parse_bulk_payload(text: str) -> tuple[list[ProxyConfig], list[BulkRecord]]:
                     found.append(parse_proxy_line(candidate))
                 except ToolError:
                     pass
-        proxies.extend(found[:max(0, MAX_PROXY_CANDIDATES - len(proxies))])
+        if len(proxies) + len(found) > MAX_PROXY_CANDIDATES:
+            raise ToolError("Danh sách có hơn 100 proxy hợp lệ; dữ liệu chưa được gán")
+        proxies.extend(found)
     if not proxies and not accounts:
         raise ToolError("Clipboard không có proxy hoặc hàng Amazon hợp lệ")
     return proxies, accounts

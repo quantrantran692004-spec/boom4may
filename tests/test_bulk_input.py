@@ -23,6 +23,39 @@ class Value:
 
 
 class BulkInputTests(unittest.TestCase):
+    def unlocked_window(self):
+        window = Window.__new__(Window)
+        window.draft = BatchDraft()
+        window.selected = 0
+        window.values = [{key: Value() for key in
+                          ("host", "port", "username", "proxy_password",
+                           "phone", "amazon_password", "full_name", "card", "otp_url")}
+                         for _ in range(12)]
+        window.count = Value("1")
+        window.proxy_fallbacks = []
+        window.otp_status = ["Chưa yêu cầu mã" for _ in range(12)]
+        window.otp_codes = ["" for _ in range(12)]
+        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
+        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
+        window.proxy_line = Mock()
+        window.root = Mock()
+        window.run_note = Mock()
+        window._refresh_devices = Mock()
+        window._refresh_otp_detail = Mock()
+        window._maybe_show_preview = Mock()
+        return window
+
+    @staticmethod
+    def proxy_rows(start, stop):
+        return "\n".join(f"proxy{i}.example:1001:user:pass{i}" for i in range(start, stop))
+
+    @staticmethod
+    def account_rows(start, stop):
+        return "\n".join(
+            f"1202555{i:04d}\tPassword{i}!\tPerson {i}\t"
+            f"https://apifc.net/smsrecord?token=example{i}"
+            for i in range(start, stop))
+
     def locked_window(self):
         window = Window.__new__(Window)
         window.draft = BatchDraft(proxy_count=2, account_count=2, locked=True)
@@ -243,10 +276,10 @@ class BulkInputTests(unittest.TestCase):
         window.draft = BatchDraft()
         window.selected = 2
         window.proxy_fallbacks = []
-        window.values = [{key: Mock() for key in
+        window.values = [{key: Value() for key in
                           ("host", "port", "username", "proxy_password")}
                          for _ in range(12)]
-        window.count = Mock()
+        window.count = Mock(get=Mock(return_value="1"))
         window.proxy_line = Mock()
         window.run_note = Mock()
         window._refresh_devices = Mock()
@@ -257,7 +290,207 @@ class BulkInputTests(unittest.TestCase):
         window.count.set.assert_called_with("4")
         for index, host in enumerate(("one.example", "two.example",
                                       "three.example", "four.example")):
-            window.values[index]["host"].set.assert_called_with(host)
+            self.assertEqual(window.values[index]["host"].get(), host)
+
+    def test_proxy_bulk_seven_then_five_keeps_first_seven_and_selected_count(self):
+        window = self.unlocked_window()
+        window.count.set("12")
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 8))
+        window._apply_bulk_text("proxy", self.proxy_rows(8, 13))
+        self.assertEqual([row["host"].get() for row in window.values],
+                         [f"proxy{i}.example" for i in range(1, 13)])
+        self.assertEqual(window.draft.proxy_count, 12)
+        self.assertEqual(window.count.get(), "12")
+        self.assertEqual(window.proxy_fallbacks, [])
+
+    def test_cumulative_proxy_paste_skips_first_seven_already_imported(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 8))
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 13))
+        self.assertEqual([row["host"].get() for row in window.values],
+                         [f"proxy{i}.example" for i in range(1, 13)])
+        self.assertEqual(window.draft.proxy_count, 12)
+
+    def test_single_proxy_box_seven_then_five_also_appends(self):
+        window = self.unlocked_window()
+        window.selected = 6
+        window._accept_proxy_text(self.proxy_rows(1, 8))
+        window._accept_proxy_text(self.proxy_rows(8, 13))
+        self.assertEqual([row["host"].get() for row in window.values],
+                         [f"proxy{i}.example" for i in range(1, 13)])
+        self.assertEqual(window.draft.proxy_count, 12)
+
+    def test_single_proxy_after_seven_uses_next_empty_machine(self):
+        window = self.unlocked_window()
+        window._accept_proxy_text(self.proxy_rows(1, 8))
+        window._accept_proxy_text(self.proxy_rows(8, 9))
+        self.assertEqual(window.values[0]["host"].get(), "proxy1.example")
+        self.assertEqual(window.values[7]["host"].get(), "proxy8.example")
+        self.assertEqual(window.draft.proxy_count, 8)
+
+    def test_one_proxy_on_selected_blank_machine_stays_on_that_machine(self):
+        window = self.unlocked_window()
+        window.selected = 6
+        window._accept_proxy_text(self.proxy_rows(7, 8))
+        self.assertEqual(window.values[6]["host"].get(), "proxy7.example")
+        self.assertTrue(all(not row["host"].get() for row in window.values[:6]))
+        self.assertEqual(window.draft.proxy_count, 7)
+
+    def test_one_proxy_with_all_machines_filled_still_replaces_selected_machine(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 13))
+        window.selected = 6
+        window._accept_proxy_text(self.proxy_rows(20, 21))
+        self.assertEqual(window.values[0]["host"].get(), "proxy1.example")
+        self.assertEqual(window.values[6]["host"].get(), "proxy20.example")
+        self.assertEqual(window.values[7]["host"].get(), "proxy8.example")
+        self.assertEqual(window.draft.proxy_count, 12)
+
+    def test_account_bulk_seven_then_five_keeps_each_row_and_otp_state(self):
+        window = self.unlocked_window()
+        window.count.set("12")
+        window._apply_bulk_text("account", self.account_rows(1, 8))
+        window.otp_codes[0] = "123456"
+        window.otp_status[0] = "Đã nhận mã"
+        window._apply_bulk_text("account", self.account_rows(8, 13))
+        self.assertEqual([row["phone"].get() for row in window.values],
+                         [f"1202555{i:04d}" for i in range(1, 13)])
+        self.assertEqual([row["full_name"].get() for row in window.values],
+                         [f"Person {i}" for i in range(1, 13)])
+        self.assertEqual([row["otp_url"].get() for row in window.values],
+                         [f"https://apifc.net/smsrecord?token=example{i}"
+                          for i in range(1, 13)])
+        self.assertEqual(window.otp_codes[0], "123456")
+        self.assertEqual(window.otp_status[0], "Đã nhận mã")
+        self.assertEqual(window.draft.account_count, 12)
+        self.assertEqual(window.count.get(), "12")
+
+    def test_cumulative_account_paste_skips_seven_matching_rows(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("account", self.account_rows(1, 8))
+        window._apply_bulk_text("account", self.account_rows(1, 13))
+        self.assertEqual([row["phone"].get() for row in window.values],
+                         [f"1202555{i:04d}" for i in range(1, 13)])
+        self.assertEqual(window.draft.account_count, 12)
+
+    def test_account_overflow_keeps_existing_rows(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("account", self.account_rows(1, 8))
+        before = [row["otp_url"].get() for row in window.values]
+        window._apply_bulk_text("account", self.account_rows(8, 14))
+        self.assertEqual([row["otp_url"].get() for row in window.values], before)
+        self.assertEqual(window.draft.account_count, 7)
+
+    def test_conflicting_existing_account_is_rejected_without_changes(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("account", self.account_rows(1, 8))
+        before = [row["otp_url"].get() for row in window.values]
+        conflict = self.account_rows(7, 8).replace("Person 7", "Different Person")
+        window._apply_bulk_text("account", conflict + "\n" + self.account_rows(8, 9))
+        self.assertEqual([row["otp_url"].get() for row in window.values], before)
+        self.assertEqual(window.draft.account_count, 7)
+
+    def test_repeated_proxy_paste_does_not_fill_new_machines_with_old_proxy(self):
+        window = self.unlocked_window()
+        first = self.proxy_rows(1, 8)
+        window._apply_bulk_text("proxy", first)
+        window._apply_bulk_text("proxy", first)
+        self.assertEqual([row["host"].get() for row in window.values[:7]],
+                         [f"proxy{i}.example" for i in range(1, 8)])
+        self.assertTrue(all(not row["host"].get() for row in window.values[7:]))
+        self.assertEqual(window.draft.proxy_count, 7)
+
+    def test_proxy_after_twelve_becomes_fallback_without_overwrite(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 8))
+        window._apply_bulk_text("proxy", self.proxy_rows(8, 15))
+        self.assertEqual([row["host"].get() for row in window.values],
+                         [f"proxy{i}.example" for i in range(1, 13)])
+        self.assertEqual([proxy.host for proxy in window.proxy_fallbacks],
+                         ["proxy13.example", "proxy14.example"])
+        self.assertEqual(window.draft.proxy_count, 14)
+
+    def test_proxy_total_over_one_hundred_keeps_existing_assignments(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 101))
+        before = [row["host"].get() for row in window.values]
+        self.assertEqual(window.draft.proxy_count, 100)
+        window._apply_bulk_text("proxy", self.proxy_rows(101, 102))
+        self.assertEqual([row["host"].get() for row in window.values], before)
+        self.assertEqual(window.draft.proxy_count, 100)
+        self.assertEqual(len(window.proxy_fallbacks), 88)
+
+    def test_partial_account_row_is_preserved_during_bulk_append(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("account", self.account_rows(1, 8))
+        window.values[7]["full_name"].set("Already editing")
+        window._apply_bulk_text("account", self.account_rows(9, 13))
+        self.assertEqual(window.values[7]["full_name"].get(), "Already editing")
+        self.assertEqual(window.values[8]["full_name"].get(), "Person 9")
+        self.assertEqual(window.values[11]["full_name"].get(), "Person 12")
+
+    def test_mixed_paste_rejected_atomically_when_account_rows_overflow(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 8))
+        window._apply_bulk_text("account", self.account_rows(1, 12))
+        before = [row["host"].get() for row in window.values]
+        mixed = self.proxy_rows(8, 9) + "\n" + self.account_rows(12, 14)
+        window._apply_bulk_text("proxy", mixed)
+        self.assertEqual([row["host"].get() for row in window.values], before)
+        self.assertEqual(window.draft.proxy_count, 7)
+        self.assertEqual(window.draft.account_count, 11)
+
+    def test_mixed_cumulative_paste_adds_only_missing_proxy_and_account_rows(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 8) + "\n" +
+                                self.account_rows(1, 8))
+        window._apply_bulk_text("account", self.proxy_rows(1, 13) + "\n" +
+                                self.account_rows(1, 13))
+        self.assertEqual([row["host"].get() for row in window.values],
+                         [f"proxy{i}.example" for i in range(1, 13)])
+        self.assertEqual([row["phone"].get() for row in window.values],
+                         [f"1202555{i:04d}" for i in range(1, 13)])
+        self.assertEqual((window.draft.proxy_count, window.draft.account_count),
+                         (12, 12))
+
+    def test_multiline_columns_append_without_overwriting_existing_values(self):
+        window = self.unlocked_window()
+        for kind, prefix in (("name", "Person"), ("password", "Pass")):
+            window.root.clipboard_get.return_value = "\n".join(
+                f"{prefix}{i}" for i in range(1, 8))
+            self.assertEqual(window._paste_detail_column(kind), "break")
+            window.root.clipboard_get.return_value = "\n".join(
+                f"{prefix}{i}" for i in range(8, 13))
+            self.assertEqual(window._paste_detail_column(kind), "break")
+        window.root.clipboard_get.return_value = "\n".join(
+            f"1202555{i:04d}" for i in range(1, 8))
+        window._paste_detail_column("phone")
+        window.root.clipboard_get.return_value = "\n".join(
+            f"1202555{i:04d}" for i in range(8, 13))
+        window._paste_detail_column("phone")
+        self.assertEqual([row["full_name"].get() for row in window.values],
+                         [f"Person{i}" for i in range(1, 13)])
+        self.assertEqual([row["amazon_password"].get() for row in window.values],
+                         [f"Pass{i}" for i in range(1, 13)])
+        self.assertEqual([row["phone"].get() for row in window.values],
+                         [f"1202555{i:04d}" for i in range(1, 13)])
+
+    def test_cumulative_multiline_column_skips_matching_first_seven(self):
+        window = self.unlocked_window()
+        window.root.clipboard_get.return_value = "\n".join(
+            f"Person{i}" for i in range(1, 8))
+        window._paste_detail_column("name")
+        window.root.clipboard_get.return_value = "\n".join(
+            f"Person{i}" for i in range(1, 13))
+        window._paste_detail_column("name")
+        self.assertEqual([row["full_name"].get() for row in window.values],
+                         [f"Person{i}" for i in range(1, 13)])
+
+    def test_bulk_parser_rejects_valid_rows_past_both_limits(self):
+        with self.assertRaisesRegex(ToolError, "hơn 12 hàng Amazon"):
+            parse_bulk_payload(self.account_rows(1, 14))
+        with self.assertRaisesRegex(ToolError, "hơn 100 proxy"):
+            parse_bulk_payload(self.proxy_rows(1, 102))
 
     def test_selected_machine_binds_its_own_amazon_fields(self):
         window = Window.__new__(Window)
@@ -431,7 +664,9 @@ class BulkInputTests(unittest.TestCase):
         window.values = [{key: Value() for key in
                           ("phone", "amazon_password", "full_name", "card", "otp_url")}
                          for _ in range(12)]
-        window.count = Mock()
+        window.count = Mock(get=Mock(return_value="1"))
+        window.otp_status = ["Chưa yêu cầu mã" for _ in range(12)]
+        window.otp_codes = ["" for _ in range(12)]
         window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
         window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
         for callback in ("_refresh_devices", "_refresh_otp_detail", "_maybe_show_preview"):
@@ -541,11 +776,13 @@ class BulkInputTests(unittest.TestCase):
 
         window = Window.__new__(Window)
         window.draft = BatchDraft()
-        window.values = [{key: Mock() for key in
+        window.values = [{key: Value() for key in
                           ("host", "port", "username", "proxy_password", "phone",
                            "amazon_password", "full_name", "card", "otp_url")}
                          for _ in range(12)]
-        window.count = Mock()
+        window.count = Mock(get=Mock(return_value="1"))
+        window.otp_status = ["Chưa yêu cầu mã" for _ in range(12)]
+        window.otp_codes = ["" for _ in range(12)]
         window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
         window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
         window.run_note = Mock()
@@ -555,10 +792,12 @@ class BulkInputTests(unittest.TestCase):
         window._maybe_show_preview = Mock()
         window._apply_bulk_text("proxy", mixed)
         self.assertEqual((window.draft.proxy_count, window.draft.account_count), (1, 1))
-        window.values[0]["phone"].set.assert_called_with("12025550123")
-        window.values[0]["host"].set.assert_called_with("proxy.example")
+        self.assertEqual(window.values[0]["phone"].get(), "12025550123")
+        self.assertEqual(window.values[0]["host"].get(), "proxy.example")
         window._apply_bulk_text("account", "other.example:1002:user:secret")
-        window.values[0]["host"].set.assert_called_with("other.example")
+        self.assertEqual(window.values[0]["host"].get(), "proxy.example")
+        self.assertEqual(window.values[1]["host"].get(), "other.example")
+        self.assertEqual(window.draft.proxy_count, 2)
         self.assertEqual(window.draft.account_count, 1)
         window.bulk_feedback["account"].configure.assert_called_with(
             text="Đã chuyển vào Proxy", text_color=GREEN)

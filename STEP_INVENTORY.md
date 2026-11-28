@@ -33,6 +33,8 @@ Tài liệu này là bản đồ từng mốc để phiên sau không coi ảnh 
 
 ## P01 — Dán và gán hàng dữ liệu
 
+**Bổ sung 28/11/2026:** Trước khi chạy mẻ, dán proxy, hàng Amazon hoặc từng cột SĐT/mật khẩu/tên theo nhiều lượt sẽ điền tiếp vào máy chưa có dữ liệu của đúng loại. Ví dụ 7 hàng rồi 5 hàng vào Máy 1–7 rồi Máy 8–12; dán lại danh sách tích lũy chỉ lấy phần chưa có. Một proxy ở ô máy đang chọn điền đúng máy đó nếu trống, nếu đã có thì điền máy trống kế tiếp. Proxy sau Máy 12 vẫn là dự phòng. Hàng đã có không bị xóa hoặc tráo; hàng Amazon cùng SĐT/URL OTP nhưng nội dung khác, quá 12 hàng Amazon hoặc quá 100 proxy được báo lỗi trước khi thay đổi dữ liệu. Mẻ đã khóa vẫn chỉ cho sửa đúng máy lỗi theo quy tắc cũ. Đây là mã và test mô phỏng, chưa chứng minh phiên tool đang mở đã nạp sửa đổi.
+
 Dán 1–12 hàng `SĐT | Mật khẩu | Tên | Thẻ | URL OTP`. Cột trống, hàng gạch Markdown, thẻ có `\|` và link URL Markdown được nhận. Hàng n gắn Máy n, không tráo SĐT/URL. Thẻ và mật khẩu chỉ gắn dữ liệu, chưa dùng trong b1–b22. **Đã nối mã, đã test mô phỏng.**
 
 **Sửa 27/11/2026:** Ô Markdown in đậm `**...**`/`__...__` được bỏ lớp định dạng trước khi kiểm tra, giữ đủ hàng đầu có dữ liệu nằm trên hàng gạch phân cách. Tab/CSV không bỏ dấu sao trong mật khẩu. Test bảng giả ba hàng và đường phân bổ UI xác nhận Máy 1–3 đúng SĐT/mật khẩu/tên/thẻ/URL và số máy bằng 3; chưa nạp vào phiên tool đang mở.
