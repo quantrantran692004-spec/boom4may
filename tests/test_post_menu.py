@@ -59,6 +59,65 @@ class PostMenuTests(unittest.TestCase):
         self.assertEqual((q1.state, q1.next_step), ("DONE", 2))
         self.assertEqual(calls[-1], (0, "second"))
 
+    def test_create_toggle_pauses_once_after_b12_before_b13(self):
+        session = PostMenuSession("batch", 0, "q1")
+        session.registration.flow_mode = "create"
+        session.registration.pause_before_b13 = True
+        calls = []
+        events = []
+        steps = tuple(PostMenuStep(name, lambda *_args, step=name: calls.append(step))
+                      for name in ("b11b xác nhận", "b12 mở menu ba gạch",
+                                   "b13 điều hướng ngẫu nhiên", "b14 điều hướng ngẫu nhiên"))
+        job = RunJob(0, "batch", None)
+        emit = lambda *event: events.append(event)
+        session.run(job, steps, emit, threading.Event())
+        self.assertEqual((session.state, session.next_step), ("PAUSED", 2))
+        self.assertEqual(calls, ["b11b xác nhận", "b12 mở menu ba gạch"])
+        self.assertEqual(session.last_error, "")
+        self.assertTrue(any(event[2] == "post_stopped" and "trước b13" in event[1]
+                            for event in events))
+        session.run(job, steps, emit, threading.Event())
+        self.assertEqual((session.state, session.next_step), ("DONE", 4))
+        self.assertEqual(calls[-2:], ["b13 điều hướng ngẫu nhiên",
+                                      "b14 điều hướng ngẫu nhiên"])
+
+    def test_b13_toggle_does_not_pause_login_or_disabled_create(self):
+        for mode, enabled in (("login", True), ("create", False),
+                              ("change_us_from_start", True)):
+            with self.subTest(mode=mode, enabled=enabled):
+                session = PostMenuSession("batch", 0, "q1")
+                session.registration.flow_mode = mode
+                session.registration.pause_before_b13 = enabled
+                calls = []
+                steps = tuple(PostMenuStep(name, lambda *_args, step=name: calls.append(step))
+                              for name in ("b12 mở menu", "b13 chọn mục"))
+                session.run(RunJob(0, "batch", None), steps,
+                            lambda *_: None, threading.Event())
+                self.assertEqual(session.state, "DONE")
+                self.assertEqual(calls, ["b12 mở menu", "b13 chọn mục"])
+
+    def test_manual_stop_at_b13_satisfies_create_checkpoint(self):
+        session = PostMenuSession("batch", 0, "q1")
+        session.registration.flow_mode = "create"
+        session.registration.pause_before_b13 = True
+        phone_stop = threading.Event()
+        calls = []
+
+        def b12(*_args):
+            calls.append("b12")
+            phone_stop.set()
+
+        steps = (PostMenuStep("b12 mở menu", b12),
+                 PostMenuStep("b13 chọn mục", lambda *_: calls.append("b13")))
+        job = RunJob(0, "batch", None)
+        session.run(job, steps, lambda *_: None, threading.Event(),
+                    stop_after_step=phone_stop)
+        self.assertEqual((session.state, session.next_step), ("PAUSED", 1))
+        phone_stop.clear()
+        session.run(job, steps, lambda *_: None, threading.Event(),
+                    stop_after_step=phone_stop)
+        self.assertEqual((session.state, calls), ("DONE", ["b12", "b13"]))
+
     def test_selected_phone_stop_interrupts_a_waiting_step_only_for_that_phone(self):
         from amazon_android.account_flow import _wait_screen
 

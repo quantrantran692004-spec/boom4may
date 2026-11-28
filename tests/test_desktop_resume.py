@@ -7,10 +7,47 @@ from unittest.mock import Mock, patch
 from amazon_android.desktop import Window, _automatic_resume_slots
 from amazon_android.batch_state import BatchDraft
 from amazon_android.runner import AccountData, RunJob
+from amazon_android.post_menu import PostMenuStep
 from amazon_android.settings import CHANGE_US_FROM_START, AppSettings
 
 
 class DesktopResumeTests(unittest.TestCase):
+    def test_create_session_snapshots_b13_pause_setting(self):
+        window = Window.__new__(Window)
+        window.settings = AppSettings(pause_before_b13=True)
+        window.post_menu_step_factories = {
+            0: lambda *_: (PostMenuStep("b12 mở menu", lambda *_: None),
+                          PostMenuStep("b13 chọn mục", lambda *_: None))}
+        window.root = Mock()
+        window.post_menu_sessions = {}
+        window.post_menu_steps = {}
+        window.post_menu_workers = {}
+        window.post_menu_stops = {}
+        window.phone_stop_after_step = {}
+        window.post_menu_resume_after_stop = set()
+        window.otp_events = queue.Queue()
+        window.otp_status_events = queue.Queue()
+        window.cancel = threading.Event()
+        window.events = queue.Queue()
+        account = AccountData("12025550123", "Example User", "Example456!",
+                              "https://apifc.net/smsrecord?token=q1")
+        window.jobs = {0: RunJob(0, "batch", None, account=account)}
+        window.phone_serials = {0: "127.0.0.1:5001"}
+        window.values = [{"profile_name": Mock(get=Mock(return_value="q1"))}]
+        window.menu_opened_at = {}
+
+        with patch('amazon_android.desktop.threading.Thread'):
+            window._start_post_menu(0)
+            session = window.post_menu_sessions[0]
+            self.assertEqual(session.registration.flow_mode, "create")
+            self.assertTrue(session.registration.pause_before_b13)
+            session.state = "PAUSED"
+            session.attempts = 1
+            window.post_menu_workers = {}
+            window.settings = AppSettings(pause_before_b13=False)
+            window._start_post_menu(0)
+        self.assertTrue(session.registration.pause_before_b13)
+
     def test_change_us_flow_accepts_proxy_rows_before_b1_guidance(self):
         window = Window.__new__(Window)
         window.settings = AppSettings(account_flow_mode=CHANGE_US_FROM_START)

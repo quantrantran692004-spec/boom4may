@@ -280,6 +280,8 @@ Nút trong khung chi tiết đặt cờ riêng theo máy, không đặt cờ d�
 
 `python -m unittest discover -s tests -q`: **305/305 PASS**.
 
+**Cập nhật 28/11/2026 — Settings Tạo dừng trước b13:** `.venv/Scripts/python.exe -m unittest discover -s tests -q`: **699/699 PASS** với Tcl ngoài sandbox. Test giả xác nhận b11b/b12 hoàn tất, b13 chưa chạy khi công tắc bật; Tiếp tục chạy b13 một lần; công tắc tắt, Đăng nhập và Đổi US từ đầu chạy như cũ. Test Settings cũ/mới, snapshot theo máy và cửa sổ Tk ẩn có công tắc lưu được. Chưa xác nhận luồng trên Swarmote thật; tool đang mở chưa nạp mã mới.
+
 ## Trạng thái Máy 1–12 do người dùng báo — 17/11/2026
 
 Máy 1–6: b1–b3 ngẫu nhiên đã ổn. Máy 7: thử kỹ thuật riêng và dừng tại b4;

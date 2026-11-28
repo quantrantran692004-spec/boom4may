@@ -14,6 +14,7 @@ class SettingsTests(unittest.TestCase):
             self.assertFalse(load_settings(path).hide_profile_creation)
             self.assertEqual(load_settings(path).account_flow_mode, "create")
             self.assertEqual(load_settings(path).login_followup, "none")
+            self.assertFalse(load_settings(path).pause_before_b13)
             save_settings(AppSettings(12, True, "login"), path)
             self.assertEqual(load_settings(path), AppSettings(12, True, "login"))
             for choice in ("address_and_card", "card_only"):
@@ -23,12 +24,16 @@ class SettingsTests(unittest.TestCase):
             selected = AppSettings(2, False, CHANGE_US_FROM_START)
             save_settings(selected, path)
             self.assertEqual(load_settings(path), selected)
+            selected = AppSettings(2, False, "create", "none", True)
+            save_settings(selected, path)
+            self.assertEqual(load_settings(path), selected)
 
     def test_old_settings_file_keeps_creation_window_visible(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "settings.json"
             path.write_text('{"start_group_size": 2}', encoding="utf-8")
             self.assertEqual(load_settings(path), AppSettings(2, False))
+            self.assertFalse(load_settings(path).pause_before_b13)
 
     def test_setting_requires_one_to_twelve(self):
         for value in (0, 13):
@@ -46,6 +51,8 @@ class SettingsTests(unittest.TestCase):
             AppSettings(2, False, "create", "card_only")
         with self.assertRaises(ToolError):
             AppSettings(2, False, CHANGE_US_FROM_START, "card_only")
+        with self.assertRaises(ToolError):
+            AppSettings(pause_before_b13="yes")
 
 
 if __name__ == "__main__":

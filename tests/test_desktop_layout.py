@@ -12,6 +12,45 @@ from amazon_android.desktop_theme import ROW_SELECTED_BORDER, PROCESSING, PROGRE
 
 @unittest.skipUnless(sys.platform == "win32", "Tk window layout requires Windows")
 class DesktopLayoutTests(unittest.TestCase):
+    def test_settings_dialog_saves_create_b13_switch(self):
+        class HiddenRoot(ctk.CTk):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.withdraw()
+
+        class HiddenDialog(ctk.CTkToplevel):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.withdraw()
+
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+
+        with patch.object(desktop.ctk, "CTk", HiddenRoot), \
+             patch.object(desktop.ctk, "CTkToplevel", HiddenDialog), \
+             patch.object(desktop, "save_settings") as saved:
+            window = desktop.Window()
+            try:
+                window._open_settings()
+                controls = list(descendants(window.settings_window))
+                switches = [item for item in controls if isinstance(item, ctk.CTkSwitch)
+                            and item.cget("text") == "Tạo tài khoản · dừng trước b13"]
+                self.assertEqual(len(switches), 1)
+                switches[0].toggle()
+                buttons = [item for item in controls if isinstance(item, ctk.CTkButton)
+                           and item.cget("text") == "Lưu Settings"]
+                self.assertEqual(len(buttons), 1)
+                buttons[0].invoke()
+                self.assertTrue(window.settings.pause_before_b13)
+                saved.assert_called_once_with(window.settings)
+            finally:
+                window.root.withdraw()
+                for callback in window.root.tk.call("after", "info"):
+                    window.root.after_cancel(callback)
+                window.root.destroy()
+
     def test_startup_size_matches_reference_and_stays_inside_smaller_screen(self):
         for scale in (1, 1.25, 1.5):
             width, height, x, y = startup_geometry(1920, 1080, scale)

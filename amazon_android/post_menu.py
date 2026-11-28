@@ -106,6 +106,8 @@ class RegistrationState:
     tail_completed: set[int] = field(default_factory=set, repr=False)
     flow_mode: str = "auto"
     login_followup: str = "none"
+    pause_before_b13: bool = False
+    b13_pause_reached: bool = False
     prefix_attempted: set[str] = field(default_factory=set, repr=False)
     tail_view_until: dict[int, float] = field(default_factory=dict, repr=False)
     tail_viewed: set[int] = field(default_factory=set, repr=False)
@@ -189,10 +191,18 @@ class PostMenuSession:
              f"{self.profile_name} · đang xử lý liên tục từ bước hiện tại",
              "post_running", self.profile_name)
 
+        def at_create_b13() -> bool:
+            return (self.registration.flow_mode == "create" and
+                    self.registration.pause_before_b13 and
+                    self.next_step < len(steps) and
+                    steps[self.next_step].name.startswith("b13 "))
+
         def pause_if_requested() -> bool:
             if stop_after_step is None or not stop_after_step.is_set() or stop.is_set():
                 return False
             with self._lock:
+                if at_create_b13():
+                    self.registration.b13_pause_reached = True
                 self.state = "PAUSED"
                 self.last_error = ""
             next_name = steps[self.next_step].name if self.next_step < len(steps) else "bước tiếp theo"
@@ -263,6 +273,17 @@ class PostMenuSession:
                 return
         while self.next_step < len(steps):
             if pause_if_requested():
+                return
+            if (not stop.is_set() and at_create_b13() and
+                    not self.registration.b13_pause_reached):
+                with self._lock:
+                    self.registration.b13_pause_reached = True
+                    self.state = "PAUSED"
+                    self.last_error = ""
+                emit(self.index,
+                     f"{self.profile_name} · đã xác nhận tài khoản, dừng trước b13; "
+                     "bấm Tiếp tục để chạy tiếp",
+                     "post_stopped", self.profile_name)
                 return
             step = steps[self.next_step]
             recoveries = 0

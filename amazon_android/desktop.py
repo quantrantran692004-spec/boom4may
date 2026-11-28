@@ -1698,6 +1698,16 @@ class Window:
         ).pack(anchor="w", padx=22, pady=(14, 3))
         self._label(card, "Tắt cả Đăng nhập và Đổi US: Tạo tài khoản.",
                     12, color=MUTED).pack(anchor="w", padx=22)
+        pause_before_b13 = tk.BooleanVar(value=self.settings.pause_before_b13)
+        ctk.CTkSwitch(
+            card, text="Tạo tài khoản · dừng trước b13",
+            variable=pause_before_b13, onvalue=True, offvalue=False,
+            text_color=BODY, fg_color=BORDER,
+            progress_color=BLUE, button_color=WHITE,
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
+        ).pack(anchor="w", padx=22, pady=(14, 3))
+        self._label(card, "Sau b12 mở menu, bấm Tiếp tục để chạy từ b13.",
+                    12, color=MUTED).pack(anchor="w", padx=22)
         self._label(card, "Áp dụng cho các máy bắt đầu luồng Amazon sau khi lưu.",
                     12, color=MUTED).pack(anchor="w", padx=22)
 
@@ -1711,7 +1721,7 @@ class Window:
                 flow_mode = (CHANGE_US_FROM_START if change_us_mode.get() else
                              "login" if login_mode.get() else "create")
                 updated = AppSettings(int(group_size.get()), hide_creation.get(),
-                                      flow_mode, followup)
+                                      flow_mode, followup, pause_before_b13.get())
                 save_settings(updated)
             except (ToolError, OSError, ValueError) as exc:
                 messagebox.showerror("Không lưu được Settings", str(exc))
@@ -1723,6 +1733,8 @@ class Window:
                           else "Đăng nhập + thẻ" if updated.login_followup == "card_only"
                           else "Đăng nhập" if updated.account_flow_mode == "login"
                           else "Tạo tài khoản")
+            if updated.account_flow_mode == "create" and updated.pause_before_b13:
+                mode_label += " · dừng trước b13"
             self.run_note.configure(
                 text=f"Đã lưu: tối đa {updated.start_group_size} máy Running tự động · {mode_label}",
                 text_color=GREEN,
@@ -2107,6 +2119,8 @@ class Window:
         if session.state == "READY" and session.attempts == 0:
             session.registration.flow_mode = mode
             session.registration.login_followup = self.settings.login_followup
+            session.registration.pause_before_b13 = (
+                mode == "create" and self.settings.pause_before_b13)
         if session.state not in {"READY", "PAUSED"}:
             return
         worker = self.post_menu_workers.get(index)

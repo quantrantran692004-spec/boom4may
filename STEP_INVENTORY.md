@@ -195,6 +195,8 @@ Nếu cây WebView không xuất nút `Verify mobile number`, riêng nhánh đă
 
 ## Chung b12–b15 — Mở ba gạch rồi ba lượt điều hướng ngẫu nhiên
 
+**Công tắc dừng trước b13, 28/11/2026:** Riêng luồng Tạo thường, nếu bật trong Settings trước khi máy bắt đầu, máy chạy xong b11b xác nhận và b12 mở menu rồi PAUSED trước khi gửi cú bấm b13. Điểm tiếp tục của đúng máy giữ ở b13; bấm Tiếp tục chạy tiếp b13–b39, không mở lại b12. Công tắc mặc định tắt; Đăng nhập và Đổi US từ đầu không dùng điểm dừng này. Đây là mã/test mô phỏng, chưa thao tác trên Swarmote thật.
+
 **Nhịp cuộn hiện hành, sửa 26/11/2026:** B13/b14/b15 chờ nửa thời gian xem sau cú bấm, vuốt vừa một lần từ dưới lên trong menu/trang con, rồi xem hết nửa còn lại trước khi Back khỏi trang con. B13/b14 giữ 16 giây ở Tạo và 1 giây ở Đăng nhập; b15 xem 40 giây ở Tạo và 10 giây ở Đăng nhập theo yêu cầu tăng gần gấp đôi. Dừng/Tiếp tục sau cú vuốt không cuộn hoặc bấm lại, chỉ chờ phần thời gian còn lại. Đây là mã/test mô phỏng; chưa kiểm trên Swarmote thật.
 
 **Nhịp vuốt 27/11/2026:** Cú cuộn tìm mục mới trong menu và cú cuộn xem menu/trang con giữ nguyên quãng vuốt, tăng thời gian lên 700 ms. Vẫn chỉ cuộn khi bước cũ yêu cầu và giữ dấu đã cuộn khi Dừng/Tiếp tục.
