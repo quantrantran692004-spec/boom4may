@@ -12,6 +12,8 @@ Theo yêu cầu mới, ba lượt chỉ bấm/vuốt trong vùng danh mục theo
 
 `python -m unittest discover -s tests -q`: **300/300 PASS**. Parser và ô proxy máy đang chọn nhận bốn proxy giả lập cách nhau bằng dấu cách, giữ thứ tự Máy 1–4; mật khẩu của một proxy có dấu cách vẫn giữ nguyên nếu không có tiền tố proxy tiếp theo; giới hạn 100 mục vẫn được áp dụng sau tách. Không dùng proxy thật, không kiểm tra mạng hay tạo Profile Swarmote.
 
+**Cập nhật 28/11/2026 — Proxy dự phòng:** `.venv/Scripts/python.exe -m unittest discover -s tests -q`: **694/694 PASS** với thư viện Tcl đọc được ngoài sandbox. Test dùng proxy giả cho hàng dán riêng, FIFO một lần, hai máy lấy khác nhau qua hai lượt runner, bỏ qua proxy hiện tại, Dừng sau khi lấy thì không Test lại, thiếu Country không tiêu thụ, Mẻ mới giữ phần chưa dùng và chặn worker batch cũ. Tk giả xác nhận ba dòng dán theo thứ tự, dòng dự phòng vẫn nhập được khi mẻ khóa và còn 2 mục sau reset; bài bố cục màn 1280×720/150% đạt sau khi xếp hai panel dọc. Không thử Test Proxy/Create/Profile thật; phiên tool đang mở chưa nạp mã mới.
+
 ## b1–b3 ngẫu nhiên cho 12 máy — 14/11/2026
 
 `python -m unittest discover -s tests -q`: **296/296 PASS**. Test mới kiểm tra 12 slot cùng dùng factory ngẫu nhiên, mỗi máy có ba bước trước b4 chung, không chọn Sign In, ưu tiên ba mục khác nhau, giữ lựa chọn khi dựng lại bước để Tiếp tục và bốc lại với trạng thái mẻ mới. Nhánh menu dạng danh sách không bỏ qua ba bước; khi menu chưa có mục bấm hoặc tạm chưa trở lại được, phần ngẫu nhiên không dừng máy. Lượt đọc b1–b3 có hạn 15 giây để tránh kẹt vô thời hạn. Chưa thao tác Swarmote thật hoặc xác minh 12 máy chạy đồng thời.

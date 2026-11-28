@@ -25,6 +25,7 @@ from .random_prefix import build_random_steps
 from .windows_identity import set_process_identity, set_tk_icon, set_window_identity
 from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
+from .proxy_reserve import ProxyReserve, proxy_key
 from .registration import PHONE
 from .runner import AccountData, RunJob, run_batch, retry_preparation
 from .settings import CHANGE_US_FROM_START, AppSettings, load_settings, save_settings
@@ -51,6 +52,7 @@ from .desktop_theme import (
 
 BULK = (
     ("proxy", "Proxy", "host:port:user:password", "Dán tiếp vào máy trống; proxy dư làm dự phòng"),
+    ("spare", "Proxy dự phòng", "host:port:user:password", "Giữ qua Mẻ mới đến khi đóng ứng dụng"),
     ("account", "Thông tin Amazon", "SĐT | Mật khẩu | Tên | URL OTP (thẻ tùy chọn)", "Có thể dán nhiều lần; tối đa 12 máy"),
 )
 
@@ -115,7 +117,7 @@ class Window:
         self.attach_in_progress = False
         self.attaching_index = 0
         self.attach_events: queue.Queue[tuple[str, AccountData | None, str | None]] = queue.Queue()
-        self.proxy_fallbacks = []
+        self.proxy_reserve = ProxyReserve(self.draft.batch_id)
         try:
             self.registry = ProfileRegistry(persistent=False)
             self.registry_error = ""
@@ -133,6 +135,7 @@ class Window:
         self.preparation_retry_workers: dict[int, threading.Thread] = {}
         self.cancel = threading.Event()
         self.events: queue.Queue[tuple[int, str, str, str | None]] = queue.Queue()
+        self.proxy_events: queue.Queue[tuple[str, int, ProxyConfig, int]] = queue.Queue()
         self.otp_events: queue.Queue[tuple[str, int, str]] = queue.Queue()
         self.otp_status_events: queue.Queue[tuple[str, int, str]] = queue.Queue()
         self.values = [
@@ -180,6 +183,7 @@ class Window:
         self._refresh_after_id: str | None = None
 
         self._build()
+        self._update_spare_feedback()
         if self.restored_batch:
             self._set_editing(False)
         for index, row in enumerate(self.values):
@@ -275,6 +279,7 @@ class Window:
         shell.grid_columnconfigure(0, weight=1)
         shell.grid_rowconfigure(0, weight=1)
         work_area = ctk.CTkFrame(shell, fg_color="transparent")
+        self.work_area = work_area
         work_area.grid(row=0, column=0, sticky="nsew")
         work_area.grid_columnconfigure(0, weight=7, minsize=600)
         work_area.grid_columnconfigure(1, weight=4, minsize=350)
@@ -297,6 +302,8 @@ class Window:
         self._build_actions(work_area)
         self.main._parent_canvas.bind("<Configure>", self._fit_table_columns, add="+")
         self.detail_panel._parent_canvas.bind("<Configure>", self._fit_detail_text, add="+")
+        self._workspace_stacked = False
+        work_area.bind("<Configure>", self._fit_workspace_layout, add="+")
 
     def _build_main(self) -> None:
         bulk_card = ctk.CTkFrame(self.main, fg_color=SURFACE, corner_radius=14,
@@ -312,7 +319,7 @@ class Window:
             self._bulk_row(bulk_card, kind, title, placeholder, hint,
                            index + 1)
         self.validation_label = self._label(bulk_card, "Cần dán proxy để chạy", 15)
-        self.validation_label.grid(row=3, column=0, columnspan=4,
+        self.validation_label.grid(row=len(BULK) + 1, column=0, columnspan=4,
                                    sticky="w", padx=20, pady=(4, 12))
 
         self._build_preview_table()
@@ -491,6 +498,7 @@ class Window:
     def _build_actions(self, parent) -> None:
         action = ctk.CTkFrame(parent, fg_color=FOOTER, corner_radius=10,
                               border_width=1, border_color=FOOTER_BORDER)
+        self.action = action
         action.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         action.grid_columnconfigure((0, 1, 2), weight=1, uniform="batch_actions")
         action.grid_columnconfigure(4, weight=1)
@@ -689,6 +697,35 @@ class Window:
         self._table_hover = index
         self._refresh_table()
 
+    def _fit_workspace_layout(self, _event=None) -> None:
+        width = self.work_area.winfo_width()
+        if width <= 100:
+            return
+        # At narrow Windows display scaling, both scroll panels need the full
+        # width; rearrange their outer grid frames, not the canvas contents.
+        stacked = width < 1120 * self.root._get_window_scaling()
+        if stacked == self._workspace_stacked:
+            return
+        self._workspace_stacked = stacked
+        if stacked:
+            self.action.grid_configure(row=2, column=0, columnspan=1)
+            self.detail_panel._parent_frame.grid_configure(
+                row=1, column=0, padx=0,
+                pady=(round(8 * self.detail_panel._get_widget_scaling()), 0))
+            self.work_area.grid_columnconfigure(0, weight=1, minsize=0)
+            self.work_area.grid_columnconfigure(1, weight=0, minsize=0)
+            self.work_area.grid_rowconfigure(1, weight=1)
+        else:
+            self.work_area.grid_columnconfigure(0, weight=7, minsize=600)
+            self.work_area.grid_columnconfigure(1, weight=4, minsize=350)
+            self.work_area.grid_rowconfigure(1, weight=0)
+            self.work_area.grid_rowconfigure(2, weight=0)
+            self.detail_panel._parent_frame.grid_configure(
+                row=0, column=1,
+                padx=(round(12 * self.detail_panel._get_widget_scaling()), 0),
+                pady=0)
+            self.action.grid_configure(row=1, column=0, columnspan=2)
+
     def _fit_table_columns(self, _event=None) -> None:
         width = self.main._parent_canvas.winfo_width() / self.main._get_widget_scaling()
         compact = width < 650
@@ -724,6 +761,7 @@ class Window:
         entry = Entry(
             parent, placeholder_text=(
                 f"Ctrl+V 1–100 proxy · {placeholder}" if kind == "proxy" else
+                f"Ctrl+V proxy dự phòng · {placeholder}" if kind == "spare" else
                 f"Ctrl+V 1–12 dòng · {placeholder}"),
             height=42, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=PLACEHOLDER,
@@ -871,31 +909,29 @@ class Window:
 
     def _plan_proxy_append(self, proxies):
         keys = ("host", "port", "username", "proxy_password")
-        existing = {(proxy.host.casefold(), proxy.port, proxy.username, proxy.password)
-                    for proxy in self.proxy_fallbacks}
+        existing = {proxy_key(proxy) for proxy in self.proxy_reserve.snapshot()}
         for row in self.values:
             host, port, user, password = (row[key].get().strip() for key in keys)
             if host and port and user and password:
                 try:
-                    existing.add((host.casefold(), int(port), user, password))
-                except ValueError:
+                    existing.add(proxy_key(ProxyConfig("socks5", host, int(port),
+                                                       user, password)))
+                except (ToolError, ValueError):
                     pass
         new_proxies = []
         for proxy in proxies:
-            identity = (proxy.host.casefold(), proxy.port, proxy.username,
-                        proxy.password)
-            if identity not in existing:
+            identity = proxy_key(proxy)
+            if identity not in existing and not self.proxy_reserve.contains(proxy):
                 new_proxies.append(proxy)
+                existing.add(identity)
         slots = self._empty_data_slots(keys)
         assigned = slots[:len(new_proxies)]
         extras = new_proxies[len(assigned):]
         occupied = [index for index in range(MAX_PROFILES) if index not in slots]
         high_water = max((index + 1 for index in occupied + assigned), default=0)
-        current = max(self.draft.proxy_count, high_water,
-                      MAX_PROFILES + len(self.proxy_fallbacks) if self.proxy_fallbacks else 0)
-        new_count = current + len(extras)
-        if new_count > MAX_PROXY_CANDIDATES:
-            raise ToolError("Tổng proxy vượt 100 mục; dữ liệu cũ được giữ nguyên")
+        new_count = max(self.draft.proxy_count, high_water)
+        if len(self.proxy_reserve) + len(extras) > MAX_PROXY_CANDIDATES:
+            raise ToolError("Proxy dự phòng vượt 100 mục; dữ liệu cũ được giữ nguyên")
         return assigned, extras, new_count, new_proxies
 
     def _append_proxy_records(self, proxies, plan=None) -> list[int]:
@@ -909,12 +945,31 @@ class Window:
             target["port"].set(str(value.port))
             target["username"].set(value.username)
             target["proxy_password"].set(value.password)
-        self.proxy_fallbacks.extend(extras)
+        self.proxy_reserve.add(extras)
         if "proxy" in getattr(self, "bulk_feedback", {}):
             self.bulk_feedback["proxy"].configure(
-                text=f"✓ {self._slot_summary(assigned)} · {len(self.proxy_fallbacks)} dự phòng",
+                text=f"✓ {self._slot_summary(assigned)} · {len(self.proxy_reserve)} dự phòng",
                 text_color=GREEN)
+        self._update_spare_feedback()
         return assigned
+
+    def _assigned_proxies(self) -> list[ProxyConfig]:
+        assigned = []
+        for row in self.values:
+            host, port, user, password = (row[key].get().strip() for key in
+                                          ("host", "port", "username", "proxy_password"))
+            if host and port and user and password:
+                try:
+                    assigned.append(ProxyConfig("socks5", host, int(port), user, password))
+                except (ToolError, ValueError):
+                    pass
+        return assigned
+
+    def _update_spare_feedback(self) -> None:
+        if "spare" in getattr(self, "bulk_feedback", {}):
+            remaining = len(self.proxy_reserve)
+            self.bulk_feedback["spare"].configure(
+                text=f"{remaining} dự phòng", text_color=GREEN if remaining else MUTED)
 
     def _apply_account_records(self, records, slots=None) -> None:
         slots, new_records = (self._plan_account_append(records) if slots is None
@@ -944,7 +999,25 @@ class Window:
     def _apply_bulk(self, kind: str) -> None:
         self._apply_bulk_text(kind, self.bulk_boxes[kind].get())
 
+    def _apply_spare_text(self, content: str) -> None:
+        try:
+            proxies = parse_column("proxy", content)
+            added = self.proxy_reserve.add(proxies,
+                                           forbidden=self._assigned_proxies())
+        except (ToolError, ValueError) as exc:
+            self.bulk_feedback["spare"].configure(text=str(exc), text_color=RED)
+            self.run_note.configure(text=str(exc), text_color=RED)
+            return
+        self._update_spare_feedback()
+        self.run_note.configure(
+            text=f"Đã thêm {added} proxy dự phòng; còn {len(self.proxy_reserve)}",
+            text_color=GREEN)
+        self.bulk_boxes["spare"].delete(0, "end")
+
     def _apply_bulk_text(self, kind: str, content: str) -> None:
+        if kind == "spare":
+            self._apply_spare_text(content)
+            return
         try:
             if self.draft.locked:
                 raise ToolError("Mẻ đã chạy; bấm Mẻ mới để nhập dữ liệu khác")
@@ -1376,6 +1449,7 @@ class Window:
         # Old workers retain their old queues/dictionaries. Late results must
         # never enter a new draft or attach a serial to the new machine rows.
         self.events = queue.Queue()
+        self.proxy_events = queue.Queue()
         self.attach_events = queue.Queue()
         self.otp_events = queue.Queue()
         self.otp_status_events = queue.Queue()
@@ -1383,6 +1457,7 @@ class Window:
             self.registry = ProfileRegistry(persistent=False)
         self._set_editing(True)
         self.draft = self.draft.new()
+        self.proxy_reserve.activate(self.draft.batch_id)
         self.jobs = {}
         self.post_menu_sessions = {}
         self.post_menu_stops = {}
@@ -1394,7 +1469,6 @@ class Window:
         self.menu_opened_at = {}
         self.phone_serials = {}
         self.proxy_postal_prefixes = {}
-        self.proxy_fallbacks.clear()
         for row in self.values:
             for value in row.values():
                 value.set("")
@@ -1405,7 +1479,9 @@ class Window:
         for box in self.bulk_boxes.values():
             box.delete(0, "end")
         for kind, _, _, _hint in BULK:
-            self.bulk_feedback[kind].configure(text="Chưa dán", text_color=MUTED)
+            if kind != "spare":
+                self.bulk_feedback[kind].configure(text="Chưa dán", text_color=MUTED)
+        self._update_spare_feedback()
         self.status = [("Chưa chạy", "idle") for _ in range(MAX_PROFILES)]
         self.otp_status = ["Chưa yêu cầu mã" for _ in range(MAX_PROFILES)]
         self.otp_codes = ["" for _ in range(MAX_PROFILES)]
@@ -1484,8 +1560,8 @@ class Window:
         if getattr(self, "_editing_display_state", None) == display_state:
             return
         self._editing_display_state = display_state
-        for box in self.bulk_boxes.values():
-            box.configure(state=state)
+        for kind, box in self.bulk_boxes.items():
+            box.configure(state="normal" if kind == "spare" else state)
         for key, entry in self.detail_entries.items():
             if key != "profile_name":
                 entry.configure(state=(proxy_state if key in
@@ -1819,6 +1895,7 @@ class Window:
         self.phone_stop_after_step.setdefault(index, threading.Event()).clear()
         self.status[index] = (f"Máy {index + 1} đang tạo lại Profile", "running")
         context = {"registry": self.registry, "events": self.events,
+                   "proxy_events": getattr(self, "proxy_events", None),
                    "stop": self.cancel, "serials": self.phone_serials,
                    "proxy_prefixes": self.proxy_postal_prefixes,
                    "opened": self.menu_opened_at, "group": self.run_group_size,
@@ -2150,14 +2227,13 @@ class Window:
                     proxy = ProxyConfig("socks5", values["host"].strip(),
                                         int(values["port"]), values["username"],
                                         values["proxy_password"])
-                    fallbacks = tuple(self.proxy_fallbacks) if index == 0 else ()
                     account = (AccountData(
                         values["phone"].strip(), values["full_name"].strip(),
                         values["amazon_password"], values["otp_url"].strip(),
                         values["card"].strip(),
                     ) if values["phone"] else None)
                     self.jobs[index] = RunJob(index, self.draft.batch_id, proxy,
-                                              fallbacks, account)
+                                              account=account)
                 self.draft.locked = True
                 self._set_editing(False)
             if any(index not in self.jobs for index in indices):
@@ -2182,6 +2258,7 @@ class Window:
         self._refresh_devices()
         self.run_note.configure(text="Đang tạo Profile và mở máy song song...", text_color=BLUE)
         context = {"registry": self.registry, "events": self.events,
+                   "proxy_events": getattr(self, "proxy_events", None),
                    "stop": self.cancel, "serials": self.phone_serials,
                    "proxy_prefixes": self.proxy_postal_prefixes,
                    "opened": self.menu_opened_at, "group": self.run_group_size,
@@ -2195,7 +2272,8 @@ class Window:
 
     def _run(self, jobs: list[RunJob], context=None) -> None:
         context = context if context is not None else {
-            "registry": self.registry, "events": self.events, "stop": self.cancel,
+            "registry": self.registry, "events": self.events,
+            "proxy_events": getattr(self, "proxy_events", None), "stop": self.cancel,
             "serials": self.phone_serials, "opened": self.menu_opened_at,
             "proxy_prefixes": getattr(self, 'proxy_postal_prefixes', {}),
             "group": self.run_group_size, "hide": self.run_hide_profile_creation,
@@ -2214,6 +2292,18 @@ class Window:
                     context["opened"].setdefault(index, time.monotonic())
                 context["events"].put((index, update, state, name))
 
+            reserve = getattr(self, "proxy_reserve", None)
+            proxy_events = context.get("proxy_events", getattr(self, "proxy_events", None))
+            def take_spare(job: RunJob,
+                           current: ProxyConfig) -> tuple[ProxyConfig, int] | None:
+                if context["stop"].is_set():
+                    return None
+                chosen = reserve.take(job.batch_id, exclude=current)
+                if chosen is not None and proxy_events is not None:
+                    proxy_events.put(
+                        (job.batch_id, job.index, chosen[0], chosen[1]))
+                return chosen
+
             summary = run_batch(
                 jobs, context["registry"],
                 emit,
@@ -2228,6 +2318,7 @@ class Window:
                 manual_slots=context.get("manual_slots"),
                 manual_override=context.get("manual_override", False),
                 automatic_start_slots=context.get("automatic_start_slots"),
+                take_spare_proxy=take_spare if reserve is not None else None,
             )
             message = (f"Mẻ kết thúc: {summary['menu_open']} tới menu · "
                        f"{summary['error']} lỗi · {summary['stopped']} dừng"
@@ -2243,7 +2334,26 @@ class Window:
                 pythoncom.CoUninitialize()
             context["events"].put((context.get("final_index", -1), message, final_state, None))
 
+    def _apply_spare_assignment(self, batch_id: str, index: int,
+                                proxy: ProxyConfig, _remaining: int) -> None:
+        job = self.jobs.get(index)
+        if batch_id != self.draft.batch_id or job is None or job.batch_id != batch_id:
+            return
+        self.jobs[index] = replace(job, proxy=proxy)
+        row = self.values[index]
+        for key, value in (("host", proxy.host), ("port", str(proxy.port)),
+                           ("username", proxy.username),
+                           ("proxy_password", proxy.password)):
+            row[key].set(value)
+        self._update_spare_feedback()
+        self._refresh_devices()
+
     def _poll(self) -> None:
+        try:
+            while True:
+                self._apply_spare_assignment(*self.proxy_events.get_nowait())
+        except queue.Empty:
+            pass
         try:
             while True:
                 state, account, detail = self.attach_events.get_nowait()

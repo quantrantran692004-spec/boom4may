@@ -9,7 +9,9 @@ from amazon_android.desktop import Window
 from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
 from amazon_android.post_menu import PostMenuSession
+from amazon_android.proxy_reserve import ProxyReserve
 from amazon_android.runner import _prepare_phone, RunJob, retry_preparation
+from amazon_android.swarmote_desktop import ProxyConfig
 
 
 class StopResetTests(unittest.TestCase):
@@ -24,9 +26,9 @@ class StopResetTests(unittest.TestCase):
         w._draining_workers=[]; w._pending_retries=set()
         w._refresh_after_id=None
         w.registry=None; w.draft=BatchDraft(); w.draft.locked=True
-        w.events=queue.Queue(); w.otp_events=queue.Queue(); w.otp_status_events=queue.Queue(); w.attach_events=queue.Queue()
-        w.values=[]; w.proxy_fallbacks=[]; w.bulk_boxes={}
-        w.bulk_feedback={key:Mock() for key in ('proxy','account')}
+        w.events=queue.Queue(); w.proxy_events=queue.Queue(); w.otp_events=queue.Queue(); w.otp_status_events=queue.Queue(); w.attach_events=queue.Queue()
+        w.values=[]; w.proxy_reserve=ProxyReserve(w.draft.batch_id); w.bulk_boxes={}
+        w.bulk_feedback={key:Mock() for key in ('proxy','spare','account')}
         w.count=Mock(); w.run_note=Mock(); w._select=Mock(); w._set_editing=Mock(); w._refresh_devices=Mock()
         return w
 
@@ -40,6 +42,18 @@ class StopResetTests(unittest.TestCase):
         self.assertIsNot(w.events,old_events); self.assertIsNot(w.phone_serials,old_serials)
         self.assertTrue(w._previous_work_busy())
         w._set_editing.assert_called_with(True)
+
+    def test_reset_keeps_unused_spares_and_blocks_old_worker(self):
+        w = self.window()
+        first = ProxyConfig("socks5", "spare1.example", 1001)
+        second = ProxyConfig("socks5", "spare2.example", 1002)
+        w.proxy_reserve.add([first, second])
+        old_batch = w.draft.batch_id
+        w.cancel.set()
+        w._reset()
+        self.assertEqual(w.proxy_reserve.snapshot(), (first, second))
+        self.assertIsNone(w.proxy_reserve.take(old_batch))
+        self.assertEqual(w.proxy_reserve.take(w.draft.batch_id), (first, 1))
 
     def test_reset_discards_only_ram_state_of_q7_pilot(self):
         w=self.window()

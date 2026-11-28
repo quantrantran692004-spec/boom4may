@@ -6,6 +6,8 @@ Xem [PROJECT_INDEX.md](PROJECT_INDEX.md) để đi tới toàn bộ mã, tài li
 
 Nhập mỗi proxy theo dạng `host:port:username:password`. Có thể dán nhiều proxy trên cùng một dòng, cách nhau bằng dấu cách hoặc xuống dòng. Khi mẻ chưa chạy, mỗi lần dán thêm sẽ điền vào các máy chưa có proxy: dán 7 proxy rồi 5 proxy sẽ gán Máy 1–7 rồi Máy 8–12. Dán lại danh sách tích lũy gồm đủ 12 proxy cũng chỉ thêm 5 proxy còn thiếu. Ô proxy của máy đang chọn nhận một proxy vào chính máy đó nếu còn trống; nếu máy đó đã có proxy, nó dùng máy trống kế tiếp. Khi cả 12 máy đã đầy, dán một proxy vào ô này sẽ sửa máy đang chọn. Các mục sau Máy 12 là proxy dự phòng. Chuỗi bốn trường hiện được dùng như SOCKS5; định dạng này không tự nhận biết HTTP/HTTPS từ nhà cung cấp.
 
+Dòng **Proxy dự phòng** nhận riêng tối đa 100 proxy để chờ trong RAM, có thể dán bổ sung cả khi mẻ đang chạy. Khi Test Proxy báo thất bại hoặc Country không phải US trước khi tạo Profile, máy đó lấy proxy đầu danh sách, xóa khỏi danh sách dự phòng và Test lại. Dòng này không gán proxy trước cho Máy 1–12; proxy dư từ dòng Proxy thông thường cũng vào cùng danh sách. Mẻ mới giữ các proxy chưa dùng, còn đóng ứng dụng sẽ xóa danh sách RAM. Lỗi sau khi Profile đã tạo không tự đổi proxy.
+
 ## Cài trên máy Windows mới
 
 1. Cài Python 3.11 trở lên nếu máy chưa có.

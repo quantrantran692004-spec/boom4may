@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 from amazon_android.core import ToolError
 from amazon_android.swarmote_desktop import (
-    ProfileCreateNotSubmitted, ProfileNotFound, ProxyConfig, ProxyTestFailed,
+    ProfileCreateNotSubmitted, ProfileCountryUnknown, ProfileNotFound,
+    ProxyConfig, ProxyTestFailed,
     _activate_manager, _create_profile_form, _open_profiles, profile_status, visible_profile_names,
 )
 
@@ -178,7 +179,8 @@ class ProfilesNavigationTests(unittest.TestCase):
                      patch("amazon_android.swarmote_desktop._wait_for"), \
                      patch("amazon_android.swarmote_desktop._select_radio"), \
                      patch("amazon_android.swarmote_desktop._set_value"):
-                    with self.assertRaises(ProxyTestFailed):
+                    with self.assertRaises(
+                            ProxyTestFailed if country is not None else ProfileCountryUnknown):
                         _create_profile_form("q4", ProxyConfig("socks5", "proxy.example", 1001))
                 self.assertEqual(calls, ["New Profile", "Test Proxy"])
 

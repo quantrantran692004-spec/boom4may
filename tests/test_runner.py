@@ -7,10 +7,12 @@ from unittest.mock import patch
 
 from amazon_android.core import ToolError
 from amazon_android.profile_registry import ProfileRegistry
+from amazon_android.proxy_reserve import ProxyReserve
 from amazon_android.runner import AccountData, RunJob, run_batch
 from amazon_android.swarmote_desktop import (ProfileCreateNotSubmitted,
+    ProfileCountryUnknown,
     ProfileManagerWindowError, ProfileNotFound, ProfileStartNotSubmitted,
-    ProxyConfig)
+    ProxyConfig, ProxyTestFailed)
 
 
 class RunnerTests(unittest.TestCase):
@@ -54,7 +56,7 @@ class RunnerTests(unittest.TestCase):
                 hide_profile_creation=False, menu_ready=None, stop_after_step=None,
                 proxy_prefix_ready=None, create_result=None,
                 trace_preparation=False, manual_slots=None, manual_override=False,
-                automatic_start_slots=None):
+                 automatic_start_slots=None, take_spare_proxy=None):
         events = []
         def shell(name, device_id, **kwargs):
             if trace_preparation:
@@ -103,7 +105,8 @@ class RunnerTests(unittest.TestCase):
                                stop_after_step=stop_after_step,
                                manual_slots=manual_slots,
                                manual_override=manual_override,
-                               automatic_start_slots=automatic_start_slots)
+                                automatic_start_slots=automatic_start_slots,
+                                take_spare_proxy=take_spare_proxy)
         return result, events
 
     def test_two_running_slots_start_next_phone_when_one_closes(self):
@@ -575,6 +578,74 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(item["last_error"], "Test Failed")
         self.assertEqual(result["error"], 1)
         self.assertTrue(any(e[2] == "error" for e in events))
+
+    def test_failed_proxy_uses_one_shared_spare_per_machine_and_retests(self):
+        reserve = ProxyReserve("batch")
+        reserve.add([ProxyConfig("socks5", "spare1.example", 2001),
+                     ProxyConfig("socks5", "spare2.example", 2002)])
+        attempts = []
+
+        def create(name, proxy):
+            attempts.append((name, proxy.host))
+            if proxy.host == "proxy.example":
+                raise ProxyTestFailed("Test Failed")
+            self.existing.add(name)
+
+        with patch.object(self, "create", side_effect=create):
+            first, _ = self.execute(self.jobs[:1],
+                take_spare_proxy=lambda job, current: reserve.take(
+                    job.batch_id, exclude=current))
+            second, _ = self.execute(self.jobs[1:2],
+                take_spare_proxy=lambda job, current: reserve.take(
+                    job.batch_id, exclude=current))
+        self.assertEqual((first["menu_open"], second["menu_open"]), (1, 1))
+        self.assertEqual(attempts, [
+            ("q1", "proxy.example"), ("q1", "spare1.example"),
+            ("q2", "proxy.example"), ("q2", "spare2.example"),
+        ])
+        self.assertEqual(len(reserve), 0)
+
+    def test_other_profile_failure_does_not_consume_spare(self):
+        reserve = ProxyReserve("batch")
+        reserve.add([ProxyConfig("socks5", "spare.example", 2001)])
+        with patch.object(self, "create",
+                          side_effect=ProfileCreateNotSubmitted("manager unavailable")):
+            result, _ = self.execute(self.jobs[:1],
+                take_spare_proxy=lambda job, current: reserve.take(
+                    job.batch_id, exclude=current))
+        self.assertEqual(result["error"], 1)
+        self.assertEqual(len(reserve), 1)
+
+    def test_stop_after_taking_spare_does_not_test_or_create_again(self):
+        reserve = ProxyReserve("batch")
+        reserve.add([ProxyConfig("socks5", "spare.example", 2001)])
+        attempts = []
+
+        def create(name, proxy):
+            attempts.append(proxy.host)
+            raise ProxyTestFailed("Test Failed")
+
+        def take(job, current):
+            chosen = reserve.take(job.batch_id, exclude=current)
+            self.stop.set()
+            return chosen
+
+        with patch.object(self, "create", side_effect=create):
+            result, _ = self.execute(self.jobs[:1], take_spare_proxy=take)
+        self.assertEqual(attempts, ["proxy.example"])
+        self.assertEqual(result["stopped"], 1)
+        self.assertEqual(result["error"], 0)
+
+    def test_missing_country_does_not_consume_spare(self):
+        reserve = ProxyReserve("batch")
+        reserve.add([ProxyConfig("socks5", "spare.example", 2001)])
+        with patch.object(self, "create", side_effect=ProfileCountryUnknown(
+                "Test Passed but Country unreadable")):
+            result, _ = self.execute(self.jobs[:1],
+                take_spare_proxy=lambda job, current: reserve.take(
+                    job.batch_id, exclude=current))
+        self.assertEqual(result["error"], 1)
+        self.assertEqual(len(reserve), 1)
 
 
 if __name__ == "__main__":

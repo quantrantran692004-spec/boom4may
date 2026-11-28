@@ -7,6 +7,7 @@ from amazon_android.batch_state import BatchDraft
 from amazon_android.core import ToolError
 from amazon_android.desktop import GREEN, Window
 from amazon_android.post_menu import PostMenuSession
+from amazon_android.proxy_reserve import ProxyReserve
 from amazon_android.runner import AccountData, RunJob
 from amazon_android.swarmote_desktop import ProxyConfig
 
@@ -32,11 +33,11 @@ class BulkInputTests(unittest.TestCase):
                            "phone", "amazon_password", "full_name", "card", "otp_url")}
                          for _ in range(12)]
         window.count = Value("1")
-        window.proxy_fallbacks = []
+        window.proxy_reserve = ProxyReserve(window.draft.batch_id)
         window.otp_status = ["Chưa yêu cầu mã" for _ in range(12)]
         window.otp_codes = ["" for _ in range(12)]
-        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
-        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
+        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "spare", "account")}
+        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "spare", "account")}
         window.proxy_line = Mock()
         window.root = Mock()
         window.run_note = Mock()
@@ -275,7 +276,7 @@ class BulkInputTests(unittest.TestCase):
         window = Window.__new__(Window)
         window.draft = BatchDraft()
         window.selected = 2
-        window.proxy_fallbacks = []
+        window.proxy_reserve = ProxyReserve(window.draft.batch_id)
         window.values = [{key: Value() for key in
                           ("host", "port", "username", "proxy_password")}
                          for _ in range(12)]
@@ -301,7 +302,7 @@ class BulkInputTests(unittest.TestCase):
                          [f"proxy{i}.example" for i in range(1, 13)])
         self.assertEqual(window.draft.proxy_count, 12)
         self.assertEqual(window.count.get(), "12")
-        self.assertEqual(window.proxy_fallbacks, [])
+        self.assertEqual(window.proxy_reserve.snapshot(), ())
 
     def test_cumulative_proxy_paste_skips_first_seven_already_imported(self):
         window = self.unlocked_window()
@@ -438,19 +439,52 @@ class BulkInputTests(unittest.TestCase):
         window._apply_bulk_text("proxy", self.proxy_rows(8, 15))
         self.assertEqual([row["host"].get() for row in window.values],
                          [f"proxy{i}.example" for i in range(1, 13)])
-        self.assertEqual([proxy.host for proxy in window.proxy_fallbacks],
+        self.assertEqual([proxy.host for proxy in window.proxy_reserve.snapshot()],
                          ["proxy13.example", "proxy14.example"])
-        self.assertEqual(window.draft.proxy_count, 14)
+        self.assertEqual(window.draft.proxy_count, 12)
+
+    def test_dedicated_spare_paste_does_not_assign_machine_and_works_after_lock(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("spare", self.proxy_rows(13, 15))
+        self.assertEqual(window.draft.proxy_count, 0)
+        self.assertTrue(all(not row["host"].get() for row in window.values))
+        self.assertEqual([proxy.host for proxy in window.proxy_reserve.snapshot()],
+                         ["proxy13.example", "proxy14.example"])
+        window.draft.locked = True
+        window._apply_bulk_text("spare", self.proxy_rows(15, 16))
+        self.assertEqual(len(window.proxy_reserve), 3)
+        window._apply_bulk_text("spare", self.proxy_rows(13, 16))
+        self.assertEqual(len(window.proxy_reserve), 3)
+
+    def test_dedicated_spare_rejects_account_text_without_mutating_pool(self):
+        window = self.unlocked_window()
+        window._apply_bulk_text("spare", self.account_rows(1, 2))
+        self.assertEqual(len(window.proxy_reserve), 0)
+        self.assertEqual(window.draft.account_count, 0)
+
+    def test_spare_assignment_updates_only_the_matching_machine_and_job(self):
+        window = self.unlocked_window()
+        original = ProxyConfig("socks5", "old.example", 1001, "user", "oldpass")
+        replacement = ProxyConfig("socks5", "spare.example", 2002, "user", "newpass")
+        window.jobs = {0: RunJob(0, window.draft.batch_id, original)}
+        window.values[0]["host"].set(original.host)
+        window._apply_spare_assignment(window.draft.batch_id, 0, replacement, 1)
+        self.assertEqual(window.jobs[0].proxy, replacement)
+        self.assertEqual(window.values[0]["host"].get(), "spare.example")
+        self.assertEqual(window.values[0]["proxy_password"].get(), "newpass")
+        self.assertEqual(window.values[1]["host"].get(), "")
+        window._apply_spare_assignment("old-batch", 0, original, 0)
+        self.assertEqual(window.jobs[0].proxy, replacement)
 
     def test_proxy_total_over_one_hundred_keeps_existing_assignments(self):
         window = self.unlocked_window()
         window._apply_bulk_text("proxy", self.proxy_rows(1, 101))
         before = [row["host"].get() for row in window.values]
-        self.assertEqual(window.draft.proxy_count, 100)
-        window._apply_bulk_text("proxy", self.proxy_rows(101, 102))
+        self.assertEqual(window.draft.proxy_count, 12)
+        window._apply_bulk_text("proxy", self.proxy_rows(101, 114))
         self.assertEqual([row["host"].get() for row in window.values], before)
-        self.assertEqual(window.draft.proxy_count, 100)
-        self.assertEqual(len(window.proxy_fallbacks), 88)
+        self.assertEqual(window.draft.proxy_count, 12)
+        self.assertEqual(len(window.proxy_reserve), 88)
 
     def test_partial_account_row_is_preserved_during_bulk_append(self):
         window = self.unlocked_window()
@@ -700,8 +734,8 @@ class BulkInputTests(unittest.TestCase):
         window.count = Mock(get=Mock(return_value="1"))
         window.otp_status = ["Chưa yêu cầu mã" for _ in range(12)]
         window.otp_codes = ["" for _ in range(12)]
-        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
-        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
+        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "spare", "account")}
+        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "spare", "account")}
         for callback in ("_refresh_devices", "_refresh_otp_detail", "_maybe_show_preview"):
             setattr(window, callback, Mock())
         window.run_note = Mock()
@@ -819,7 +853,7 @@ class BulkInputTests(unittest.TestCase):
         window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
         window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
         window.run_note = Mock()
-        window.proxy_fallbacks = []
+        window.proxy_reserve = ProxyReserve(window.draft.batch_id)
         window._refresh_devices = Mock()
         window._refresh_otp_detail = Mock()
         window._maybe_show_preview = Mock()

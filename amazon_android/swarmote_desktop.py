@@ -37,6 +37,10 @@ class ProxyTestFailed(ProfileCreateNotSubmitted):
     """Swarmote rejected the proxy before submitting Profile creation."""
 
 
+class ProfileCountryUnknown(ProfileCreateNotSubmitted):
+    """Test passed but Country could not be verified; keep the current proxy."""
+
+
 class ProfileManagerWindowError(ToolError):
     """The Swarmote management window cannot be identified safely."""
 
@@ -484,7 +488,7 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
                     if time.monotonic() < country_deadline:
                         time.sleep(0.3)
                         continue
-                    raise ProxyTestFailed(
+                    raise ProfileCountryUnknown(
                         "Swarmote Test Passed nhưng không đọc được Country; chưa tạo Profile")
                 if country.casefold() not in {
                         'united states (us)', 'united states', 'us', 'usa',
@@ -501,10 +505,10 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
             time.sleep(0.3)
         else:
             if country_deadline is not None:
-                raise ProxyTestFailed(
+                raise ProfileCountryUnknown(
                     "Swarmote Test Passed nhưng không đọc được Country; chưa tạo Profile")
             raise ToolError("Swarmote chưa xác nhận Test Passed; chưa tạo Profile")
-    except ProxyTestFailed:
+    except (ProxyTestFailed, ProfileCountryUnknown):
         raise
     except ToolError as exc:
         raise ProfileCreateNotSubmitted(str(exc)) from exc

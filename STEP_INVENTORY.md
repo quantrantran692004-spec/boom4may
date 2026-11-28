@@ -35,6 +35,8 @@ Tài liệu này là bản đồ từng mốc để phiên sau không coi ảnh 
 
 **Bổ sung 28/11/2026:** Trước khi chạy mẻ, dán proxy, hàng Amazon hoặc từng cột SĐT/mật khẩu/tên theo nhiều lượt sẽ điền tiếp vào máy chưa có dữ liệu của đúng loại. Ví dụ 7 hàng rồi 5 hàng vào Máy 1–7 rồi Máy 8–12; dán lại danh sách tích lũy chỉ lấy phần chưa có. Một proxy ở ô máy đang chọn điền đúng máy đó nếu trống, nếu đã có thì điền máy trống kế tiếp. Proxy sau Máy 12 vẫn là dự phòng. Hàng đã có không bị xóa hoặc tráo; hàng Amazon cùng SĐT/URL OTP nhưng nội dung khác, quá 12 hàng Amazon hoặc quá 100 proxy được báo lỗi trước khi thay đổi dữ liệu. Dán theo cột và gõ từng ô Amazon cũng cập nhật số hàng đang nhập để bước kiểm tra Chạy mẻ không báo thiếu hàng sai. Mẻ đã khóa vẫn chỉ cho sửa đúng máy lỗi theo quy tắc cũ. Đây là mã và test mô phỏng, chưa chứng minh phiên tool đang mở đã nạp sửa đổi.
 
+**Dòng Proxy dự phòng, 28/11/2026:** Dán riêng proxy vào hàng đợi FIFO trong RAM, không gán trước cho Máy 1–12 và không tăng số máy của mẻ. Có thể bổ sung khi mẻ đang chạy; proxy dư sau Máy 12 ở ô Proxy cũ cũng vào cùng hàng đợi. Proxy đã lấy ra không tự quay lại khi Tiếp tục hoặc Mẻ mới; proxy chưa dùng giữ qua Mẻ mới và chỉ mất khi đóng ứng dụng. Worker của mẻ cũ bị chặn lấy sau khi Mẻ mới. Giới hạn hàng đợi là 100 proxy; không ghi giá trị proxy vào log/tài liệu.
+
 Dán 1–12 hàng `SĐT | Mật khẩu | Tên | Thẻ | URL OTP`. Cột trống, hàng gạch Markdown, thẻ có `\|` và link URL Markdown được nhận. Hàng n gắn Máy n, không tráo SĐT/URL. Thẻ và mật khẩu chỉ gắn dữ liệu, chưa dùng trong b1–b22. **Đã nối mã, đã test mô phỏng.**
 
 **Sửa 27/11/2026:** Ô Markdown in đậm `**...**`/`__...__` được bỏ lớp định dạng trước khi kiểm tra, giữ đủ hàng đầu có dữ liệu nằm trên hàng gạch phân cách. Tab/CSV không bỏ dấu sao trong mật khẩu. Test bảng giả ba hàng và đường phân bổ UI xác nhận Máy 1–3 đúng SĐT/mật khẩu/tên/thẻ/URL và số máy bằng 3; chưa nạp vào phiên tool đang mở.
@@ -67,7 +69,9 @@ Chọn Single Create và Custom; điền tên Profile, host, port, tài khoản 
 
 ## P05 — Test Proxy rồi Create
 
-Bấm Test Proxy; chỉ khi hiện Test Passed **và** Country của kết quả là United States (US) mới bấm Create. Country khác US hoặc không đọc được Country được coi là proxy không đạt, giữ Create chưa gửi và dùng đường proxy dự phòng hiện có. Nếu form còn kết quả Test Proxy của lần trước, đóng bằng Cancel rồi mở form mới trước khi điền/thử proxy tiếp theo. Test Failed mới vẫn dừng trước Create. Sau Create, xác nhận đúng tên Profile và Device ID; nếu kết quả không chắc chắn, dừng để tránh tạo trùng. **Đã nối mã và test mô phỏng; chưa gửi Create trên Swarmote thật sau sửa 28/11/2026.**
+Bấm Test Proxy; chỉ khi hiện Test Passed **và** Country của kết quả là United States (US) mới bấm Create. Country xác nhận khác US dùng đường proxy dự phòng; nếu không đọc được Country thì dừng trước Create và giữ proxy dự phòng để người dùng kiểm tra màn thật. Nếu form còn kết quả Test Proxy của lần trước, đóng bằng Cancel rồi mở form mới trước khi điền/thử proxy tiếp theo. Test Failed mới vẫn dừng trước Create. Sau Create, xác nhận đúng tên Profile và Device ID; nếu kết quả không chắc chắn, dừng để tránh tạo trùng. **Đã nối mã và test mô phỏng; chưa gửi Create trên Swarmote thật sau sửa 28/11/2026.**
+
+Khi gặp `ProxyTestFailed` (Test Failed hoặc Country xác nhận khác US), runner lấy một mục khác proxy vừa lỗi trong hàng đợi chung và Test lại cho chính máy đó; hàng đợi/xuất hiển thị giảm ngay, `RunJob` và ô proxy của máy nhận được cập nhật. Hết dự phòng thì dừng máy ở lỗi hiện tại. Dừng trước lượt thử lại không gửi thêm Test/Create. Thiếu Country, lỗi Swarmote chưa chắc đã gửi Create, OTP, ADB hoặc Amazon không dùng hàng đợi. Đây là test mô phỏng, chưa thao tác trên Swarmote thật.
 
 ## P06 — Start điện thoại và chờ slot
 

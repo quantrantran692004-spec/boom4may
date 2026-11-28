@@ -45,6 +45,7 @@ class RunJob:
 
 Progress = Callable[[int, str, str, str | None], None]
 MenuReady = Callable[[int, str, str, str], None]
+TakeSpareProxy = Callable[[RunJob, ProxyConfig], tuple[ProxyConfig, int] | None]
 _preparation_guard = threading.Lock()
 _preparation_locks: dict[tuple[str, int], threading.RLock] = {}
 _profile_creation_lock = threading.RLock()
@@ -245,7 +246,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
               stop_after_step: Mapping[int, threading.Event] | None = None,
               manual_slots: set[tuple[str, int]] | None = None,
               manual_override: bool = False,
-              automatic_start_slots: frozenset[int] | None = None) -> dict[str, int]:
+               automatic_start_slots: frozenset[int] | None = None,
+               take_spare_proxy: TakeSpareProxy | None = None) -> dict[str, int]:
     """Create serially and keep the configured number of phones Running."""
     if not 1 <= start_group_size <= 12:
         raise ToolError("Số máy tự Start phải từ 1 đến 12")
@@ -447,12 +449,18 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                     proxy = job.proxy
                     focus_retries = 0
                     while True:
+                        if requested(job) or stop.is_set():
+                            raise ProfileCreateNotSubmitted(
+                                "Đã dừng trước khi Test proxy")
                         registry.mark(job.batch_id, job.index, "RUNNING", stage="CREATING")
                         emit(job.index, f"Đang Test proxy và tạo {name}", "running", name)
                         try:
                             # Separate batch coordinators may resume a failed row while
                             # the original batch is still creating other profiles.
                             with _profile_creation_lock:
+                                if requested(job) or stop.is_set():
+                                    raise ProfileCreateNotSubmitted(
+                                        "Đã dừng trước khi Test proxy")
                                 if hide_profile_creation:
                                     created = create_profile(name, proxy, hide_window=True)
                                 else:
@@ -472,13 +480,22 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                         except ProxyTestFailed as exc:
                             registry.mark(job.batch_id, job.index, "ERROR", stage="RESERVED",
                                           error=str(exc))
-                            if requested(job):
+                            if requested(job) or stop.is_set():
                                 raise
-                            if not proxy_fallbacks:
+                            if take_spare_proxy is not None:
+                                spare = take_spare_proxy(job, proxy)
+                            elif proxy_fallbacks:
+                                while proxy_fallbacks and proxy_fallbacks[0] == proxy:
+                                    proxy_fallbacks.popleft()
+                                spare = ((proxy_fallbacks.popleft(), len(proxy_fallbacks))
+                                         if proxy_fallbacks else None)
+                            else:
+                                spare = None
+                            if spare is None:
                                 raise
-                            proxy = proxy_fallbacks.popleft()
+                            proxy, remaining = spare
                             emit(job.index,
-                                 f"Proxy không đạt; thử proxy dự phòng còn {len(proxy_fallbacks)} · {name}",
+                                 f"Proxy không đạt; thử proxy dự phòng còn {remaining} · {name}",
                                  "running", name)
                         except ProfileCreateNotSubmitted as exc:
                             if ("Không đưa được cửa sổ quản lý Swarmote lên trước" in str(exc)
@@ -553,7 +570,8 @@ def run_batch(jobs: list[RunJob], registry: ProfileRegistry,
                         emit(job.index, f"{name} đã tạo · chờ chỗ máy Running trống", "queued", name)
             except Exception as exc:
                 current = registry.get(job.batch_id, job.index) if item else None
-                if requested(job) and (current is None or current["state"] != "UNCERTAIN"):
+                if (requested(job) or stop.is_set()) and (
+                        current is None or current["state"] != "UNCERTAIN"):
                     stop_job(job, item["name"] if item else None,
                              "sau bước tạo Profile")
                     continue

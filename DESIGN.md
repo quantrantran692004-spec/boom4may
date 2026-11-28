@@ -29,7 +29,7 @@ Tương phản tính theo độ chói sRGB: tiêu đề/khung 14,37:1; nội dun
 ### Bố cục được áp dụng
 
 - Header có logo lớp, thương hiệu, vạch phân cách, chọn số máy và Settings trắng. Sóng ngọc là Canvas vector tĩnh, chỉ vẽ lại khi đổi kích thước, không có timer trang trí.
-- Hai cột khoảng 7:4. Cột trái có khung dán dữ liệu rồi **Danh sách điện thoại**, số lượng ở badge riêng. Dán proxy và Amazon vẫn dùng đúng lệnh cũ.
+- Hai cột khoảng 7:4 khi đủ rộng; màn hẹp xếp hai khung cuộn theo chiều dọc để nội dung không tràn ngang. Cột trái có khung dán dữ liệu rồi **Danh sách điện thoại**, số lượng ở badge riêng. Khung dán có thêm hàng **Proxy dự phòng** giữa Proxy và Thông tin Amazon; hàng này giữ số còn lại và vẫn nhập được khi mẻ chạy.
 - Mỗi máy là một thẻ riêng, bo góc, cách nhau 8 px logic. Ba vùng: icon/tên Máy 01/Profile, tiến độ, Tiếp tục/Dừng cạnh nhau. Có đường dọc ngăn nhận diện máy với tiến độ. Bỏ phần tóm tắt Amazon ở danh sách theo bố cục mẫu; dữ liệu gốc vẫn ở khung phải. Không thêm lại cột Proxy. Vẫn giữ đủ 12 thẻ để cuộn; máy ngoài mẻ ghi Chưa dùng.
 - Máy chọn có nền lam nhạt, viền/vạch trái lam rõ; máy khác trắng hoặc xám nhẹ khi ngoài mẻ. Hover không thay trạng thái được chọn.
 - Cột phải có tên máy, badge Profile và tiến độ ở đầu. Proxy, dán hàng Amazon, thông tin riêng phân nhóm bằng icon và đường mảnh. Đầy đủ tên, SĐT, mật khẩu, thẻ, URL OTP, host/port/user/pass và tên Profile; cuộn xuống để sửa các trường bên dưới. OTP vẫn chỉ hiện khi có mã như trước.
