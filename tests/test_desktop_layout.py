@@ -7,6 +7,7 @@ import customtkinter as ctk
 
 from amazon_android import desktop
 from amazon_android.desktop_theme import StatusCell, state_style, status_title, startup_geometry
+from amazon_android.desktop_theme import ROW_SELECTED_BORDER, PROCESSING, PROGRESS_TEXT
 
 
 @unittest.skipUnless(sys.platform == "win32", "Tk window layout requires Windows")
@@ -46,10 +47,12 @@ class DesktopLayoutTests(unittest.TestCase):
                 ctk.set_window_scaling(scale / base_scale)
                 root.minsize(900, 450)
                 root.geometry(f"{int(1460 / scale)}x{int(751 / scale)}+5000+5000")
+                window.status[11] = (message, "post_paused")
                 window._select(11)
                 root.update()
                 cell = window.table_rows[11]["status"]
                 self.assertNotIn("proxy", window.table_rows[11])
+                self.assertNotIn("account", window.table_rows[11])
                 self.assertTrue(window.proxy_line.winfo_manager())
                 self.assertTrue(window.detail_entries["host"].winfo_manager())
                 self.assertIsInstance(cell, StatusCell)
@@ -61,7 +64,20 @@ class DesktopLayoutTests(unittest.TestCase):
                                      window.main._parent_canvas.winfo_width())
                 self.assertLessEqual(window.detail_panel.winfo_children()[0].winfo_reqwidth(),
                                      window.detail_panel._parent_canvas.winfo_width())
-                self.assertEqual(window.table_bands[11].cget("bg"), cell.cget("bg"))
+                self.assertEqual(window.table_bands[11].cget("fg_color"), cell.cget("bg"))
+                band = window.table_bands[11]
+                previous = window.table_bands[10]
+                self.assertGreater(band.winfo_y(), previous.winfo_y() + previous.winfo_height())
+                self.assertEqual(ROW_SELECTED_BORDER, band.cget("border_color"))
+                continue_button, stop_button = window.row_buttons[11], window.row_stop_buttons[11]
+                self.assertEqual(continue_button.winfo_y(), stop_button.winfo_y())
+                self.assertGreater(stop_button.winfo_x(),
+                                   continue_button.winfo_x() + continue_button.winfo_width())
+                window.status[11] = ("b11 nhập OTP: đang đọc mã riêng của máy", "post_running")
+                window._refresh_devices()
+                self.assertEqual(PROCESSING, cell.primary.cget("fg"))
+                self.assertEqual(PROGRESS_TEXT, cell.description.cget("fg"))
+                self.assertEqual(window.status[11][0], window.detail_description.cget("text"))
         finally:
             root.withdraw()
             for callback in root.tk.call("after", "info"):

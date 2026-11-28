@@ -20,9 +20,10 @@ Trước b1, mỗi máy đã được xác nhận ở menu Amazon. B1–b3 dùng
 
 ## Từng máy độc lập
 
-- Máy q1 đến q12 có `RunJob`, dữ liệu Amazon/URL OTP, tiến trình và bước hiện tại riêng. Một máy lỗi không dừng các máy khác.
+- Máy q1 đến q12 có `RunJob`, tiến trình và bước hiện tại riêng; dữ liệu Amazon/URL OTP riêng khi chạy luồng Tạo/Đăng nhập. Một máy lỗi không dừng các máy khác.
 - Nút **Dừng Máy N sau bước hiện tại** trong khung chi tiết đặt cờ cho đúng máy đang chọn. Máy hoàn tất thao tác hiện hành rồi tạm dừng trước bước sau; nếu bước hiện hành lỗi và đang thử lại, máy dừng ở ranh giới lần thử. **Tiếp tục** dùng lại đúng phiên và điểm dừng của máy đó. Nếu bấm Tiếp tục trong lúc máy đang chờ dừng an toàn, tool giữ lệnh và tự nối lại ngay sau khi dừng, không bắt bấm lần hai. Nút **Dừng cả mẻ** vẫn dùng cờ chung cho toàn mẻ. Không nút nào tự tắt Profile Swarmote.
-- Sau khi xác nhận menu ba gạch (`MENU_OPEN`), mỗi máy chạy liên tục từ b1 đến các bước đã được cấu hình, không có đồng hồ tổng 3/4/5 phút. Xong một bước đã xác nhận thì tự chạy bước tiếp theo. Lỗi đọc tạm thời và lượt lấy OTP chưa có mã được thử lại; nút Dừng vẫn ngắt máy đó.
+- Trong luồng Tạo/Đăng nhập, sau khi xác nhận menu ba gạch (`MENU_OPEN`), mỗi máy chạy liên tục từ b1 đến các bước đã được cấu hình, không có đồng hồ tổng 3/4/5 phút. Xong một bước đã xác nhận thì tự chạy bước tiếp theo. Lỗi đọc tạm thời và lượt lấy OTP chưa có mã được thử lại; nút Dừng vẫn ngắt máy đó.
+- Trong luồng Settings “Đổi US từ đầu”, mỗi máy chạy b1–b17 riêng: b1–b7 đổi US và trở lại tab hình người; b8 chờ 6 giây rồi Create account; b9 nhập SĐT; b10 Continue; b11 Proceed to create an account; b12 chạm ô tên; b13 nhập tên và Continue; b14 lấy/nhập OTP; b15 Create your Amazon account; b16 Back đóng hộp Google, đọc lại và Back lần hai nếu vẫn còn (tối đa hai lần); b17 Create a passkey. Chỉ xác nhận chữ hoặc ảnh đúng bước trên màn hiện tại; thiếu mục tiêu thì dừng riêng đúng bước. Luồng bắt đầu được với proxy, nhưng từ b9 phải có hàng Amazon của đúng máy gồm SĐT, tên và URL OTP; thiếu thì PAUSED để bổ sung rồi Tiếp tục. Tạm kết thúc ở b17, chưa có b18.
 - Mỗi lời gọi ADB, đọc UI và lượt mở trang OTP vẫn có timeout ngắn để phát hiện một lần gọi bị treo rồi đọc/thử lại. Lỗi dữ liệu, sai serial hoặc thao tác gửi SMS/Create không chắc kết quả vẫn phải kiểm tra trạng thái trước khi tiếp tục.
 
 ## Nhập liệu và lỗi

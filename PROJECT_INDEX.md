@@ -4,11 +4,12 @@
 
 ## Một quy luật để sửa mã về sau — 20/11/2026
 
-Luồng bắt đầu ở `desktop.POST_MENU_STEP_FACTORIES`: từ 26/11/2026, cả 12 slot đều dùng `random_prefix.build_random_steps`, kể cả Máy 7. Các bước sau xác minh được nối một lần qua `random_prefix.build_post_auth_steps`. `PostMenuSession` chạy các `PostMenuStep` theo thứ tự; `RegistrationState` giữ dấu bấm, mốc chờ và bước hoàn tất của đúng máy. Tên bước có hậu tố như b4a, b11a, b11b là bước thật trong danh sách, không suy ra chỉ số bằng số b.
+Luồng Tạo/Đăng nhập bắt đầu ở `desktop.POST_MENU_STEP_FACTORIES`: từ 26/11/2026, cả 12 slot đều dùng `random_prefix.build_random_steps`, kể cả Máy 7. Lựa chọn Settings “Đổi US từ đầu” đi qua P01–P08 rồi chạy `change_us_flow.build_change_us_steps` b1–b17 riêng từng máy, không gọi factory ngẫu nhiên. Các bước sau xác minh của luồng Tạo/Đăng nhập được nối một lần qua `random_prefix.build_post_auth_steps`. `PostMenuSession` giữ trạng thái đúng máy. Tên bước có hậu tố như b4a, b11a, b11b là bước thật trong danh sách, không suy ra chỉ số bằng số b.
 
 | Mốc | File sở hữu hành vi | Trạng thái/điều kiện chuyển bước | Test cần xem |
 | --- | --- | --- | --- |
 | P01–P08, mở Amazon/menu | `desktop.py`, `bulk_input.py`, `runner.py`, `swarmote_desktop.py`, `home_menu.py`; `phone_window_layout.py` chỉ xếp cửa sổ Windows khi tìm thấy viewer mới | `BatchDraft` và trạng thái chuẩn bị trong `runner.py`; khi Profile chưa tạo và máy lỗi, sửa dữ liệu riêng tại `desktop.py` rồi Tiếp tục bằng `RunJob` mới của đúng hàng | `test_bulk_input.py`, `test_stop_reset.py`, `test_runner.py`, `test_home_menu.py`, `test_swarmote_waits.py`, `test_phone_window_layout.py` |
+| b1–b17 “Đổi US từ đầu” | `settings.py`, `desktop.py`, `change_us_flow.py` | b1–b7 đổi US; b8–b15 tạo tài khoản bằng SĐT/tên/OTP đúng hàng máy; b16 Back đóng hộp Google; b17 Create a passkey; có thể chạy đầu luồng chỉ với proxy, b9 cần hàng Amazon | `test_settings.py`, `test_desktop_resume.py`, `test_change_us_flow.py` |
 | b1–b3 cả 12 máy | `random_prefix.py` | `prefix_choices`, `prefix_view_until`, `prefix_completed`; đủ ba lượt xem rồi mới b4 | `test_random_prefix.py`, `test_resume_state.py` |
 | b4–b11b Tạo/Đăng nhập cả 12 máy | `account_flow.py` | Các dấu SMS/OTP/Create/Verify trong `RegistrationState`; xác nhận màn thật trước bước kế | `test_q1_flow.py`, `test_resume_state.py` |
 | b12–b15 chung | `random_prefix.py` | `tail_choices`, `tail_view_until`, `tail_viewed`, `tail_page_scrolled`, `tail_back_sent`, `tail_completed`; về menu rồi mới hoàn tất lượt | `test_random_prefix.py`, `test_resume_state.py` |

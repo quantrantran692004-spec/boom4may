@@ -399,6 +399,22 @@ def _proxy_postal_prefix(controls) -> str | None:
     return None
 
 
+def _proxy_test_country(controls) -> str | None:
+    """Read the country reported by the current Swarmote proxy test."""
+    names = [str(item.element_info.name or '').strip() for item in controls]
+    values = []
+    for index, name in enumerate(names):
+        if name.casefold().rstrip(':：') == 'country':
+            if index + 1 < len(names) and names[index + 1]:
+                values.append(names[index + 1])
+            continue
+        match = re.fullmatch(r'Country\s*[:：]\s*(.+)', name, re.IGNORECASE)
+        if match:
+            values.append(match.group(1).strip())
+    distinct = {value.casefold() for value in values}
+    return values[0] if len(distinct) == 1 else None
+
+
 def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
     # The optional hidden mode can keep the form hidden between Chromium button
     # invocations. Each button still needs a brief visible foreground activation.
@@ -455,11 +471,26 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
         _invoke(window, "Test Proxy")
         restore_hidden()
         until_tested = time.monotonic() + 35
+        country_deadline = None
         postal_prefix = None
         while time.monotonic() < until_tested:
             controls = _descendants(window)
             labels = {x.element_info.name for x in controls}
             if "Test Passed" in labels:
+                if country_deadline is None:
+                    country_deadline = min(until_tested, time.monotonic() + 3)
+                country = _proxy_test_country(controls)
+                if country is None:
+                    if time.monotonic() < country_deadline:
+                        time.sleep(0.3)
+                        continue
+                    raise ProxyTestFailed(
+                        "Swarmote Test Passed nhưng không đọc được Country; chưa tạo Profile")
+                if country.casefold() not in {
+                        'united states (us)', 'united states', 'us', 'usa',
+                        'united states of america'}:
+                    raise ProxyTestFailed(
+                        f"IP proxy không thuộc US (Country: {country}); chưa tạo Profile")
                 try:
                     postal_prefix = _proxy_postal_prefix(controls)
                 except Exception:
@@ -469,6 +500,9 @@ def _create_profile_form(name: str, proxy: ProxyConfig, window=None) -> dict:
                 raise ProxyTestFailed("Swarmote báo proxy không đạt bài kiểm tra; chưa tạo Profile")
             time.sleep(0.3)
         else:
+            if country_deadline is not None:
+                raise ProxyTestFailed(
+                    "Swarmote Test Passed nhưng không đọc được Country; chưa tạo Profile")
             raise ToolError("Swarmote chưa xác nhận Test Passed; chưa tạo Profile")
     except ProxyTestFailed:
         raise

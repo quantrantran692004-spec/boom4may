@@ -1,40 +1,75 @@
 # Giao diện vận hành
 
-## Swarmote V3 — nghiệm thu 27/11/2026
+## Swarmote V3 — đối chiếu ảnh mẫu 27/11/2026
 
-**Mở lớn hơn và cuộn mượt — cập nhật tiếp 27/11:** Theo yêu cầu sau V3, kích thước mở tiếp tục tăng tới 1840×960 px cho vùng nội dung trên màn Full HD, giới hạn còn 1504×760 trên màn kiểm tra 1536×864. `desktop_scroll.py` cung cấp cuộn pixel cho hai cột và Settings: nhịp 16 ms chỉ khi có thao tác, đáp ứng khoảng 45 ms, giữ delta nhỏ của touchpad, đổi hướng từ vị trí đang thấy, ngắt khi click/kéo scrollbar và không vượt biên. Khi đứng yên không có timer cuộn; đóng khung gỡ đúng binding của khung đó, giữ khung khác hoạt động. Theo [tùy chọn chuyển động của Windows](https://learn.microsoft.com/en-us/windows/win32/winauto/client-area-animation), chuyển động chuyển về cập nhật trực tiếp khi hệ thống tắt animation. Không thêm thư viện hoặc thread; đây là ngoại lệ cuộn do người dùng yêu cầu, không thêm hiệu ứng trang trí. 87 bài kiểm tra cuộn, DPI/bố cục, nhập liệu, Dừng/Tiếp tục và resume PASS. Ảnh cuối `v3_final.png` đã cập nhật theo kích thước mở mới.
+**Đã chốt bản hiện tại ngày 27/11/2026.** Ảnh `codex-clipboard-9591314d-702f-4cef-8756-b742e969202b.png` là chuẩn bố cục/màu: header/footer ngọc nhạt, thẻ máy riêng và tiến độ đậm. Mặc định mở gần kín màn hình theo cỡ nhỏ hơn người dùng chọn. Phần thiết kế chỉ đổi trình bày; hai yêu cầu chức năng bổ sung sau đó được chốt cùng bản này: nhận đủ hàng Markdown in đậm và bỏ yêu cầu mật khẩu tối thiểu 8 ký tự. Runner, flow tự động, callback và quyền Dừng/Tiếp tục/sửa máy giữ nguyên.
 
-**Bổ sung sau khi hoàn tất V3 theo hai ảnh mới:** Cửa sổ lần mở đầu lấy mốc vùng nội dung 1696×878 px (cả khung/title bar khoảng 1698×916 px như ảnh), căn giữa và giới hạn theo màn hình để không vượt vùng nhìn thấy. Trên màn hình 1536×864 của môi trường kiểm tra, kích thước nội dung tự giới hạn còn 1472×724 px. Bảng nay có bốn cột Máy / Amazon / Trạng thái / Thao tác; bỏ riêng cột Proxy và nhường chiều rộng cho trạng thái. Ô dán proxy ở phần nhập liệu và mọi trường proxy ở khung phải giữ nguyên. Đây là yêu cầu sau V3, thay thế quy tắc giữ năm cột của tài liệu ban đầu. Ảnh cuối ở `assets/ui_history/v3_final.png` dùng dữ liệu giả và kích thước mở mặc định thực tế trên màn hình kiểm tra.
+### Phân tích màu ảnh mẫu
 
-Nghiệm thu bản cuối: 628 unittest toàn dự án PASS. Đã kiểm tra thêm focus/hover/pressed, nút khóa, tooltip Cài đặt và hộp thoại native thông tin/lỗi với dữ liệu thử; đóng đúng hộp thoại của tiến trình kiểm tra. Kiểm tra scale 100/125/150% xác nhận cột Proxy không còn trong bảng và các ô Proxy bên phải vẫn hiện. Các callback tự động hóa không được gọi trong kiểm tra giao diện.
+Các mã lấy từ vùng phẳng đại diện của ảnh, có sai lệch nhỏ vì gradient và khử răng cưa. Mẫu không dùng một màu xanh cho mọi chức năng: xanh ngọc tạo nền thương hiệu, xanh lam chỉ hoạt động/tiếp tục, xanh lá hoàn tất, cam chờ, đỏ dừng/lỗi. Chữ chính gần đen có sắc xanh than; chữ phụ xanh xám đủ đậm để đọc.
 
-V3 thay thế phần màu và trình bày V2 bên dưới; giữ hai cột, dữ liệu và các callback chạy máy. Màu dùng `desktop_theme.py`: nền #EDF1F3, khung #FAFBFC, nhập liệu #F2F5F7, chọn #EAF4F5, header #B4DFE1 và footer #F5F7F8. Các vùng nội dung/ô nhập/nút phụ chuyển về xám lạnh; màu thương hiệu chỉ còn ở header, trạng thái, vùng chọn và chức năng cần nhận diện. Primary vàng chỉ khi khả dụng, secondary trung tính có viền, danger đỏ nhạt cho Dừng/Xóa, disabled cùng màu chữ/icon trung tính.
+| Vùng/vai trò | Màu đại diện trong ảnh | Token triển khai | Ý nghĩa |
+|---|---|---|---|
+| Nền cửa sổ | #F5F9FA | #F5F9FA | Xanh xám rất nhạt, giảm chói so với trắng toàn màn |
+| Bề mặt khung | khoảng #FEFEFE | #FEFEFE | Tách vùng nhập, danh sách và chi tiết |
+| Header | #DAEFF1 / #CFEEED | #DAEFF1, sóng #CFEEED–#B0E1E4 | Xanh ngọc nhẹ, không chiếm màu chức năng |
+| Footer | khoảng #C3E2E5–#CBEBE9 | #CFE9EB | Nền nhẹ cho ba nút lớn |
+| Hàng được chọn | #F1F6FE | #F1F6FE | Mảng xanh lam rất nhạt |
+| Viền chọn | khoảng #075CFF | #075CFF | Viền và vạch trái chỉ rõ máy đang sửa |
+| Chữ chính | Xanh than gần đen | #082D3B / #183747 | Tiêu đề / nội dung |
+| Chữ phụ | Xanh xám | #3F6074 | Profile và diễn giải phụ |
+| Tiến trình / Tiếp tục | Xanh lam bão hòa | #0055DE | Phân biệt với thao tác nhập dữ liệu màu ngọc |
+| Nút Chạy | khoảng #0455D3 | #0455D3 | Nút xanh, chữ trắng khi được phép chạy |
+| Nút Dừng cả mẻ | khoảng #DA323E | #DA323E | Nút đỏ, chữ trắng khi được phép dừng |
+| Hoàn tất / chờ / lỗi | Xanh lá / cam / đỏ | #087126 / #B45300 / #C32236 | Luôn kèm tên trạng thái và icon |
+| Ô nhập và viền | Gần trắng / xanh xám nhạt | #FFFFFF / #B9CFDD | Đủ tách khỏi khung, focus màu ngọc |
 
-Typography dùng các face cùng họ Segoe UI: thương hiệu bold, tiêu đề và tên máy Semibold 600, dữ liệu regular, nút regular, trạng thái chính Semibold 15–16, diễn giải regular 14. Bảng giữ nhãn Tk nhẹ có theo dõi DPI, các ô cùng nền toàn hàng, đường ngang 1 px; bỏ icon thừa và vạch trắng ở header. Tóm tắt Amazon còn ba dòng, quyền sửa và dữ liệu gốc không đổi. StatusCell giữ nguyên toàn bộ thông báo, hiển thị nhãn ngắn cùng mô tả rút gọn; hover xem đầy đủ, chọn hàng xem nguyên văn bên phải. Khung trạng thái không còn mảng nền màu lớn.
+Tương phản tính theo độ chói sRGB: tiêu đề/khung 14,37:1; nội dung 12,42:1; chữ phụ 6,64:1; tiến trình xanh trên hàng chọn 5,77:1; **bước đang chạy đậm 10,20:1**; hoàn tất 6,12:1; chờ 4,98:1; Dừng 5,49:1; chữ trắng trên Chạy 6,47:1 và Dừng cả mẻ 4,66:1. Placeholder 5,05:1, chữ footer 9,09:1. Viền nhập nhẹ là phân cách thị giác, không khẳng định toàn bộ giao diện đạt chuẩn tiếp cận chỉ từ phép đo chữ. Disabled giữ trung tính và giữ nguyên điều kiện khóa cũ.
 
-28 icon Lucide nét 1,75 px, thêm `list`; khoảng icon–chữ 6 px. Scrollbar màu #C1CCD2, hover #9DADB6, phần nhìn thấy 8 px trong vùng tương tác 16 px. Bề mặt phân tầng bằng sắc độ/viền; không thêm bóng giả hoặc animation. Nhãn dài đổi wrap theo chiều rộng; ở 150% bảng tự giảm wrap mà không giảm cỡ chữ. Ô mật khẩu bên phải dùng trọn chiều rộng trong khung để tránh ép nhãn. Settings vừa màn hình, nội dung cuộn được để nút Lưu không bị mất ở DPI lớn. Hộp thoại hệ điều hành giữ kiểu native.
+### Bố cục được áp dụng
 
-Placeholder điều chỉnh nhẹ từ #687983 (4,12:1) sang #62727C để đạt 4,5:1. Các cặp chữ khả dụng và trạng thái đạt 4,5:1; icon/focus đạt 3:1. Border nhập liệu màu tinh tế theo bảng màu không đạt 3:1 nếu xét riêng đường viền; cần xác minh thêm với người dùng cần độ tương phản cao. Disabled không dùng để đánh giá tương phản của chức năng khả dụng.
+- Header có logo lớp, thương hiệu, vạch phân cách, chọn số máy và Settings trắng. Sóng ngọc là Canvas vector tĩnh, chỉ vẽ lại khi đổi kích thước, không có timer trang trí.
+- Hai cột khoảng 7:4. Cột trái có khung dán dữ liệu rồi **Danh sách điện thoại**, số lượng ở badge riêng. Dán proxy và Amazon vẫn dùng đúng lệnh cũ.
+- Mỗi máy là một thẻ riêng, bo góc, cách nhau 8 px logic. Ba vùng: icon/tên Máy 01/Profile, tiến độ, Tiếp tục/Dừng cạnh nhau. Có đường dọc ngăn nhận diện máy với tiến độ. Bỏ phần tóm tắt Amazon ở danh sách theo bố cục mẫu; dữ liệu gốc vẫn ở khung phải. Không thêm lại cột Proxy. Vẫn giữ đủ 12 thẻ để cuộn; máy ngoài mẻ ghi Chưa dùng.
+- Máy chọn có nền lam nhạt, viền/vạch trái lam rõ; máy khác trắng hoặc xám nhẹ khi ngoài mẻ. Hover không thay trạng thái được chọn.
+- Cột phải có tên máy, badge Profile và tiến độ ở đầu. Proxy, dán hàng Amazon, thông tin riêng phân nhóm bằng icon và đường mảnh. Đầy đủ tên, SĐT, mật khẩu, thẻ, URL OTP, host/port/user/pass và tên Profile; cuộn xuống để sửa các trường bên dưới. OTP vẫn chỉ hiện khi có mã như trước.
+- Footer xanh ngọc nhạt; ba nút lớn Chạy xanh, Dừng đỏ, Mẻ mới trắng. Bật/khóa theo mã cũ. Dấu chấm phản ánh đang chạy hay đang nghỉ; thông báo footer gốc giữ nguyên.
 
-Kiểm tra: cửa sổ Tk độc lập với dữ liệu giả, trống/3 hàng/12 hàng, chọn/hover, sáu trạng thái, tooltip đầy đủ, Settings, cuộn tới Máy 12. Mức scale ứng dụng tương đương 100%, 125%, 150% và cửa sổ 1460×751/1375×714; không thay DPI toàn Windows hoặc đóng phiên thật. Ở 150%, bảng yêu cầu 876 px trong 877 px, khung phải tối đa 469 px trong 481 px. 627 unittest toàn dự án PASS trước tinh chỉnh cuối kiểu chữ Settings. Ảnh trước/sau cùng kích thước và dữ liệu mẫu ở `assets/ui_history/v3_before.png` và `v3_after.png`.
+### Chữ và tiến độ
 
-Mẫu đo một lần ở 125%: V2 mở cửa sổ 1,42 s/RSS 59,45 MB; V3 khoảng 1,34 s/RSS 59,20 MB; 40 lượt hover 0,81/0,92 giây CPU. Dao động này không chứng minh thay đổi hiệu năng dài hạn. Khoảng cách từ hàng 1 tới hàng 12 giảm khoảng 9% ở cùng 125%. Chưa kiểm thử công việc thật nhiều giờ hoặc chuyển cửa sổ giữa các màn hình có DPI khác nhau.
+Segoe UI trên Windows, face Semibold cho tiêu đề/tên máy/trạng thái. Tên máy 17, trạng thái 16; dữ liệu và nút 14–16 px logic. **Bước đang làm là thông tin ưu tiên:** mô tả trong danh sách 15 Semibold xanh than, bên phải 17 Semibold và giữ nguyên toàn bộ thông báo. Nhãn trạng thái dùng màu ngữ nghĩa và icon 16 px. Danh sách rút gọn thông báo dài, tooltip giữ đầy đủ; chọn máy luôn xem nguyên văn bên phải. Bỏ dòng lặp Chưa chạy nhưng không bỏ trạng thái gốc hay OTP khỏi dữ liệu.
 
-Tự đánh giá dưới đây là nhận xét chủ quan dựa trên ảnh và kiểm tra UI, không phải chứng nhận đạt mục tiêu 9/10.
+29 icon Lucide 0.468.0, nét 1,75 px; thêm `layers-2`. PNG alpha được tô bằng Pillow đã có, không thêm dependency chạy thật. Các ô nhập bên phải cao 36 px logic; ô dán hàng loạt 42; nút từng máy 38; nút footer 48. Kích thước và cỡ chữ theo scaling ứng dụng. Không dùng CSS vì đây là CustomTkinter.
 
-| Tiêu chí | Tự đánh giá | Bằng chứng và giới hạn |
-|---|---:|---|
-| Phối màu | 8,2/10 | Bề mặt trung tính, màu nhấn theo vai trò; cần phản hồi dùng lâu |
-| Dễ nhìn | 8,2/10 | Đã đo tương phản chữ; viền nhập liệu còn nhẹ |
-| Hiện đại | 8/10 | Bỏ mảng trạng thái và đường trắng dư; vẫn theo giới hạn Tk |
-| Icon | 8,3/10 | Một bộ Lucide 1,75 px, bớt icon header |
-| Phân cấp | 8,3/10 | Trạng thái hai cấp, giảm bold |
-| Font/trình bày | 8,2/10 | Segoe UI/face Semibold, scaling nhất quán |
-| Bố cục/không gian | 7,8/10 | Hàng gọn hơn; cửa sổ thấp vẫn cần cuộn |
-| Nhất quán | 8,4/10 | Tokens, bốn vai trò nút và cùng hệ chữ |
-| Cảm giác cao cấp | 7,8/10 | Bề mặt/viền tiết chế; cần người dùng xác nhận |
+### Kích thước và cuộn
 
-Các file triển khai: `desktop.py` (bố cục bên trong, trạng thái, density và kích thước mở), `desktop_theme.py` (tokens, typography, trạng thái hiển thị, thành phần Tk theo DPI), `assets/icons/` (nét Lucide 1,75 px và list), `tests/test_desktop_layout.py` (DPI, nguyên văn trạng thái, Proxy phải và kích thước mở), `tests/test_stop_reset.py` (cập nhật mock widget, giữ kiểm tra callback), cùng DESIGN/PROJECT_HANDOFF/ASSET_INDEX và Graphify. Không sửa runner, các file flow, registry, parser hoặc dữ liệu Settings/Profile.
+Mặc định mở gần kín màn hình, mốc tối đa 1840×960 px trên Full HD; màn thử 1536×864 mở phần nội dung 1504×760 px, chừa khung/title bar/thanh tác vụ. Đây là cỡ nhỏ hơn đã được người dùng chốt cùng bản hiện tại. Bản 1616×972 chỉ là cỡ cửa sổ đối chiếu bố cục, không dùng làm mặc định.
+
+Giữ nguyên `SmoothScrollableFrame` ở hai cột và Settings: cuộn pixel 16 ms khi có thao tác, đáp ứng khoảng 45 ms, giữ delta nhỏ, đảo hướng từ vị trí đang thấy và ngắt khi kéo/click scrollbar. Không có timer cuộn khi đứng yên; tôn trọng tùy chọn animation Windows. Không thay cuộn Android hoặc quy tắc tìm US.
+
+### Kiểm chứng và phạm vi
+
+639 unittest toàn dự án PASS khi nghiệm thu bản chốt bằng `.venv/Scripts/python.exe -m unittest discover -s tests -q`. Đã kiểm tra focus, hover, pressed, disabled, tooltip và bố cục Tk bằng dữ liệu giả. So AST với mốc 4667831: 55 phương thức Window giữ nguyên; ngoài phần trình bày, hai phương thức kiểm tra mật khẩu chỉ bỏ ngưỡng 8 ký tự theo yêu cầu. Parser nhận đủ ba hàng in đậm, giữ ánh xạ SĐT/mật khẩu/tên/thẻ/URL; mật khẩu ngắn được chuyển nguyên văn. Quyết định quyền chạy, Dừng/Tiếp tục/chỉnh sửa và logic lưu Settings khớp mốc. Không gọi tạo/Start/sửa Profile thật trong kiểm thử.
+
+Scale ứng dụng 100/125/150%, chọn Máy 12, thông báo dài, sáu loại trạng thái, dữ liệu trống/3/12 hàng, cuộn và Settings đã được xem thử. Ở 125% mặc định: bảng yêu cầu tối đa 897 px trong 913 px; chi tiết 499 trong 507 px. Ở 150% nhãn đổi wrap, nút cùng hàng, không tràn ngang trong bài kiểm tra. Màn thấp/DPI lớn cần cuộn, không ép đủ 12 máy. Không đổi DPI toàn Windows hoặc đóng/reset phiên tool thật.
+
+Ảnh `assets/ui_history/v3_contrast_before.png` là mốc trước đợt sửa; `v3_final.png` là cửa sổ gần kín màn hình, `v3_reference_layout.png` là đối chiếu lớn 1616×972, `v3_reference_ready.png` cho thấy nút Chạy khả dụng. Tất cả ảnh thử dùng dữ liệu giả. Gradient, bóng mềm và tile icon của mockup được chuyển thành màu phẳng/Canvas nhẹ trong Tk; không tuyên bố khớp pixel tuyệt đối. Phiên tool đang mở không tự nạp mã, dữ liệu phiên thật được giữ nguyên.
+
+### Tự rà soát chín tiêu chí
+
+Các điểm số V3 cũ không còn dùng làm kết luận sau phản hồi thực tế của người dùng.
+
+| Tiêu chí | Kết quả quan sát | Giới hạn |
+|---|---|---|
+| Phối màu | Màu nền dịu, lam/lá/cam/đỏ phân vai rõ | Đã được chốt; chưa đo sử dụng nhiều giờ |
+| Dễ nhìn | Bước hiện tại đậm, tương phản chữ đã đo | Màn thấp phải cuộn |
+| Hiện đại | Thẻ tách rời, badge và hai cột đúng mẫu | Bóng/gradient giản lược cho Tk |
+| Icon | Một bộ nét, icon nhóm đúng chức năng | Tile điện thoại đơn giản hơn ảnh |
+| Phân cấp | Tiến độ ưu tiên trước dữ liệu sửa | Thông báo dài còn cần tooltip/khung phải |
+| Font | Segoe UI/Semibold và scaling nhất quán | Chưa thử font fallback ngoài Windows |
+| Bố cục | Nút hai bên không dính, dữ liệu sửa đầy đủ | Không cố nhét mọi trường vào màn đầu |
+| Nhất quán | Tokens, màu chức năng và hệ chữ chung | Nút khóa vẫn theo trạng thái thật |
+| Cảm giác hoàn thiện | Có bản xem thử thật và ảnh đối chiếu | Đã được chốt; chưa đo vận hành nhiều giờ |
 
 ## Hướng thị giác
 

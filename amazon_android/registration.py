@@ -144,8 +144,8 @@ def fill_signup_form(phone: CloudPhone, full_name: str, phone_number: str,
         raise ToolError("Tên người dùng không hợp lệ")
     if not PHONE.fullmatch(phone_number):
         raise ToolError("Số điện thoại cần 7–16 chữ số, có thể bắt đầu bằng +")
-    if len(password) < 8 or any(ord(c) < 33 or ord(c) > 126 for c in password):
-        raise ToolError("Mật khẩu cần ít nhất 8 ký tự ASCII in được, không có khoảng trắng")
+    if not password or any(ord(c) < 33 or ord(c) > 126 for c in password):
+        raise ToolError("Mật khẩu không được trống, chỉ nhận ASCII không dấu cách")
     open_entry(phone)
     fill_identifier(phone, phone_number)
     _tap(phone, _unique_button(_nodes(phone), "Continue"))

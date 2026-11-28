@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from amazon_android.core import ToolError
-from amazon_android.settings import AppSettings, load_settings, save_settings
+from amazon_android.settings import CHANGE_US_FROM_START, AppSettings, load_settings, save_settings
 
 
 class SettingsTests(unittest.TestCase):
@@ -20,6 +20,9 @@ class SettingsTests(unittest.TestCase):
                 selected = AppSettings(2, False, "login", choice)
                 save_settings(selected, path)
                 self.assertEqual(load_settings(path), selected)
+            selected = AppSettings(2, False, CHANGE_US_FROM_START)
+            save_settings(selected, path)
+            self.assertEqual(load_settings(path), selected)
 
     def test_old_settings_file_keeps_creation_window_visible(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -41,6 +44,8 @@ class SettingsTests(unittest.TestCase):
             AppSettings(2, False, "login", ["card_only"])
         with self.assertRaises(ToolError):
             AppSettings(2, False, "create", "card_only")
+        with self.assertRaises(ToolError):
+            AppSettings(2, False, CHANGE_US_FROM_START, "card_only")
 
 
 if __name__ == "__main__":

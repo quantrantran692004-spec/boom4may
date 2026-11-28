@@ -119,6 +119,17 @@ class RegistrationState:
     marketplace_done_confirmed: bool = False
     marketplace_done_attempts: int = 0
     marketplace_done_at: float | None = None
+    early_us_menu_until: float | None = None
+    early_us_selected_sent: bool = False
+    early_us_done_sent: bool = False
+    early_us_person_tapped_at: float | None = None
+    early_us_phone_continue_sent: bool = False
+    early_us_proceed_sent: bool = False
+    early_us_name_continue_sent: bool = False
+    early_us_sms_requested_at: float | None = None
+    early_us_create_sent: bool = False
+    early_us_back_attempts: int = 0
+    early_us_passkey_sent: bool = False
     create_address_completed: set[int] = field(default_factory=set, repr=False)
     create_address_wait_until: dict[int, float] = field(default_factory=dict, repr=False)
     create_address_prefix: str | None = field(default=None, repr=False)

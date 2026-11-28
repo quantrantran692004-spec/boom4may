@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from amazon_android.core import ToolError
 from amazon_android.swarmote_desktop import (
-    ProfileCreateNotSubmitted, ProfileNotFound, ProxyConfig,
+    ProfileCreateNotSubmitted, ProfileNotFound, ProxyConfig, ProxyTestFailed,
     _activate_manager, _create_profile_form, _open_profiles, profile_status, visible_profile_names,
 )
 
@@ -94,7 +94,8 @@ class ProfilesNavigationTests(unittest.TestCase):
                 return [control("New Profile", "Button")]
             return [control("Create", "Button"), control("Single Create", "RadioButton"),
                     control("Profile Name", "Edit"), control("ip/Host", "Edit"),
-                    control("Test Passed", "Text")]
+                    control("Test Passed", "Text"), control("Country", "Text"),
+                    control("United States (US)", "Text")]
 
         def invoke(_window, name):
             calls.append(name)
@@ -123,7 +124,8 @@ class ProfilesNavigationTests(unittest.TestCase):
                 return [control("New Profile", "Button")]
             return [control("Create", "Button"), control("Single Create", "RadioButton"),
                     control("Profile Name", "Edit"), control("ip/Host", "Edit"),
-                    control(state["result"], "Text")]
+                    control(state["result"], "Text"), control("Country", "Text"),
+                    control("United States (US)", "Text")]
         def invoke(_window, name):
             calls.append(name)
             if name == "Cancel":
@@ -144,6 +146,78 @@ class ProfilesNavigationTests(unittest.TestCase):
             result = _create_profile_form("q4", ProxyConfig("socks5", "proxy.example", 1001))
         self.assertTrue(result["created"])
         self.assertEqual(calls, ["Cancel", "New Profile", "Test Proxy", "Create"])
+
+    def test_passed_proxy_outside_us_or_without_country_never_creates(self):
+        for country in ("Canada (CA)", None):
+            with self.subTest(country=country):
+                calls = []
+                window = object()
+                form_open = False
+
+                def descendants(_window):
+                    if not form_open:
+                        return [control("New Profile", "Button")]
+                    result = [control("Create", "Button"), control("Single Create", "RadioButton"),
+                              control("Profile Name", "Edit"), control("ip/Host", "Edit"),
+                              control("Test Passed", "Text")]
+                    if country is not None:
+                        result.extend([control("Country", "Text"), control(country, "Text")])
+                    return result
+
+                def invoke(_window, name):
+                    nonlocal form_open
+                    calls.append(name)
+                    if name == "New Profile":
+                        form_open = True
+
+                with patch("amazon_android.swarmote_desktop._main_window", return_value=window), \
+                     patch("amazon_android.swarmote_desktop._descendants", side_effect=descendants), \
+                     patch("amazon_android.swarmote_desktop._open_profiles"), \
+                     patch("amazon_android.swarmote_desktop._activate_manager"), \
+                     patch("amazon_android.swarmote_desktop._invoke", side_effect=invoke), \
+                     patch("amazon_android.swarmote_desktop._wait_for"), \
+                     patch("amazon_android.swarmote_desktop._select_radio"), \
+                     patch("amazon_android.swarmote_desktop._set_value"):
+                    with self.assertRaises(ProxyTestFailed):
+                        _create_profile_form("q4", ProxyConfig("socks5", "proxy.example", 1001))
+                self.assertEqual(calls, ["New Profile", "Test Proxy"])
+
+    def test_country_may_appear_after_test_passed(self):
+        calls = []
+        state = {"form": False, "tested": False, "reads": 0}
+
+        def descendants(_window):
+            if not state["form"]:
+                return [control("New Profile", "Button")]
+            result = [control("Create", "Button"), control("Single Create", "RadioButton"),
+                      control("Profile Name", "Edit"), control("ip/Host", "Edit")]
+            if state["tested"]:
+                result.append(control("Test Passed", "Text"))
+                state["reads"] += 1
+                if state["reads"] > 1:
+                    result.extend([control("Country", "Text"),
+                                   control("United States (US)", "Text")])
+            return result
+
+        def invoke(_window, name):
+            calls.append(name)
+            if name == "New Profile":
+                state["form"] = True
+            elif name == "Test Proxy":
+                state["tested"] = True
+
+        with patch("amazon_android.swarmote_desktop._main_window", return_value=object()), \
+             patch("amazon_android.swarmote_desktop._descendants", side_effect=descendants), \
+             patch("amazon_android.swarmote_desktop._open_profiles"), \
+             patch("amazon_android.swarmote_desktop._activate_manager"), \
+             patch("amazon_android.swarmote_desktop._invoke", side_effect=invoke), \
+             patch("amazon_android.swarmote_desktop._wait_for"), \
+             patch("amazon_android.swarmote_desktop._select_radio"), \
+             patch("amazon_android.swarmote_desktop._set_value"):
+            result = _create_profile_form("q4", ProxyConfig("socks5", "proxy.example", 1001))
+        self.assertTrue(result["created"])
+        self.assertEqual(calls, ["New Profile", "Test Proxy", "Create"])
+        self.assertGreaterEqual(state["reads"], 2)
 
     def test_new_profile_noop_stops_before_typing_in_search(self):
         window = object()

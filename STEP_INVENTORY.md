@@ -21,6 +21,8 @@ Xem [Q7_STATE_MACHINE_PILOT.md](Q7_STATE_MACHINE_PILOT.md).
 
 ## B1–B3 hiện hành — Ba lượt ngẫu nhiên q1–q12
 
+**Luồng Settings “Đổi US từ đầu”, 28/11/2026:** Máy vẫn đi từ tạo Profile qua P01–P08 tới Amazon. Sau đó chạy b1 mở/xác nhận menu ba gạch và chờ đủ 4 giây; b2 bấm tab hình người; b3 tìm/bấm EN; b4 bấm Country/Region; b5 cuộn tìm United States; b6 chọn và xác nhận United States; b7 bấm Done rồi bấm ngay tab hình người khi thấy. B2/b7 chỉ bấm khi có nhãn tab hoặc biểu tượng đúng ảnh ở thanh dưới, không đoán tọa độ. Các bước chỉ tìm mục tiêu của chính bước, không chốt loại màn đầu vào hoặc tự nhảy bước. Dấu chờ b1, chọn US và Done giữ riêng từng máy qua Dừng/Tiếp tục; thiếu mục tiêu/lỗi đọc sau giới hạn thì dừng máy ở đúng bước. Sau b7, b8 chờ đủ 6 giây rồi bấm Create account dưới Sign in; b9 chạm ô và nhập SĐT đúng hàng; b10 bấm Continue dưới SĐT US +1; b11 bấm Proceed to create an account; b12 chạm ô First and last name; b13 nhập đúng tên rồi Continue; b14 chạm ô, lấy OTP từ URL cùng hàng và nhập mã; b15 xác nhận mã trong ô rồi bấm Create your Amazon account; b16 Back khi thấy hộp Google che màn, đọc lại và tự Back lần hai nếu hộp vẫn còn (kể cả bản tiếng Anh), tối đa hai lần rồi xác nhận hộp đã ẩn; b17 bấm Create a passkey trên màn Account created. Chỉ cần proxy để bắt đầu, nhưng b9 phải có hàng Amazon của máy đó; thiếu thì PAUSED để bổ sung rồi Tiếp tục. Dấu Continue/Create/Back giữ riêng máy để không gửi lặp. Dừng sau b17, chưa suy diễn b18. Các quy tắc b1–b3 ngẫu nhiên bên dưới chỉ thuộc luồng Tạo/Đăng nhập hiện hành. Mã và test mô phỏng chưa chứng minh phiên tool đang mở đã nạp mã hoặc máy thật đã chạy.
+
 **Nhịp cuộn hiện hành, sửa 26/11/2026:** B1/b2 chờ đủ 2 giây sau cú bấm rồi vuốt vừa từ dưới lên một lượt; b3 không vuốt, kể cả khi phải thử lại cú bấm lỗi. Cả ba bước của 12 máy đều xem 3–5 giây. Dừng/Tiếp tục giữ mốc chờ và dấu đã vuốt của b1/b2, không bấm hoặc cuộn lại. B13–b15 giữ quy tắc cuộn riêng của chúng. Đây là mã/test mô phỏng, chưa kiểm trên máy thật hoặc phiên tool đang mở.
 
 **Nhịp vuốt 27/11/2026:** Giữ nguyên điểm đầu/cuối và một cú lướt liên tục của mã cũ; tăng thời gian cuộn xem b1/b2 từ 450 lên 700 ms và cú cuộn tìm hàng dự phòng từ 280 lên 700 ms. B3 vẫn không cuộn trong factory hiện hành. Bản q7 pilot cũ cũng chỉ đổi thời gian cú vuốt dự phòng; không nối pilot vào factory.
@@ -32,6 +34,10 @@ Tài liệu này là bản đồ từng mốc để phiên sau không coi ảnh 
 ## P01 — Dán và gán hàng dữ liệu
 
 Dán 1–12 hàng `SĐT | Mật khẩu | Tên | Thẻ | URL OTP`. Cột trống, hàng gạch Markdown, thẻ có `\|` và link URL Markdown được nhận. Hàng n gắn Máy n, không tráo SĐT/URL. Thẻ và mật khẩu chỉ gắn dữ liệu, chưa dùng trong b1–b22. **Đã nối mã, đã test mô phỏng.**
+
+**Sửa 27/11/2026:** Ô Markdown in đậm `**...**`/`__...__` được bỏ lớp định dạng trước khi kiểm tra, giữ đủ hàng đầu có dữ liệu nằm trên hàng gạch phân cách. Tab/CSV không bỏ dấu sao trong mật khẩu. Test bảng giả ba hàng và đường phân bổ UI xác nhận Máy 1–3 đúng SĐT/mật khẩu/tên/thẻ/URL và số máy bằng 3; chưa nạp vào phiên tool đang mở.
+
+**Mật khẩu, 27/11/2026:** Bỏ yêu cầu tối thiểu 8 ký tự theo người dùng ở parser, kiểm tra mẻ, dữ liệu từng máy và form đăng ký. Mật khẩu ngắn được chuyển nguyên văn; vẫn không nhận rỗng hoặc ký tự ngoài ASCII không khoảng trắng. 81 test liên quan PASS bằng dữ liệu giả/mock, chưa nạp vào phiên tool đang mở.
 
 **Cập nhật 17/11:** Hai ô dán nhanh Proxy/Thông tin Amazon tự nhận loại hàng từ clipboard, nên dán vào ô nào cũng phân bổ Proxy và hàng Amazon hợp lệ vào đúng nhóm. Dòng ghi chú, cột thừa, thẻ sai dạng và URL không hợp lệ ở cột thừa được bỏ; chỉ hàng Amazon có đủ SĐT, mật khẩu, tên và một URL OTP hợp lệ mới được giữ. URL trùng giữa các hàng chỉ nhận lần đầu; nếu một hàng chứa nhiều URL OTP hợp lệ khác nhau thì bỏ hàng đó để không gán nhầm máy. Dữ liệu được gán theo thứ tự các hàng hợp lệ, tối đa 12 máy và 100 proxy; phần proxy vượt 12 máy vẫn là dự phòng. Chưa thử thao tác dán trên cửa sổ đang chạy.
 
@@ -59,7 +65,7 @@ Chọn Single Create và Custom; điền tên Profile, host, port, tài khoản 
 
 ## P05 — Test Proxy rồi Create
 
-Bấm Test Proxy; chỉ khi hiện Test Passed mới bấm Create. Nếu form còn kết quả Test Proxy của lần trước, đóng bằng Cancel rồi mở form mới trước khi điền/thử proxy tiếp theo. Test Failed mới vẫn dừng trước Create. Sau Create, xác nhận đúng tên Profile và Device ID; nếu kết quả không chắc chắn, dừng để tránh tạo trùng. **Đã nối mã và test mô phỏng; chưa gửi Create trong phép thử gần nhất.**
+Bấm Test Proxy; chỉ khi hiện Test Passed **và** Country của kết quả là United States (US) mới bấm Create. Country khác US hoặc không đọc được Country được coi là proxy không đạt, giữ Create chưa gửi và dùng đường proxy dự phòng hiện có. Nếu form còn kết quả Test Proxy của lần trước, đóng bằng Cancel rồi mở form mới trước khi điền/thử proxy tiếp theo. Test Failed mới vẫn dừng trước Create. Sau Create, xác nhận đúng tên Profile và Device ID; nếu kết quả không chắc chắn, dừng để tránh tạo trùng. **Đã nối mã và test mô phỏng; chưa gửi Create trên Swarmote thật sau sửa 28/11/2026.**
 
 ## P06 — Start điện thoại và chờ slot
 

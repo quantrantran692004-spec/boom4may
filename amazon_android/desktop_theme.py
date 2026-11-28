@@ -10,46 +10,70 @@ import tkinter as tk
 import customtkinter as ctk
 from PIL import Image
 
-BG = "#EDF1F3"
-HEADER = "#B4DFE1"
-HEADER_BORDER = "#B0D2D5"
+BG = "#F5F9FA"
+HEADER = "#DAEFF1"
+HEADER_BORDER = "#BBDCE0"
+HEADER_WAVES = ("#CFEEED", "#BFE7E9", "#B0E1E4")
+LOGO_BG = "#087C86"
 HEADER_CONTROL = "#E8F3F4"
 HEADER_TEXT = "#344950"
 SETTINGS_ICON = "#42636A"
-FOOTER = "#F5F7F8"
-SURFACE = "#FAFBFC"
-INPUT = "#F2F5F7"
+FOOTER = "#CFE9EB"
+FOOTER_BORDER = "#B8DDE1"
+FOOTER_TEXT = "#153D50"
+FOOTER_ERROR = "#AF3042"
+FOOTER_DISABLED_BG = "#DFEAF0"
+FOOTER_DISABLED_TEXT = "#6C8091"
+FOOTER_DISABLED_BORDER = "#B8CEDA"
+BATCH_STOP_BG = "#DA323E"
+BATCH_STOP_HOVER = "#BD2136"
+SURFACE = "#FEFEFE"
+INPUT = "#FFFFFF"
 WHITE = "#FFFFFF"
-INK = "#1C2833"
-BODY = "#34434D"
-MUTED = "#596873"
-PLACEHOLDER = "#62727C"  # supplied #687983 is only 4.12:1 on INPUT
+INK = "#082D3B"
+BODY = "#183747"
+MUTED = "#3F6074"
+PLACEHOLDER = "#5E7182"
 BLUE = "#006F7B"
 BLUE_HOVER = "#005C67"
-PALE = "#EAF4F5"
-BORDER = "#DCE3E8"
-FIELD_BORDER = "#CAD5DC"
+PALE = "#F1F6FE"
+BORDER = "#D6E5EB"
+FIELD_BORDER = "#B9CFDD"
 FOCUS = "#006F7B"
-SECONDARY = "#FAFBFC"
-SECONDARY_HOVER = "#EDF5F5"
-SECONDARY_BORDER = "#CAD8DC"
-GREEN = "#267451"
-RED = "#AC4149"
-ROW_ALT = "#F5F7F8"
-ROW_HOVER = "#F0F6F7"
-TABLE_HEADER = "#F0F3F5"
-TABLE_HEADER_TEXT = "#596873"
-DISABLED_BG = "#E8EDF0"
-DISABLED_TEXT = "#71808A"
-CONTINUE_BG = "#F3D36C"
-CONTINUE_HOVER = "#EAC65A"
-PRIMARY_PRESSED = "#DEB94E"
-STOP_BG = "#FDF1F2"
-STOP_HOVER = "#F8E2E5"
-STOP_BORDER = "#EACFD2"
+SECONDARY = "#FFFFFF"
+SECONDARY_HOVER = "#EAF1F6"
+SECONDARY_BORDER = "#9FB6C7"
+UTILITY_TEXT = "#294F61"
+IMPORT_BG = "#FFFFFF"
+IMPORT_HOVER = "#E9F5F6"
+IMPORT_TEXT = "#07556B"
+IMPORT_BORDER = "#B2D0DB"
+PROCESSING = "#0055DE"
+PROGRESS_TEXT = "#1C3D63"
+CONTINUE_FACE = "#F8FAFF"
+CONTINUE_BORDER = "#8BAFFF"
+CONTINUE_TEXT = "#0055DE"
+CONTINUE_FACE_HOVER = "#E8EFFF"
+GREEN = "#087126"
+RED = "#C32236"
+ROW_ALT = "#FFFFFF"
+ROW_HOVER = "#F0F5FC"
+ROW_BORDER = "#C7DDE6"
+ROW_SELECTED_BORDER = "#075CFF"
+ROW_INACTIVE = "#F3F6F9"
+TABLE_HEADER = "#F8FAFC"
+TABLE_HEADER_TEXT = "#475F73"
+DISABLED_BG = "#EAF0F5"
+DISABLED_TEXT = "#718296"
+CONTINUE_BG = "#0455D3"
+CONTINUE_HOVER = "#0449B7"
+PRIMARY_PRESSED = "#033C97"
+STOP_BG = "#FFF6F7"
+STOP_HOVER = "#FCE7EB"
+STOP_BORDER = "#D98B98"
 SCROLLBAR = "#C1CCD2"
 SCROLLBAR_HOVER = "#9DADB6"
-ICON_DEFAULT = "#657680"
+ICON_DEFAULT = "#355667"
 FONT_FAMILY = "Segoe UI"
 FONT_SEMIBOLD = "Segoe UI Semibold"  # same Windows family, native 600 face
 
@@ -60,9 +84,9 @@ ICON_TABLE = 14
 ICON_GAP = 6
 
 STATES = {
-    "success": (GREEN, "#E8F3EC", "circle-check"),
-    "processing": (BLUE, PALE, "loader-circle"),
-    "waiting": ("#88651D", "#F8F2E4", "clock"),
+    "success": (GREEN, "#EAF6EF", "circle-check"),
+    "processing": (PROCESSING, PALE, "loader-circle"),
+    "waiting": ("#B45300", "#FFF4DF", "clock"),
     "error": (RED, STOP_BG, "circle-alert"),
     "stopped": (RED, STOP_BG, "square"),
     "inactive": (MUTED, DISABLED_BG, "clock"),
@@ -143,9 +167,11 @@ class Button(ctk.CTkButton):
         self._skin_ready = False
         super().__init__(master, **kwargs)
         self._font.configure(weight="normal")
+        if role in {"import", "run", "batch-stop"}:
+            self._font.configure(family=FONT_SEMIBOLD, size=15)
         self._skin_ready = True
         self._skin()
-        if role == "primary":
+        if role in {"primary", "run"}:
             self.bind("<ButtonPress-1>", self._press, add="+")
             self.bind("<ButtonRelease-1>", lambda _: self._skin(), add="+")
         if accessible_name:
@@ -176,16 +202,27 @@ class Button(ctk.CTkButton):
         self._skin_key = key
         if disabled:
             face, hover, text, border = DISABLED_BG, DISABLED_BG, DISABLED_TEXT, BORDER
-        elif self.skin_role == "primary":
-            face, hover, text, border = CONTINUE_BG, CONTINUE_HOVER, INK, CONTINUE_BG
+            if self.skin_role in {"run", "batch-stop", "footer-secondary"}:
+                face, hover, text, border = (FOOTER_DISABLED_BG, FOOTER_DISABLED_BG,
+                                             FOOTER_DISABLED_TEXT, FOOTER_DISABLED_BORDER)
+        elif self.skin_role in {"primary", "run"}:
+            face, hover, text, border = CONTINUE_BG, CONTINUE_HOVER, WHITE, CONTINUE_BG
+        elif self.skin_role == "batch-stop":
+            face, hover, text, border = BATCH_STOP_BG, BATCH_STOP_HOVER, WHITE, BATCH_STOP_BG
+        elif self.skin_role == "footer-secondary":
+            face, hover, text, border = SURFACE, SECONDARY_HOVER, INK, BORDER
         elif self.skin_role in {"stop", "danger"}:
             face, hover, text, border = STOP_BG, STOP_HOVER, RED, STOP_BORDER
         elif self.skin_role == "settings":
-            face, hover, text, border = HEADER_CONTROL, SECONDARY_HOVER, SETTINGS_ICON, HEADER_BORDER
+            face, hover, text, border = SURFACE, SECONDARY_HOVER, SETTINGS_ICON, HEADER_BORDER
+        elif self.skin_role == "import":
+            face, hover, text, border = IMPORT_BG, IMPORT_HOVER, IMPORT_TEXT, IMPORT_BORDER
+        elif self.skin_role == "continue":
+            face, hover, text, border = CONTINUE_FACE, CONTINUE_FACE_HOVER, CONTINUE_TEXT, CONTINUE_BORDER
         else:
-            face, hover, text, border = SECONDARY, SECONDARY_HOVER, BLUE, SECONDARY_BORDER
+            face, hover, text, border = SECONDARY, SECONDARY_HOVER, UTILITY_TEXT, SECONDARY_BORDER
         options = dict(fg_color=face, hover_color=hover, text_color=text,
-                       text_color_disabled=DISABLED_TEXT, border_color=border)
+                       text_color_disabled=text if disabled else DISABLED_TEXT, border_color=border)
         if self.icon_name:
             options.update(image=icon(self.icon_name, text), compound="left",
                            border_spacing=ICON_GAP)
@@ -210,8 +247,8 @@ class Entry(ctk.CTkEntry):
 class FooterNote(ctk.CTkLabel):
     """Routine progress stays quiet; errors retain their meaningful color."""
     def configure(self, require_redraw=False, **kwargs):
-        if "text_color" in kwargs and kwargs["text_color"] != RED:
-            kwargs["text_color"] = MUTED
+        if "text_color" in kwargs:
+            kwargs["text_color"] = FOOTER_ERROR if kwargs["text_color"] == RED else FOOTER_TEXT
         super().configure(require_redraw=require_redraw, **kwargs)
 
 
@@ -240,9 +277,104 @@ class TableText(tk.Label):
             self._wrap = width
             self.configure(wraplength=round(width * ctk.ScalingTracker.get_widget_scaling(self)))
 
+    def set_font(self, size, weight="normal"):
+        self._cell_font = ui_font(size, weight)
+        self.configure(font=self._cell_font.create_scaled_tuple(
+            ctk.ScalingTracker.get_widget_scaling(self)))
+
     def _dispose(self, event):
         if event.widget is self:
             ctk.ScalingTracker.remove_widget(self._scale, self)
+
+
+class HeaderWave(ctk.CTkFrame):
+    """Static, resize-only vector decoration behind the header controls."""
+    def __init__(self, master, **kwargs):
+        super().__init__(master, fg_color=HEADER, corner_radius=0, **kwargs)
+        self.wave = tk.Canvas(self, bg=HEADER, highlightthickness=0, borderwidth=0)
+        self.wave.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._wave_shapes = [self.wave.create_polygon(0, 0, 0, 0, fill=color,
+                             outline="", smooth=True, splinesteps=24)
+                             for color in HEADER_WAVES]
+        self.wave.bind("<Configure>", self._draw_wave)
+
+    def _draw_wave(self, event):
+        width, height = event.width, event.height
+        for shape, start in zip(self._wave_shapes, (0.64, 0.77, 0.88)):
+            self.wave.coords(shape,
+                width * start, height, width * (start + .06), height * .7,
+                width * (start + .10), 0, width, 0,
+                width * 1.1, height * .5, width, height)
+
+
+class MachineCell(tk.Frame):
+    """Phone identity and Profile caption, with native labels that follow DPI."""
+    def __init__(self, master, **kwargs):
+        background = kwargs.get("bg", SURFACE)
+        super().__init__(master, bg=background, borderwidth=0)
+        self.full_text = ""
+        self._identity_width = 155
+        self.pack_propagate(False)
+        self.phone = tk.Label(self, bg=WHITE, borderwidth=0,
+                              highlightthickness=1, highlightbackground=BORDER)
+        self.phone.pack(side="left")
+        self.divider = tk.Frame(self, bg=BORDER, width=1)
+        self.divider.pack(side="right", fill="y", pady=6)
+        self.copy = tk.Frame(self, bg=background, borderwidth=0)
+        self.copy.pack(side="left", fill="x", expand=True)
+        self.primary = TableText(self.copy, text="", bg=background, fg=INK,
+                                 font=ui_font(17, "semibold"), wraplength=88,
+                                 anchor="w", justify="left", padx=0, pady=0)
+        self.caption = TableText(self.copy, text="", bg=background, fg=MUTED,
+                                 font=ui_font(14), wraplength=88,
+                                 anchor="w", justify="left", padx=0, pady=1)
+        self.primary.pack(fill="x")
+        self.caption.pack(fill="x")
+        self._update_icon(ctk.ScalingTracker.get_widget_scaling(self), 1)
+        ctk.ScalingTracker.add_widget(self._update_icon, self)
+        self.bind("<Destroy>", self._dispose_icon, add="+")
+
+    def configure(self, cnf=None, **kwargs):
+        if not hasattr(self, "primary"):
+            return super().configure(cnf, **kwargs)
+        if "text" in kwargs:
+            self.full_text = kwargs.pop("text")
+            title, _, profile = self.full_text.partition("\n")
+            self.primary.configure(text=title)
+            self.caption.configure(text=f"Profile · {profile}" if profile else "Chưa dùng")
+        if "fg" in kwargs:
+            self.primary.configure(fg=kwargs.pop("fg"))
+        if "bg" in kwargs:
+            for child in (self.copy, self.primary, self.caption):
+                child.configure(bg=kwargs["bg"])
+        return super().configure(cnf, **kwargs)
+
+    def cget(self, key):
+        return self.full_text if key == "text" else super().cget(key)
+
+    def set_wrap(self, width):
+        self._identity_width = width
+        self.configure(width=round(width * ctk.ScalingTracker.get_widget_scaling(self)))
+        for label in (self.primary, self.caption):
+            label.set_wrap(max(70, width - 56))
+
+    def _update_icon(self, scale, _window_scale):
+        self.configure(width=round(self._identity_width * scale), height=round(50 * scale))
+        self._phone_image = icon("smartphone", INK, 24)
+        self.phone.configure(image=self._phone_image.create_scaled_photo_image(scale, "light"),
+                             width=round(38 * scale), height=round(46 * scale))
+        self.phone.pack_configure(padx=(0, round(12 * scale)))
+
+    def _dispose_icon(self, event):
+        if event.widget is self:
+            ctk.ScalingTracker.remove_widget(self._update_icon, self)
+
+    def bind(self, sequence=None, func=None, add=None):
+        result = super().bind(sequence, func, add)
+        if hasattr(self, "primary"):
+            for child in (self.phone, self.divider, self.copy, self.primary, self.caption):
+                child.bind(sequence, func, add)
+        return result
 
 
 class StatusCell(tk.Frame):
@@ -251,14 +383,23 @@ class StatusCell(tk.Frame):
         background = kwargs.get("bg", SURFACE)
         super().__init__(master, bg=background, borderwidth=0)
         self.full_text = ""
-        self.primary = TableText(self, text="", bg=background, fg=BODY,
-                                 font=ui_font(15, "semibold"), wraplength=150, anchor="w",
+        self._description_indent = 22
+        self._state_symbol, self._state_color = "clock", MUTED
+        self.heading = tk.Frame(self, bg=background, borderwidth=0)
+        self.state_icon = tk.Label(self.heading, bg=background, borderwidth=0, padx=0, pady=0)
+        self.state_icon.pack(side="left", padx=(6, 0))
+        self.primary = TableText(self.heading, text="", bg=background, fg=BODY,
+                                 font=ui_font(16, "semibold"), wraplength=150, anchor="w",
                                  justify="left", padx=6, pady=2)
         self.description = TableText(self, text="", bg=background, fg=MUTED,
                                      font=ui_font(14), wraplength=150, anchor="w",
                                      justify="left", padx=6, pady=1)
-        self.primary.pack(fill="x")
-        self.description.pack(fill="x")
+        self.primary.pack(side="left", fill="x", expand=True)
+        self.heading.pack(fill="x")
+        self.description.pack(fill="x", padx=(22, 0))
+        self._update_icon(ctk.ScalingTracker.get_widget_scaling(self), 1)
+        ctk.ScalingTracker.add_widget(self._update_icon, self)
+        self.bind("<Destroy>", self._dispose_icon, add="+")
         self._tooltip = Tooltip(self, lambda: self.full_text)
 
     def configure(self, cnf=None, **kwargs):
@@ -267,6 +408,7 @@ class StatusCell(tk.Frame):
         text = kwargs.pop("text", None)
         title = kwargs.pop("title", None)
         color = kwargs.pop("fg", None)
+        symbol = kwargs.pop("symbol", None)
         if text is not None:
             self.full_text = text
             message, _, otp = text.partition("\nOTP: ")
@@ -279,14 +421,27 @@ class StatusCell(tk.Frame):
                 compact = f"{compact}\nOTP: {otp}".strip()
             self.description.configure(text=compact)
             if compact:
-                self.description.pack(fill="x")
+                self.description.pack(fill="x", padx=(self._description_indent, 0))
             else:
                 self.description.pack_forget()
         if title is not None:
             self.primary.configure(text=title)
         if color is not None:
             self.primary.configure(fg=color)
+            processing = color == PROCESSING
+            if getattr(self, "_description_processing", None) != processing:
+                self._description_processing = processing
+                self.description.set_font(15 if processing else 14,
+                                          "semibold" if processing else "normal")
+                self.description.configure(fg=PROGRESS_TEXT if processing else MUTED)
+        if color is not None or symbol is not None:
+            changed = (color or self._state_color, symbol or self._state_symbol)
+            if changed != (self._state_color, self._state_symbol):
+                self._state_color, self._state_symbol = changed
+                self._update_icon(ctk.ScalingTracker.get_widget_scaling(self), 1)
         if "bg" in kwargs:
+            self.heading.configure(bg=kwargs["bg"])
+            self.state_icon.configure(bg=kwargs["bg"])
             self.primary.configure(bg=kwargs["bg"])
             self.description.configure(bg=kwargs["bg"])
         return super().configure(cnf, **kwargs)
@@ -295,13 +450,25 @@ class StatusCell(tk.Frame):
         return self.full_text if key == "text" else super().cget(key)
 
     def set_wrap(self, width):
-        self.primary.set_wrap(width)
-        self.description.set_wrap(width)
+        self.primary.set_wrap(max(100, width - 24))
+        self.description.set_wrap(max(100, width - 24))
+
+    def _update_icon(self, scale, _window_scale):
+        self._icon_image = icon(self._state_symbol, self._state_color, ICON_STATUS)
+        self.state_icon.configure(image=self._icon_image.create_scaled_photo_image(scale, "light"))
+        self.state_icon.pack_configure(padx=(round(6 * scale), 0))
+        self._description_indent = round(22 * scale)
+        if self.description.winfo_manager():
+            self.description.pack_configure(padx=(self._description_indent, 0))
+
+    def _dispose_icon(self, event):
+        if event.widget is self:
+            ctk.ScalingTracker.remove_widget(self._update_icon, self)
 
     def bind(self, sequence=None, func=None, add=None):
         result = super().bind(sequence, func, add)
         if hasattr(self, "primary"):
-            for child in (self.primary, self.description):
+            for child in (self.heading, self.state_icon, self.primary, self.description):
                 child.bind(sequence, func, add)
         return result
 

@@ -26,7 +26,8 @@ from .cloud import CloudPhone
 from .profile_registry import ProfileRegistry
 from .registration import PHONE
 from .runner import AccountData, RunJob, run_batch, retry_preparation
-from .settings import AppSettings, load_settings, save_settings
+from .settings import CHANGE_US_FROM_START, AppSettings, load_settings, save_settings
+from .change_us_flow import build_change_us_steps
 from .swarmote_desktop import (
     ProxyConfig, open_adb_shell, profile_status,
 )
@@ -39,9 +40,12 @@ from .desktop_theme import (
     DISABLED_BG, DISABLED_TEXT, CONTINUE_BG, CONTINUE_HOVER, STOP_BG, STOP_HOVER,
     SCROLLBAR, SCROLLBAR_HOVER, ICON_SECTION, ICON_TABLE, ICON_STATUS,
     LABEL_ICONS, Button, Entry, icon, state_style, status_title, ui_font,
-    HEADER_BORDER, HEADER_CONTROL, HEADER_TEXT, ICON_DEFAULT,
-    TableText, StatusCell, FooterNote,
+    HEADER_BORDER, HEADER_CONTROL, HEADER_TEXT, HEADER_WAVES, ICON_DEFAULT,
+    TableText, StatusCell, MachineCell, HeaderWave, FooterNote,
     startup_geometry,
+    ROW_BORDER, ROW_SELECTED_BORDER, ROW_INACTIVE,
+    PROCESSING, PROGRESS_TEXT,
+    FOOTER_BORDER, FOOTER_TEXT, LOGO_BG, UTILITY_TEXT,
 )
 
 BULK = (
@@ -208,7 +212,7 @@ class Window:
         if text != "Swarmote" and size < 18:
             weight = "normal"
         if text != "Swarmote" and (size >= 18 or text.startswith(
-                ("Dán hàng Amazon", "Thông tin Amazon riêng"))):
+                ("Dán hàng Amazon", "Thông tin Amazon riêng", "Dán 1–12 proxy"))):
             weight = "semibold"
         return ctk.CTkLabel(
             parent, text=text, text_color=color,
@@ -229,21 +233,25 @@ class Window:
             previous.update(changed)
 
     def _build(self) -> None:
-        header = ctk.CTkFrame(self.root, fg_color=HEADER, corner_radius=0,
-                              height=58, border_width=0)
+        header = HeaderWave(self.root, height=64, border_width=0)
         header.pack(fill="x")
         header.pack_propagate(False)
         tk.Frame(header, bg=HEADER_BORDER, height=1).place(
             relx=0, rely=1, relwidth=1, anchor="sw")
-        self._label(header, "Swarmote", 20,
-                    color=INK, weight="bold").pack(side="left", padx=(18, 24))
+        self._label(header, "", 20, image=icon("layers-2", WHITE, 24),
+                    fg_color=LOGO_BG, corner_radius=8, width=40, height=40).pack(
+                        side="left", padx=(18, 0))
+        self._label(header, "Swarmote", 22,
+                    color=INK, weight="bold").pack(side="left", padx=(12, 26))
+        ctk.CTkFrame(header, width=1, height=26, fg_color=HEADER_BORDER).pack(
+            side="left", padx=(0, 26))
         self._label(header, "Số máy", 14,
                     color=INK, weight="bold").pack(side="left")
         self.count_menu = ctk.CTkOptionMenu(
             header, values=[str(i) for i in range(1, MAX_PROFILES + 1)],
             variable=self.count, command=lambda _: self._refresh_devices(),
             width=70, height=34, corner_radius=8,
-            fg_color=HEADER_CONTROL, button_color=HEADER_CONTROL,
+            fg_color=SURFACE, button_color=SURFACE,
             button_hover_color=SECONDARY_HOVER, text_color=HEADER_TEXT,
             dropdown_fg_color=SURFACE, dropdown_text_color=BODY,
             text_color_disabled=DISABLED_TEXT,
@@ -253,6 +261,7 @@ class Window:
         self.settings_button = Button(
             header, text="", width=40, height=38,
             icon_name="settings", role="settings", accessible_name="Cài đặt",
+            bg_color=HEADER_WAVES[-1],
             corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             border_width=1, border_color=BORDER, text_color=INK,
             font=ctk.CTkFont("Segoe UI Symbol", 20),
@@ -289,25 +298,25 @@ class Window:
         self.detail_panel._parent_canvas.bind("<Configure>", self._fit_detail_text, add="+")
 
     def _build_main(self) -> None:
-        bulk_card = ctk.CTkFrame(self.main, fg_color=SURFACE, corner_radius=10,
+        bulk_card = ctk.CTkFrame(self.main, fg_color=SURFACE, corner_radius=14,
                                  border_width=1, border_color=BORDER)
         self.bulk_card = bulk_card
         bulk_card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         bulk_card.grid_columnconfigure(1, weight=1)
-        self._label(bulk_card, "Dán dữ liệu", 18,
+        self._label(bulk_card, "Dán dữ liệu", 20,
                     color=INK, weight="bold").grid(
                         row=0, column=0, columnspan=2, sticky="w",
-                        padx=16, pady=(10, 2))
+                        padx=20, pady=(14, 6))
         for index, (kind, title, placeholder, hint) in enumerate(BULK):
             self._bulk_row(bulk_card, kind, title, placeholder, hint,
                            index + 1)
         self.validation_label = self._label(bulk_card, "Cần dán proxy để chạy", 15)
         self.validation_label.grid(row=3, column=0, columnspan=4,
-                                   sticky="w", padx=16, pady=(2, 8))
+                                   sticky="w", padx=20, pady=(4, 12))
 
         self._build_preview_table()
 
-        detail_card = ctk.CTkFrame(self.detail_panel, fg_color=SURFACE, corner_radius=10,
+        detail_card = ctk.CTkFrame(self.detail_panel, fg_color=SURFACE, corner_radius=14,
                                    border_width=1, border_color=BORDER)
         detail_card.grid(row=0, column=0, sticky="ew", pady=(2, 0))
         detail_card.grid_columnconfigure((0, 1), weight=1, uniform="detail")
@@ -315,11 +324,17 @@ class Window:
         title_row.grid(row=0, column=0, columnspan=2, sticky="ew",
                        padx=22, pady=(20, 6))
         self.detail_title = self._label(title_row, "Máy 1", 20,
-                                        color=INK, weight="bold")
+                                        color=INK, weight="bold",
+                                        image=icon("smartphone", UTILITY_TEXT, 22, gap=8),
+                                        compound="left")
         self.detail_title.pack(side="left")
+        self.detail_profile_label = self._label(title_row, "q1", 14,
+            color=BLUE, weight="semibold", fg_color=HEADER_CONTROL, corner_radius=6,
+            width=44, height=28)
+        self.detail_profile_label.pack(side="right")
         self.progress_row = progress_row = ctk.CTkFrame(detail_card, fg_color="transparent", corner_radius=0)
         progress_row.grid(row=1, column=0, columnspan=2, sticky="ew",
-                          padx=20, pady=(0, 16))
+                          padx=20, pady=(0, 12))
         self.status_marker = self._label(progress_row, "", 18, color=BLUE,
                                           image=icon("clock", MUTED, ICON_STATUS))
         self.status_marker.pack(side="left", anchor="n", padx=(0, 8), pady=(4, 0))
@@ -334,21 +349,27 @@ class Window:
             progress_text, "", 14, color=MUTED,
             wraplength=305, justify="left", anchor="w")
         self.detail_description.pack(fill="x", pady=(2, 0))
+        self._progress_detail_font = ui_font(17, "semibold")
+        self._secondary_detail_font = ui_font(15)
 
-        self.account_detail_heading = self._label(
-            detail_card, "Thông tin Amazon riêng · Máy 1", 17,
-            color=INK, weight="bold")
-        self.account_detail_heading.grid(
-            row=9, column=0, columnspan=2, sticky="w", padx=20, pady=(8, 8))
+        def section_heading(text, row, symbol, size=16):
+            section = ctk.CTkFrame(detail_card, fg_color="transparent")
+            section.grid(row=row, column=0, columnspan=2, sticky="ew", padx=20)
+            ctk.CTkFrame(section, fg_color=BORDER, height=1, corner_radius=0).pack(
+                fill="x", pady=(0, 8))
+            label = self._label(section, text, size, color=INK,
+                image=icon(symbol, UTILITY_TEXT, ICON_STATUS, gap=8), compound="left")
+            label.configure(font=ui_font(size, "semibold"))
+            label.pack(fill="x", pady=(0, 2))
+            return label
 
-        self.proxy_paste_heading = self._label(
-            detail_card, "Dán 1–12 proxy để tự điền", 16,
-            color=INK, weight="bold")
-        self.proxy_paste_heading.grid(
-            row=3, column=0, columnspan=2, sticky="w", padx=20)
+        self.account_detail_heading = section_heading(
+            "Thông tin Amazon riêng · Máy 1", 9, "user-round", 17)
+        self.proxy_paste_heading = section_heading(
+            "Dán 1–12 proxy để tự điền", 3, "globe")
         self.proxy_line = Entry(
             detail_card, placeholder_text="host:port:user:password",
-            height=44, corner_radius=8, border_color=FIELD_BORDER,
+            height=36, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=PLACEHOLDER,
             font=ctk.CTkFont("Segoe UI", 17),
         )
@@ -362,7 +383,7 @@ class Window:
             "Nhiều proxy cách nhau bằng dấu cách hoặc xuống dòng: tự chia Máy 1–12.",
             14, wraplength=305, justify="left")
         self.proxy_paste_hint.grid(row=5, column=0, columnspan=2, sticky="w",
-                                   padx=20, pady=(0, 12))
+                                   padx=20, pady=(0, 10))
 
         fields = [
             ("Tên Amazon", "full_name", 10, 0, False),
@@ -382,11 +403,11 @@ class Window:
                        columnspan=2 if key in {"amazon_password", "card", "otp_url", "profile_name"} else 1, sticky="ew",
                        padx=(20, 20) if key in {"amazon_password", "card", "otp_url", "profile_name"} else
                            (20 if col == 0 else 8, 20 if col == 1 else 8),
-                      pady=(0, 13))
+                      pady=(0, 10))
             self._label(cell, label, 16, color=INK,
                         weight="bold").pack(anchor="w", pady=(0, 5))
             entry = Entry(
-                cell, width=115, height=42, corner_radius=8, border_color=FIELD_BORDER,
+                cell, width=115, height=36, corner_radius=8, border_color=FIELD_BORDER,
                 fg_color=INPUT, text_color=INK, placeholder_text_color=PLACEHOLDER,
                 font=ctk.CTkFont("Segoe UI", 17),
                 show="•" if _secret else "",
@@ -438,21 +459,18 @@ class Window:
         )
         self.attach_profile_button.grid(row=17, column=0, columnspan=2,
                                    sticky="ew", padx=20, pady=(0, 17))
-        self.single_account_heading = self._label(
-            detail_card, "Dán hàng Amazon · Máy 1", 16,
-            color=INK, weight="bold")
-        self.single_account_heading.grid(
-            row=6, column=0, columnspan=2, sticky="w", padx=20)
+        self.single_account_heading = section_heading(
+            "Dán hàng Amazon · Máy 1", 6, "clipboard-paste")
         self.single_account_line = Entry(
             detail_card, placeholder_text="SĐT | MK | Tên | Thẻ | URL OTP",
-            height=42, corner_radius=8, border_color=FIELD_BORDER,
+            height=36, corner_radius=8, border_color=FIELD_BORDER,
             fg_color=INPUT, text_color=INK, placeholder_text_color=PLACEHOLDER,
             font=ctk.CTkFont("Segoe UI", 17), show="•")
         self.single_account_line.grid(row=7, column=0, columnspan=2,
                                       sticky="ew", padx=20, pady=(5, 8))
         self.single_account_line.bind("<Return>", lambda _: self._apply_single_account_line())
         self.apply_single_account_button = Button(
-            detail_card, text="Điền dữ liệu", icon_name="arrow-down-to-line", width=115, height=38,
+            detail_card, text="Điền dữ liệu", icon_name="arrow-down-to-line", width=115, height=34,
             fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, text_color_disabled=MUTED,
             border_color=FIELD_BORDER, border_width=1,
@@ -461,7 +479,7 @@ class Window:
         self.apply_single_account_button.grid(row=8, column=0, sticky="ew",
                                               padx=(20, 8), pady=(0, 10))
         self.clear_selected_button = Button(
-            detail_card, text="Xóa dữ liệu", role="danger", icon_name="trash-2", width=115, height=38,
+            detail_card, text="Xóa dữ liệu", role="danger", icon_name="trash-2", width=115, height=34,
             fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, text_color_disabled=DISABLED_TEXT,
             font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
@@ -471,19 +489,21 @@ class Window:
 
     def _build_actions(self, parent) -> None:
         action = ctk.CTkFrame(parent, fg_color=FOOTER, corner_radius=10,
-                              border_width=1, border_color=BORDER)
+                              border_width=1, border_color=FOOTER_BORDER)
         action.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        action.grid_columnconfigure((0, 1, 2), weight=1, uniform="batch_actions")
+        action.grid_columnconfigure(4, weight=1)
         self.run_button = Button(
-            action, text="Chạy 1 máy", role="primary", icon_name="play", width=170, height=42,
+            action, text="Chạy 1 máy", role="run", icon_name="play", width=150, height=48,
             corner_radius=10, fg_color=CONTINUE_BG, hover_color=CONTINUE_HOVER,
             border_width=1, border_color=FIELD_BORDER,
             text_color=INK, text_color_disabled=DISABLED_TEXT,
             font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
             command=self._start,
         )
-        self.run_button.pack(side="left", padx=(12, 0), pady=8)
+        self.run_button.grid(row=0, column=0, sticky="ew", padx=(16, 8), pady=12)
         self.stop_button = Button(
-            action, text="Dừng cả mẻ", role="stop", icon_name="square", width=145, height=42,
+            action, text="Dừng cả mẻ", role="batch-stop", icon_name="square", width=140, height=48,
             corner_radius=9, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, text_color_disabled=DISABLED_TEXT,
             border_color=FIELD_BORDER, border_width=1,
@@ -491,20 +511,26 @@ class Window:
             state="disabled",
             command=self._request_stop,
         )
-        self.stop_button.pack(side="left", padx=9)
+        self.stop_button.grid(row=0, column=1, sticky="ew", padx=8, pady=12)
         self.reset_button = Button(
-            action, text="Mẻ mới", icon_name="refresh-cw", width=125, height=42,
+            action, text="Mẻ mới", role="footer-secondary", icon_name="refresh-cw", width=130, height=48,
             corner_radius=9, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, text_color_disabled=DISABLED_TEXT,
             border_color=FIELD_BORDER, border_width=1,
             font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
             command=self._reset,
         )
-        self.reset_button.pack(side="left")
-        self.run_note = FooterNote(action, text="Sẵn sàng nhập liệu",
-                                   text_color=MUTED, font=ui_font(14),
-                                   wraplength=260, justify="right")
-        self.run_note.pack(side="right", padx=15)
+        self.reset_button.grid(row=0, column=2, sticky="ew", padx=8, pady=12)
+        ctk.CTkFrame(action, width=1, height=34, fg_color=HEADER_BORDER).grid(
+            row=0, column=3, padx=16)
+        activity = ctk.CTkFrame(action, fg_color="transparent")
+        activity.grid(row=0, column=4, sticky="e", padx=(0, 18), pady=10)
+        self.activity_marker = self._label(activity, "●", 18, color=MUTED, width=18)
+        self.activity_marker.pack(side="left", padx=(0, 8))
+        self.run_note = FooterNote(activity, text="Sẵn sàng nhập liệu",
+                                   text_color=FOOTER_TEXT, font=ui_font(14),
+                                   wraplength=220, justify="right")
+        self.run_note.pack(side="left")
 
     def _show_preview_table(self) -> None:
         self.main._cancel_scroll()
@@ -558,8 +584,19 @@ class Window:
         message, state = self.status[self.selected]
         color, background, symbol = state_style(state)
         self._configure_display(self.detail_status, text=status_title(state), text_color=color)
+        if hasattr(self, "detail_profile_label"):
+            self._configure_display(self.detail_profile_label,
+                text=self.values[self.selected]["profile_name"].get())
         if hasattr(self, "detail_description"):
-            self._configure_display(self.detail_description, text=message, text_color=MUTED)
+            self._configure_display(self.detail_description,
+                                    text="" if message.strip() == status_title(state) else message,
+                                    text_color=PROGRESS_TEXT if color == PROCESSING else BODY,
+                                    font=self._progress_detail_font if color == PROCESSING
+                                         else self._secondary_detail_font)
+            if message.strip() == status_title(state):
+                self.detail_description.pack_forget()
+            elif not self.detail_description.winfo_manager():
+                self.detail_description.pack(fill="x", pady=(2, 0))
         if hasattr(self, "status_marker"):
             self._configure_display(self.status_marker, image=icon(symbol, color, ICON_STATUS))
             self._configure_display(self.progress_row, fg_color="transparent")
@@ -579,31 +616,30 @@ class Window:
                              border_width=1, border_color=BORDER)
         self.preview_table = table
         table.grid(row=1, column=0, sticky="ew")
-        for col, weight in enumerate((1, 3, 4, 1)):
-            table.grid_columnconfigure(col, weight=weight)
-        self.table_title = self._label(table, "Máy trong mẻ: 1/12", 20,
+        table.grid_columnconfigure(1, weight=1)
+        self.table_title = self._label(table, "Danh sách điện thoại", 20,
                                        color=INK, weight="bold",
                                        image=icon("list", ICON_DEFAULT, 18, gap=6),
                                        compound="left")
         self.table_title.grid(row=0, column=0, columnspan=2,
-                              sticky="w", padx=16, pady=(12, 0))
-        self._label(table, "Chọn hàng để xem và sửa", 14).grid(
-            row=0, column=2, columnspan=2, sticky="e", padx=20,
-            pady=(12, 0))
-        headings = ("MÁY", "AMAZON", "TRẠNG THÁI", "THAO TÁC")
-        keys = ("machine", "account", "status")
-        heading_band = tk.Frame(table, bg=TABLE_HEADER, borderwidth=0)
-        heading_band.grid(row=1, column=0, columnspan=4, sticky="nsew", padx=1)
-        for col, heading in enumerate(headings):
-            self._label(table, heading, 14, color=TABLE_HEADER_TEXT,
-                        anchor="w", fg_color=TABLE_HEADER, bg_color=TABLE_HEADER).grid(
-                            row=1, column=col, sticky="ew",
-                            padx=(20 if col == 0 else 6, 12 if col == 3 else 6),
-                            pady=(7, 5))
+                              sticky="w", padx=20, pady=(14, 12))
+        self.table_count = self._label(table, "01 / 12", 17,
+            color=UTILITY_TEXT, fg_color=HEADER_CONTROL, corner_radius=8,
+            width=78, height=30)
+        self.table_count.configure(font=ui_font(17, "semibold"))
+        self.table_count.grid(row=0, column=2, sticky="e", padx=20, pady=(14, 12))
+        keys = ("machine", "status")
+        self.table_stripes = []
         for index in range(MAX_PROFILES):
-            band = tk.Frame(table, bg=SURFACE, borderwidth=0)
-            band.grid(row=index + 2, column=0, columnspan=4, sticky="nsew", padx=1)
+            band = ctk.CTkFrame(table, fg_color=ROW_ALT, border_color=ROW_BORDER,
+                                 border_width=1, corner_radius=8, width=0, height=0)
+            band.grid(row=index + 1, column=0, columnspan=3, sticky="nsew",
+                      padx=16, pady=4)
             self.table_bands.append(band)
+            stripe = ctk.CTkFrame(band, fg_color=ROW_SELECTED_BORDER,
+                                  corner_radius=2, width=4)
+            stripe.place(relx=0, rely=.12, relheight=.76, x=1)
+            self.table_stripes.append(stripe)
             band.bind("<Button-1>", lambda _event, i=index: self._select(i))
             band.bind("<Enter>", lambda _event, i=index: self._hover_table_row(i))
             band.bind("<Leave>", lambda _event: self._hover_table_row(None))
@@ -614,17 +650,9 @@ class Window:
                 if key == "status":
                     label = StatusCell(table, bg=SURFACE)
                 else:
-                    font = ui_font(16, "semibold" if key == "machine" else "normal")
-                    self._table_fonts.append(font)
-                    label = TableText(
-                        table, text="", bg=SURFACE, fg=BODY, font=font,
-                        anchor="w", justify="left", padx=6, pady=4,
-                        wraplength={"machine": 68, "proxy": 135,
-                                    "account": 170}[key],
-                        bd=0, highlightthickness=0)
-                label.grid(row=index + 2, column=col, sticky="ew",
-                           padx=(12 if col == 0 else 3, 4),
-                           pady=1)
+                    label = MachineCell(table, bg=SURFACE)
+                label.grid(row=index + 1, column=col, sticky="ew",
+                           padx=(30 if col == 0 else 12, 6), pady=12)
                 label.bind("<Button-1>", lambda _event, i=index: self._select(i))
                 label.bind("<Enter>", lambda _event, i=index: self._hover_table_row(i))
                 label.bind("<Leave>", lambda _event: self._hover_table_row(None))
@@ -632,30 +660,29 @@ class Window:
             self.table_rows.append(cells)
             actions = ctk.CTkFrame(table, fg_color="transparent")
             self.table_actions.append(actions)
-            actions.grid(row=index + 2, column=3, sticky="ew", padx=(3, 10), pady=1)
+            actions.grid(row=index + 1, column=2, sticky="e", padx=(8, 26), pady=12)
             button = Button(
-                actions, text="Tiếp tục", icon_name="circle-play", width=95, height=32, corner_radius=7,
+                actions, text="Tiếp tục", role="continue", icon_name="play", width=96, height=38, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=INK, text_color_disabled=DISABLED_TEXT,
                 border_width=1, border_color=FIELD_BORDER,
                 font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
                 command=lambda i=index: self._continue_profile(i),
             )
-            button.pack(fill="x", pady=(0, 4))
+            button.pack(side="left", padx=(0, 8))
             self.row_buttons.append(button)
             stop_button = Button(
-                actions, text="Dừng", role="stop", icon_name="square", width=95, height=32, corner_radius=7,
+                actions, text="Dừng", role="stop", icon_name="square", width=82, height=38, corner_radius=8,
                 fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
                 text_color=INK, text_color_disabled=DISABLED_TEXT,
                 border_width=1, border_color=FIELD_BORDER,
                 font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
                 state="disabled", command=lambda i=index: self._request_stop_phone(i),
             )
-            stop_button.pack(fill="x")
+            stop_button.pack(side="left")
             self.row_stop_buttons.append(stop_button)
-            tk.Frame(band, bg=BORDER, height=1).pack(side="bottom", fill="x")
         ctk.CTkFrame(table, fg_color="transparent", height=5).grid(
-            row=MAX_PROFILES + 2, column=0, columnspan=4)
+            row=MAX_PROFILES + 1, column=0, columnspan=3, pady=(0, 10))
 
     def _hover_table_row(self, index) -> None:
         self._table_hover = index
@@ -663,14 +690,14 @@ class Window:
 
     def _fit_table_columns(self, _event=None) -> None:
         width = self.main._parent_canvas.winfo_width() / self.main._get_widget_scaling()
-        compact = width < 640
-        status_wrap = max(150, min(360, width - 415))
+        compact = width < 650
+        identity_wrap = 135 if compact else min(210, round(width * .28))
+        status_wrap = max(130, min(420, width - identity_wrap - 305))
         layout = (compact, round(status_wrap))
         if getattr(self, "_dense_table", None) == layout:
             return
         self._dense_table = layout
-        wraps = ({"machine": 56, "account": 145, "status": status_wrap}
-                 if compact else {"machine": 68, "account": 170, "status": status_wrap})
+        wraps = {"machine": identity_wrap, "status": status_wrap}
         for cells in self.table_rows:
             for key, cell in cells.items():
                 cell.set_wrap(wraps[key])
@@ -681,9 +708,10 @@ class Window:
         if getattr(self, "_detail_wrap", None) == width:
             return
         self._detail_wrap = width
-        for widget in (self.proxy_paste_hint, self.proxy_paste_heading,
-                       self.account_detail_heading, self.single_account_heading):
-            widget.configure(wraplength=width, justify="left", anchor="w")
+        self.proxy_paste_hint.configure(wraplength=width, justify="left", anchor="w")
+        for widget in (self.proxy_paste_heading, self.account_detail_heading,
+                       self.single_account_heading):
+            widget.configure(wraplength=max(160, width - 28), justify="left", anchor="w")
         for widget in (self.detail_status, self.detail_description):
             widget.configure(wraplength=max(160, width - 28))
 
@@ -706,7 +734,7 @@ class Window:
         entry.bind("<Return>", lambda _event, k=kind: self._apply_bulk(k))
         self.bulk_boxes[kind] = entry
         Button(
-            parent, text="Dán clipboard", icon_name="clipboard-paste", width=116, height=42,
+            parent, text="Dán clipboard", role="import", icon_name="clipboard-paste", width=116, height=42,
             corner_radius=8, fg_color=SECONDARY, hover_color=SECONDARY_HOVER,
             text_color=INK, border_width=1, border_color=FIELD_BORDER,
             font=ctk.CTkFont("Segoe UI", 16, weight="bold"),
@@ -1044,7 +1072,9 @@ class Window:
             validation = f"✓ {active} máy đã phân bổ đúng · thông tin Amazon chưa nhập vào app"
         self.validation_label.configure(
             text=validation,
-            text_color=RED if issue else GREEN if not self.draft.locked else MUTED,
+            text_color=(RED if self.registry_error else MUTED if not self.draft.locked and
+                        not self.draft.proxy_count and not self.draft.account_count else
+                        RED if issue else GREEN if not self.draft.locked else MUTED),
         )
         self.run_button.configure(
             text=f"Chạy {active} máy",
@@ -1053,7 +1083,12 @@ class Window:
             text_color=INK,
         )
         self.stop_button.configure(state="normal" if self.running or post_busy else "disabled")
-        self._configure_display(self.table_title, text=f"Máy trong mẻ: {active}/12")
+        if hasattr(self, "activity_marker"):
+            self._configure_display(self.activity_marker,
+                text_color=GREEN if self.running or post_busy else MUTED)
+        self._configure_display(self.table_title, text="Danh sách điện thoại")
+        if hasattr(self, "table_count"):
+            self._configure_display(self.table_count, text=f"{active:02} / 12")
         self._refresh_selected_progress()
         self.reset_button.configure(state="disabled" if (self.running or post_busy or
                                     self.attach_in_progress) and not self.cancel.is_set() else "normal")
@@ -1095,12 +1130,13 @@ class Window:
             return self.registry_error
         if self.draft.locked and self.jobs:
             return ""
+        mode = getattr(self, "settings", AppSettings()).account_flow_mode
         active = int(self.count.get())
         if self.draft.proxy_count and self.draft.proxy_count < active:
             return f"Cần ít nhất {active} proxy; hiện có {self.draft.proxy_count}"
-        if self.draft.account_count == 0:
+        if mode != CHANGE_US_FROM_START and self.draft.account_count == 0:
             return "Chưa có hàng Amazon nào; dán đủ thông tin cho mọi máy trước khi Chạy mẻ"
-        if self.draft.account_count != active:
+        if mode != CHANGE_US_FROM_START and self.draft.account_count != active:
             return f"Thông tin Amazon có {self.draft.account_count} hàng, cần {active}"
         for index in range(active):
             row = self.values[index]
@@ -1113,6 +1149,8 @@ class Window:
                             row["proxy_password"].get())
             except (ToolError, ValueError) as exc:
                 return f"Máy {index + 1}: {exc}"
+        if mode == CHANGE_US_FROM_START:
+            return ""
         required_account_keys = ("phone", "amazon_password", "full_name", "otp_url")
         account_rows = [any(self.values[i][key].get() for key in
                             (*required_account_keys, "card"))
@@ -1129,8 +1167,8 @@ class Window:
                 if not PHONE.fullmatch(row["phone"].get().strip()):
                     return f"Máy {index + 1}: số điện thoại sai định dạng"
                 password = row["amazon_password"].get()
-                if len(password) < 8 or any(ord(c) < 33 or ord(c) > 126 for c in password):
-                    return f"Máy {index + 1}: mật khẩu cần ít nhất 8 ký tự ASCII không dấu cách"
+                if not password or any(ord(c) < 33 or ord(c) > 126 for c in password):
+                    return f"Máy {index + 1}: mật khẩu không được trống, chỉ nhận ASCII không dấu cách"
                 if len(row["full_name"].get()) > 100:
                     return f"Máy {index + 1}: tên Amazon quá dài"
                 if row["card"].get():
@@ -1150,48 +1188,32 @@ class Window:
         active = int(self.count.get())
         for index, cells in enumerate(self.table_rows):
             values = self.values[index]
-            host = values["host"].get()
-            proxy_text = (f"{host}:{values['port'].get()}" if host else
-                          "Profile đã tạo" if self.draft.locked and index in self.jobs else "—")
-            otp_url = values["otp_url"].get()
-            try:
-                url_summary = f"URL OTP …{otp_token(otp_url)[-6:]}" if otp_url else "URL OTP —"
-            except ToolError:
-                url_summary = "URL OTP sai"
-            card = values["card"].get()
-            card_summary = f"Thẻ ••••{card.split('|', 1)[0][-4:]}" if card else "Thẻ —"
-            has_account = any(values[key].get() for key in
-                              ("full_name", "phone", "amazon_password", "card", "otp_url"))
-            if has_account:
-                summary = ("MK ✓" if values["amazon_password"].get() else "MK —")
-                summary += " · " + (card_summary if card else "OTP ✓" if otp_url else "OTP —")
-                account_lines = [values["full_name"].get() or "Tên —",
-                                 values["phone"].get() or "SĐT —", summary]
-                account_text = "\n".join(account_lines)
-            else:
-                account_text = "Chưa nhập Amazon"
             run_status = self.status[index][0]
             otp_state = self.otp_status[index]
             status_text = f"{run_status}\nOTP: {otp_state}"
             items = {
-                "machine": (f"Máy {index + 1}\n{values['profile_name'].get()}"
-                            if index < active else f"Máy {index + 1}"),
-                "proxy": proxy_text[:24] + ("…" if len(proxy_text) > 24 else ""),
-                "account": account_text if index < active else "Chưa dùng trong mẻ",
+                "machine": (f"Máy {index + 1:02}\n{values['profile_name'].get()}"
+                            if index < active else f"Máy {index + 1:02}"),
                 "status": status_text if index < active else "—",
             }
             row_color = (PALE if index == self.selected else
                          ROW_HOVER if index == getattr(self, "_table_hover", None) else
-                         ROW_ALT if index % 2 else SURFACE)
+                         ROW_ALT if index < active else ROW_INACTIVE)
             if hasattr(self, "table_bands"):
-                self._configure_display(self.table_bands[index], bg=row_color)
+                self._configure_display(self.table_bands[index], fg_color=row_color,
+                    border_color=ROW_SELECTED_BORDER if index == self.selected else ROW_BORDER,
+                    border_width=2 if index == self.selected else 1)
                 self._configure_display(self.table_actions[index], fg_color=row_color)
+                if hasattr(self, "table_stripes"):
+                    self._configure_display(self.table_stripes[index],
+                        fg_color=ROW_SELECTED_BORDER if index == self.selected else ROW_BORDER)
             color, _background, symbol = state_style(self.status[index][1])
             for key, cell in cells.items():
                 if isinstance(cell, StatusCell):
                     self._configure_display(cell, text=items[key],
                         title=status_title(self.status[index][1]) if index < active else "—",
-                        bg=row_color, fg=color if index < active else MUTED)
+                        bg=row_color, fg=color if index < active else MUTED,
+                        symbol=symbol if index < active else "clock")
                     continue
                 self._configure_display(
                     cell,
@@ -1211,7 +1233,7 @@ class Window:
             self.proxy_line.delete(0, "end")
         for key, entry in self.detail_entries.items():
             entry.configure(textvariable=self.values[index][key])
-        self.detail_title.configure(text=f"Máy {index + 1}")
+        self.detail_title.configure(text=f"Máy {index + 1:02}")
         self.account_detail_heading.configure(
             text=f"Thông tin Amazon riêng · Máy {index + 1}")
         self.single_account_heading.configure(text=f"Dán hàng Amazon · Máy {index + 1}")
@@ -1430,13 +1452,22 @@ class Window:
         self._label(card, "Các điện thoại Running vẫn hiện bình thường.",
                     12, color=MUTED).pack(anchor="w", padx=22)
         login_mode = tk.BooleanVar(value=self.settings.account_flow_mode == "login")
+        change_us_mode = tk.BooleanVar(
+            value=self.settings.account_flow_mode == CHANGE_US_FROM_START)
         address_card = tk.BooleanVar(value=self.settings.login_followup == "address_and_card")
         card_only = tk.BooleanVar(value=self.settings.login_followup == "card_only")
+
+        def select_login() -> None:
+            if login_mode.get():
+                change_us_mode.set(False)
+            else:
+                address_card.set(False)
+                card_only.set(False)
+
         ctk.CTkSwitch(
-            card, text="Đăng nhập Amazon (tắt = Tạo tài khoản)",
+            card, text="Đăng nhập Amazon",
             variable=login_mode, onvalue=True, offvalue=False,
-            command=lambda: (address_card.set(False), card_only.set(False))
-            if not login_mode.get() else None,
+            command=select_login,
             text_color=BODY, fg_color=BORDER,
             progress_color=BLUE, button_color=WHITE,
             font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
@@ -1446,6 +1477,7 @@ class Window:
             if selected.get():
                 other.set(False)
                 login_mode.set(True)
+                change_us_mode.set(False)
 
         ctk.CTkSwitch(
             card, text="Đăng nhập · thêm địa chỉ rồi thẻ",
@@ -1463,6 +1495,23 @@ class Window:
             progress_color=BLUE, button_color=WHITE,
             font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
         ).pack(anchor="w", padx=22, pady=(10, 3))
+
+        def select_change_us() -> None:
+            if change_us_mode.get():
+                login_mode.set(False)
+                address_card.set(False)
+                card_only.set(False)
+
+        ctk.CTkSwitch(
+            card, text="Đổi US từ đầu · b1–b17",
+            variable=change_us_mode, onvalue=True, offvalue=False,
+            command=select_change_us,
+            text_color=BODY, fg_color=BORDER,
+            progress_color=BLUE, button_color=WHITE,
+            font=ctk.CTkFont("Segoe UI", 13, weight="normal"),
+        ).pack(anchor="w", padx=22, pady=(14, 3))
+        self._label(card, "Tắt cả Đăng nhập và Đổi US: Tạo tài khoản.",
+                    12, color=MUTED).pack(anchor="w", padx=22)
         self._label(card, "Áp dụng cho các máy bắt đầu luồng Amazon sau khi lưu.",
                     12, color=MUTED).pack(anchor="w", padx=22)
 
@@ -1473,15 +1522,18 @@ class Window:
             try:
                 followup = ("address_and_card" if address_card.get() else
                             "card_only" if card_only.get() else "none")
+                flow_mode = (CHANGE_US_FROM_START if change_us_mode.get() else
+                             "login" if login_mode.get() else "create")
                 updated = AppSettings(int(group_size.get()), hide_creation.get(),
-                                      "login" if login_mode.get() else "create", followup)
+                                      flow_mode, followup)
                 save_settings(updated)
             except (ToolError, OSError, ValueError) as exc:
                 messagebox.showerror("Không lưu được Settings", str(exc))
                 return
             self.settings = updated
             dialog.destroy()
-            mode_label = ("Đăng nhập + địa chỉ + thẻ" if updated.login_followup == "address_and_card"
+            mode_label = ("Đổi US từ đầu · b1–b17" if updated.account_flow_mode == CHANGE_US_FROM_START
+                          else "Đăng nhập + địa chỉ + thẻ" if updated.login_followup == "address_and_card"
                           else "Đăng nhập + thẻ" if updated.login_followup == "card_only"
                           else "Đăng nhập" if updated.account_flow_mode == "login"
                           else "Tạo tài khoản")
@@ -1564,7 +1616,8 @@ class Window:
                 self._refresh_devices()
                 return
             if session.state == "PAUSED":
-                if (session.last_error.startswith("b11 nhập OTP:") and
+                if (session.last_error.startswith(("b11 nhập OTP:",
+                                                   "b14 lấy và nhập OTP:")) and
                         "Không đọc được OTP bằng trình duyệt" in session.last_error):
                     if not self._read_browser_otp(index):
                         return
@@ -1779,8 +1832,8 @@ class Window:
             raise ToolError(f"{label}: SĐT chưa hợp lệ")
         if not name or len(name) > 100:
             raise ToolError(f"{label}: tên Amazon chưa hợp lệ")
-        if len(password) < 8 or any(ord(c) < 33 or ord(c) > 126 for c in password):
-            raise ToolError(f"{label}: mật khẩu cần ít nhất 8 ký tự ASCII không dấu cách")
+        if not password or any(ord(c) < 33 or ord(c) > 126 for c in password):
+            raise ToolError(f"{label}: mật khẩu không được trống, chỉ nhận ASCII không dấu cách")
         url = validate_otp_url(row["otp_url"].get())
         card = validate_card(row["card"].get()) if row["card"].get() else ""
         return AccountData(phone, name, password, url, card)
@@ -1828,8 +1881,14 @@ class Window:
 
     def _start_post_menu(self, index: int) -> None:
         """Start this phone's post-menu steps after its Amazon menu opens."""
+        existing_session = self.post_menu_sessions.get(index)
+        mode = (existing_session.registration.flow_mode
+                if existing_session is not None and
+                existing_session.registration.flow_mode != "auto"
+                else getattr(self, "settings", AppSettings()).account_flow_mode)
+        change_us_mode = mode == CHANGE_US_FROM_START
         factory = self.post_menu_step_factories.get(index)
-        if factory is None:
+        if factory is None and not change_us_mode:
             name = f"q{index + 1}"
             self.events.put((index,
                              f"{name} đã tới menu; chưa có hướng dẫn b1–b3 riêng nên chưa thể nối luồng chung b4–b11",
@@ -1841,7 +1900,7 @@ class Window:
             return
         job = self.jobs.get(index)
         serial = self.phone_serials.get(index)
-        if job is None or job.account is None:
+        if job is None or (job.account is None and not change_us_mode):
             self.events.put((index,
                              f"q{index + 1} đã tới menu nhưng chưa có hàng Amazon trong mẻ",
                              "menu_only", f"q{index + 1}"))
@@ -1859,7 +1918,7 @@ class Window:
         if prefix and session.registration.create_address_prefix is None:
             session.registration.create_address_proxy_prefix = prefix
         if session.state == "READY" and session.attempts == 0:
-            session.registration.flow_mode = self.settings.account_flow_mode
+            session.registration.flow_mode = mode
             session.registration.login_followup = self.settings.login_followup
         if session.state not in {"READY", "PAUSED"}:
             return
@@ -1869,14 +1928,20 @@ class Window:
             return
         steps = self.post_menu_steps.get(index)
         if steps is None or session.bound_serial != serial:
-            steps = factory(
+            steps = (build_change_us_steps(
+                CloudPhone(serial), session.registration,
+                lambda code, batch_id=job.batch_id, slot=index, output=self.otp_events:
+                    output.put((batch_id, slot, code)),
+                lambda status, batch_id=job.batch_id, slot=index, output=self.otp_status_events:
+                    output.put((batch_id, slot, status)))
+                     if change_us_mode else factory(
                 CloudPhone(serial),
                 lambda code, batch_id=job.batch_id, slot=index, output=self.otp_events:
                     output.put((batch_id, slot, code)),
                 lambda status, batch_id=job.batch_id, slot=index, output=self.otp_status_events:
                     output.put((batch_id, slot, status)),
                 session.registration,
-            )
+            ))
             self.post_menu_steps[index] = steps
             session.bound_serial = serial
         stop = threading.Event()
@@ -1908,6 +1973,8 @@ class Window:
             "after_step": self.phone_stop_after_step.setdefault(job.index, threading.Event())}
         try:
             def route(current, active_job, deadline, active_stop):
+                if session.registration.flow_mode == CHANGE_US_FROM_START:
+                    return None
                 if context["factories"].get(active_job.index) is build_random_steps:
                     return None  # The random prefix also runs on list menus.
                 phone = CloudPhone(context["serials"][active_job.index])
@@ -1941,7 +2008,8 @@ class Window:
                 session.run(job, steps,
                             lambda index, message, state, name:
                                 context["events"].put((index, message, state, name)),
-                            stop, reconcile=reconcile, route=route,
+                            stop, reconcile=(None if session.registration.flow_mode == CHANGE_US_FROM_START
+                                             else reconcile), route=route,
                             stop_after_step=context.get("after_step"))
         finally:
             pythoncom.CoUninitialize()

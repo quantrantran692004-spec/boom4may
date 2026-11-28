@@ -4,7 +4,7 @@ Graphify hiện không trích xuất nội dung pixel của PNG do thiếu backe
 
 ## amazon_android/assets/obsidian_prism.png
 
-1717 × 916 px. Tài nguyên ảnh của giao diện tool, được `desktop.py` nạp vào khung đầu trang.
+1717 × 916 px. Tài nguyên khung đầu trang cũ; header hiện tại dùng icon và Canvas tĩnh thay ảnh này.
 
 ## amazon_android/assets/swarmote_tool_square.png và swarmote_tool.ico
 
@@ -12,13 +12,13 @@ Icon ứng dụng nền xanh đậm, lăng kính tím sáng, vuông 1254 × 1254
 
 ## amazon_android/assets/icons/
 
-28 icon Lucide 0.468.0 từ kho chính thức `lucide-icons/lucide`, có SVG gốc và PNG alpha 96×96 tương thích CustomTkinter. V3 chỉnh nét SVG thành 1,75 px và thêm `list`; `LICENSE` giữ giấy phép và ghi công. `desktop_theme.py` tô màu PNG theo design tokens rồi hiển thị ở 14–20 px; không dùng emoji và không cần tải icon khi chạy. Nhóm gồm smartphone, settings, list, layout-list, clipboard-list, globe, user-round, clipboard-paste, phone, key-round, credit-card, shield-check, link, copy, activity, sliders-horizontal, play, circle-play, square, refresh-cw, lock-keyhole, arrow-down-to-line, trash-2, circle-check, loader-circle, clock, circle-alert và chevron-down. Tk dùng chevron vector sẵn có của OptionMenu; các icon không đủ chỗ trên nhãn hẹp được giữ trong bộ tài nguyên mà không ép vào giao diện.
+29 icon Lucide 0.468.0 từ kho chính thức `lucide-icons/lucide`, có SVG gốc và PNG alpha 96×96 tương thích CustomTkinter. V3 chỉnh nét SVG thành 1,75 px, thêm `list` và `layers-2`; `LICENSE` giữ giấy phép và ghi công. `desktop_theme.py` tô màu PNG theo design tokens rồi hiển thị ở 14–24 px; không dùng emoji và không cần tải icon khi chạy. Nhóm gồm layers-2, smartphone, settings, list, layout-list, clipboard-list, globe, user-round, clipboard-paste, phone, key-round, credit-card, shield-check, link, copy, activity, sliders-horizontal, play, circle-play, square, refresh-cw, lock-keyhole, arrow-down-to-line, trash-2, circle-check, loader-circle, clock, circle-alert và chevron-down. Tk dùng chevron vector sẵn có của OptionMenu; các icon không đủ chỗ trên nhãn hẹp được giữ trong bộ tài nguyên mà không ép vào giao diện.
 
 ## assets/ui_history/v3_before.png, v3_after.png và v3_final.png
 
 Ảnh Tk trước/sau V3 ở cùng kích thước 1460×750 px, scale 125%, cùng 12 hàng dữ liệu giả. Dùng để kiểm tra màu, phân cấp chữ, mật độ và trạng thái; không phải bằng chứng hoạt động của máy thật. Tự đánh giá và giới hạn trong DESIGN.md.
 
-Ảnh `v3_final.png` cập nhật sau yêu cầu mở to hơn nữa và cuộn mượt: phần nội dung 1504×760 px sau khi giới hạn theo màn hình kiểm tra 1536×864; trên Full HD mốc mở mới là 1840×960 px. Giữ nguyên proxy bên phải, bảng không có cột Proxy. Dữ liệu hoàn toàn giả.
+Ảnh `v3_final.png` cập nhật theo mẫu 9591314d: thẻ máy tách riêng, Tiếp tục/Dừng ngang, tiến độ đậm, nền trắng/ngọc và footer nhẹ. Cửa sổ gần kín màn hình: phần nội dung 1504×760 px trên màn kiểm tra 1536×864, mốc Full HD 1840×960 đã chốt ngày 27/11/2026. Proxy và đầy đủ dữ liệu sửa nằm ở phải; danh sách trái chỉ giữ Máy/Profile–Tiến độ–Thao tác. `v3_reference_layout.png` là cỡ đối chiếu 1616×972, không dùng làm mặc định; `v3_reference_ready.png` cho thấy nút Chạy khả dụng. `v3_contrast_before.png` giữ mốc 4667831 trước đợt sửa cùng dữ liệu thử. Các ảnh đều dùng dữ liệu giả, không chụp phiên thật.
 
 ## assets/ui_history/reset_check.png
 
@@ -49,6 +49,8 @@ trình bày trước khi đưa thông tin Amazon lên đầu khung chi tiết.
 Ảnh `flow_images/shared/b6_bottom_stalled_18nov.png` ghi danh sách mã điện thoại tại đáy Uruguay–Åland; đối chiếu thao tác vuốt ngược trong IMAGE_EVIDENCE.md.
 
 Ảnh q1/q2, menu chung và 14 ảnh menu ngẫu nhiên mới nằm trong `flow_images/` và được lập danh mục trong [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md). Bảy ảnh gốc b16–b22 ngày 18/11 nằm trong `flow_images/shared/marketplace_us/`, dùng chung hai luồng để đổi marketplace sang United States rồi mở tab hình người. Các bước cũng được chép thành văn bản trong `STEP_INVENTORY.md`, `MENU_ROUTING.md`, `Q1_FLOW.md`, `Q2_FLOW.md`; Graphify chưa đọc nội dung pixel của ảnh. Hai ảnh báo lỗi/trước b16 thêm ngày 18/11 nằm cùng thư mục, tên `08_b16_menu_before_account.png` và `09_b16_focus_error.png`. Bốn ảnh bổ sung 10–13 cùng thư mục ghi lỗi b16/b17 và màn tìm kiếm có bàn phím; ảnh 14 là cận cảnh nút EN cho b17; xem IMAGE_EVIDENCE.md để phân biệt màn thật với thông báo của tool.
+
+Luồng Settings “Đổi US từ đầu” có ba ảnh cận cảnh b2–b4, ảnh hộp Google tiếng Anh b16, crop biểu tượng hình người và chín ảnh gốc b8–b17 tại `flow_images/shared/change_us_from_start/`. Chín ảnh sau được lưu nguyên bản theo yêu cầu người dùng, có SĐT/tên/OTP trong pixel; ánh xạ từng bước ở [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md). Graphify chỉ lập chỉ mục file, không đọc nội dung pixel.
 
 Ảnh trạng thái Máy 4 phục hồi lần 45 nằm cùng nhóm b1–b3 ở `flow_images/shared/random_prefix_reference/15_q4_prefix_read_recovery.png`; diễn giải và giới hạn bằng chứng trong [IMAGE_EVIDENCE.md](IMAGE_EVIDENCE.md). Ảnh 16_q1_lens_camera_permission.png và 17_b15_browse_recovery_error.png trong cùng thư mục ghi lỗi chọn camera ở b13–b15 và không trở lại Browse.
 

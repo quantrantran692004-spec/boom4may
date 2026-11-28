@@ -21,11 +21,21 @@ CARD = re.compile(
 PROXY_TOKEN = re.compile(r"(?<!\S)[^\s|:,]+:\d{1,5}:[^\s|:,]+:[^\s|:,]+(?!\S)")
 
 
+def _markdown_cell_text(cell: str) -> str:
+    """Remove whole-cell bold markup without changing the contained value."""
+    for marker in ("**", "__"):
+        if cell.startswith(marker) and cell.endswith(marker):
+            value = cell[2:-2]
+            if value and not value[0].isspace() and not value[-1].isspace():
+                return value
+    return cell
+
+
 def _table_cells(line: str) -> list[str]:
     """Split Markdown columns without treating escaped pipes as separators."""
     if line.startswith("|") and line.endswith("|"):
         body = line[1:-1]
-        return [cell.strip().replace(r"\|", "|")
+        return [_markdown_cell_text(cell.strip().replace(r"\|", "|"))
                 for cell in re.split(r"(?<!\\)\|", body)]
     if "\t" in line:
         return [cell.strip() for cell in line.split("\t")]
@@ -37,6 +47,7 @@ def _url_from_cell(cell: str) -> str:
     match = MARKDOWN_LINK.fullmatch(cell)
     if match:
         label, url = match.groups()
+        label = _markdown_cell_text(label)
         if label.startswith(("http://", "https://")) and label != url:
             raise ToolError("Chữ và đích của link URL OTP không khớp")
         cell = url
@@ -131,8 +142,8 @@ def parse_records(text: str, *, three_columns_only: bool = False,
             raise ToolError(f"Bảng dòng {index}: tên Profile không hợp lệ")
         if not PHONE.fullmatch(phone):
             raise ToolError(f"Bảng dòng {index}: số điện thoại không hợp lệ")
-        if len(password) < 8 or any(ord(c) < 33 or ord(c) > 126 for c in password):
-            raise ToolError(f"Bảng dòng {index}: mật khẩu cần ít nhất 8 ký tự ASCII, không có dấu cách")
+        if not password or any(ord(c) < 33 or ord(c) > 126 for c in password):
+            raise ToolError(f"Bảng dòng {index}: mật khẩu không được trống, chỉ nhận ASCII không dấu cách")
         if not name or len(name) > 100:
             raise ToolError(f"Bảng dòng {index}: tên Amazon không hợp lệ")
         if account_table:

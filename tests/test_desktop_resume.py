@@ -5,11 +5,68 @@ import threading
 from unittest.mock import Mock, patch
 
 from amazon_android.desktop import Window, _automatic_resume_slots
+from amazon_android.batch_state import BatchDraft
 from amazon_android.runner import AccountData, RunJob
-from amazon_android.settings import AppSettings
+from amazon_android.settings import CHANGE_US_FROM_START, AppSettings
 
 
 class DesktopResumeTests(unittest.TestCase):
+    def test_change_us_flow_accepts_proxy_rows_before_b1_guidance(self):
+        window = Window.__new__(Window)
+        window.settings = AppSettings(account_flow_mode=CHANGE_US_FROM_START)
+        window.registry = Mock()
+        window.draft = BatchDraft(proxy_count=2, account_count=0)
+        window.count = Mock(get=Mock(return_value="2"))
+        window.values = [{key: Mock(get=Mock(return_value=value)) for key, value in {
+            "host": f"proxy{i}.example", "port": "1001", "username": "user",
+            "proxy_password": "secret"}.items()} for i in range(2)]
+        self.assertEqual(window._input_issue(), "")
+        window.settings = AppSettings()
+        self.assertIn("Chưa có hàng Amazon", window._input_issue())
+
+    def test_change_us_flow_builds_separate_b1_to_b17_without_amazon_rows(self):
+        window = Window.__new__(Window)
+        window.settings = AppSettings(account_flow_mode=CHANGE_US_FROM_START)
+        window.post_menu_step_factories = {}
+        window.root = Mock()
+        window.post_menu_sessions = {}
+        window.post_menu_steps = {}
+        window.post_menu_workers = {}
+        window.post_menu_stops = {}
+        window.phone_stop_after_step = {}
+        window.post_menu_resume_after_stop = set()
+        window.otp_events = queue.Queue()
+        window.otp_status_events = queue.Queue()
+        window.cancel = threading.Event()
+        window.events = queue.Queue()
+        window.jobs = {i: RunJob(i, "batch", None) for i in range(2)}
+        window.phone_serials = {i: f"127.0.0.1:{5001 + i}" for i in range(2)}
+        window.values = [{"profile_name": Mock(get=Mock(return_value=f"q{i + 1}"))}
+                         for i in range(2)]
+        window.menu_opened_at = {}
+
+        with patch('amazon_android.desktop.threading.Thread') as thread:
+            for index in range(2):
+                window._start_post_menu(index)
+
+        first, second = window.post_menu_sessions[0], window.post_menu_sessions[1]
+        self.assertIsNot(first, second)
+        self.assertEqual((first.state, first.next_step), ("READY", 0))
+        self.assertEqual((second.state, second.next_step), ("READY", 0))
+        self.assertEqual(first.registration.flow_mode, CHANGE_US_FROM_START)
+        self.assertEqual(second.registration.flow_mode, CHANGE_US_FROM_START)
+        self.assertIsNot(window.post_menu_steps[0], window.post_menu_steps[1])
+        self.assertEqual(len(window.post_menu_steps[0]), 17)
+        self.assertEqual(len(window.post_menu_steps[1]), 17)
+        self.assertEqual(thread.call_count, 2)
+
+        window.settings = AppSettings(account_flow_mode="create")
+        with patch('amazon_android.desktop.threading.Thread'):
+            window._start_post_menu(0)
+        self.assertEqual(window.post_menu_sessions[0].registration.flow_mode,
+                         CHANGE_US_FROM_START)
+        self.assertEqual(window.post_menu_sessions[0].next_step, 0)
+
     def test_403_browser_recovery_uses_only_paused_machine_url(self):
         window = Window.__new__(Window)
         window.root = None

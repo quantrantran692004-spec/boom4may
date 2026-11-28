@@ -294,6 +294,36 @@ class BulkInputTests(unittest.TestCase):
     def test_password_whitespace_is_not_silently_changed(self):
         self.assertEqual(parse_column("password", "  value  \n"), ["  value  "])
 
+    def test_short_passwords_pass_paste_and_machine_validation_unchanged(self):
+        window = Window.__new__(Window)
+        window.registry, window.registry_error = object(), ""
+        window.draft = BatchDraft(proxy_count=1, account_count=1)
+        window.jobs, window.count = {}, Value("1")
+        values = {"host": "proxy.example", "port": "1001", "username": "user",
+                  "proxy_password": "secret", "phone": "12025550123",
+                  "full_name": "First", "amazon_password": "a", "card": "",
+                  "otp_url": "https://apifc.net/smsrecord?token=synthetic-short"}
+        window.values = [{key: Value(value) for key, value in values.items()}]
+        for size in range(1, 9):
+            password = "a" * size
+            with self.subTest(size=size):
+                window.values[0]["amazon_password"].set(password)
+                basic = f"{values['phone']},{password},First"
+                self.assertEqual(parse_records(basic)[0].password, password)
+                _, accounts = parse_bulk_payload(basic + "," + values["otp_url"])
+                self.assertEqual([row.password for row in accounts], [password])
+                self.assertEqual(window._input_issue(), "")
+                self.assertEqual(window._account_for_profile(0).password, password)
+        for password in ("", "a b", "a\tb", "mật-khẩu"):
+            with self.subTest(invalid=password):
+                window.values[0]["amazon_password"].set(password)
+                with self.assertRaises(ToolError):
+                    parse_records(f"{values['phone']},{password},First,{values['otp_url']}",
+                                  account_table=True)
+                self.assertNotEqual(window._input_issue(), "")
+                with self.assertRaises(ToolError):
+                    window._account_for_profile(0)
+
     def test_markdown_table_imports_multiple_records_and_optional_proxy(self):
         rows = parse_records(
             "| Job 1 | +84901234567 | Pass1234 | Name One | one.example:1001:u:p |\n"
@@ -373,6 +403,77 @@ class BulkInputTests(unittest.TestCase):
             self.assertEqual(item.otp_url,
                              f"https://apifc.net/smsrecord?token=synthetic{index:02d}")
             self.assertNotIn(item.card, repr(item))
+
+    def test_bulk_paste_keeps_bold_first_data_row_above_separator(self):
+        lines = []
+        expected = []
+        for index in range(3):
+            phone, password, name = f"1202555012{index}", f"Example{index}Pass!", f"Person {index}"
+            card = f"400000000000000{index}|12|2030"
+            url = f"https://apifc.net/smsrecord?token=synthetic-bold-{index}"
+            cells = [phone, password, name, "", "", "", "", "check later", "",
+                     card.replace("|", r"\|"), f"[{url}]({url})"]
+            if index == 0:
+                cells = [f"**{cell}**" if cell else "" for cell in cells]
+                cells[-1] = f"[**{url}**]({url})"
+            lines.append("| " + " | ".join(cells) + " |")
+            expected.append((f"q{index + 1}", phone, password, name, card, url))
+        lines.insert(1, "| " + " | ".join(["---:"] + ["-"] * 10) + " |")
+        pasted = "\n".join(lines)
+        proxies, accounts = parse_bulk_payload(pasted)
+        self.assertEqual(proxies, [])
+        self.assertEqual(len(accounts), 3)
+        for records in (accounts, parse_records(pasted, account_table=True)):
+            self.assertEqual([(row.profile_name, row.phone, row.password, row.full_name,
+                               row.card, row.otp_url) for row in records], expected)
+        window = Window.__new__(Window)
+        window.draft = BatchDraft()
+        window.values = [{key: Value() for key in
+                          ("phone", "amazon_password", "full_name", "card", "otp_url")}
+                         for _ in range(12)]
+        window.count = Mock()
+        window.bulk_boxes = {kind: Mock() for kind in ("proxy", "account")}
+        window.bulk_feedback = {kind: Mock() for kind in ("proxy", "account")}
+        for callback in ("_refresh_devices", "_refresh_otp_detail", "_maybe_show_preview"):
+            setattr(window, callback, Mock())
+        window.run_note = Mock()
+        window._apply_bulk_text("account", pasted)
+        self.assertEqual(window.draft.account_count, 3)
+        window.count.set.assert_called_with("3")
+        self.assertEqual([tuple(row[key].get() for key in
+                               ("phone", "amazon_password", "full_name", "card", "otp_url"))
+                          for row in window.values[:3]],
+                         [record[1:] for record in expected])
+
+    def test_markdown_bold_headers_and_whole_link_keep_first_account(self):
+        url = "https://apifc.net/smsrecord?token=synthetic-bold-link"
+        for marker in ("**", "__"):
+            with self.subTest(marker=marker):
+                rows = parse_records(
+                    f"| {marker}SĐT{marker} | Mật khẩu | Tên | URL OTP |\n"
+                    "| --- | --- | --- | --- |\n"
+                    f"| {marker}12025550123{marker} | {marker}Example456!{marker} | "
+                    f"{marker}First{marker} | {marker}[{url}]({url}){marker} |",
+                    account_table=True)
+                self.assertEqual(len(rows), 1)
+                self.assertEqual((rows[0].phone, rows[0].password, rows[0].full_name, rows[0].otp_url),
+                                 ("12025550123", "Example456!", "First", url))
+
+    def test_tab_and_csv_passwords_keep_literal_bold_markers(self):
+        url = "https://apifc.net/smsrecord?token=synthetic-literal"
+        for separator in ("\t", ","):
+            with self.subTest(separator=separator):
+                rows = parse_records(separator.join(
+                    ("12025550123", "**Example456!**", "First", url)), account_table=True)
+                self.assertEqual(rows[0].password, "**Example456!**")
+
+    def test_bold_markdown_link_label_still_rejects_mismatched_target(self):
+        label = "https://apifc.net/smsrecord?token=synthetic-label"
+        target = "https://apifc.net/smsrecord?token=synthetic-target"
+        with self.assertRaisesRegex(ToolError, "URL OTP"):
+            parse_records(
+                f"| 12025550123 | Example456! | First | [**{label}**]({target}) |",
+                account_table=True)
 
     def test_card_column_can_use_raw_pipes_and_rejects_extra_url(self):
         url = "https://apifc.net/smsrecord?token=synthetic"
