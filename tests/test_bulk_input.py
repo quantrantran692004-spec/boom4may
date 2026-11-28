@@ -365,6 +365,38 @@ class BulkInputTests(unittest.TestCase):
         self.assertEqual(window.draft.account_count, 12)
         self.assertEqual(window.count.get(), "12")
 
+    def test_columns_and_manual_otp_urls_are_ready_to_run_after_proxy_paste(self):
+        window = self.unlocked_window()
+        window.registry = object()
+        window.registry_error = ""
+        window.jobs = {}
+        window._apply_bulk_text("proxy", self.proxy_rows(1, 13))
+        for kind, prefix in (("name", "Person"), ("password", "Pass")):
+            window.root.clipboard_get.return_value = "\n".join(
+                f"{prefix}{i}" for i in range(1, 13))
+            self.assertEqual(window._paste_detail_column(kind), "break")
+        window.root.clipboard_get.return_value = "\n".join(
+            f"1202555{i:04d}" for i in range(1, 13))
+        self.assertEqual(window._paste_detail_column("phone"), "break")
+        for index, row in enumerate(window.values, start=1):
+            row["otp_url"].set(f"https://apifc.net/smsrecord?token=synthetic{index}")
+        self.assertEqual(window.count.get(), "12")
+        self.assertEqual(window.draft.account_count, 12)
+        self.assertEqual(window._input_issue(), "")
+
+    def test_manual_account_field_updates_row_count_without_touching_other_rows(self):
+        window = self.unlocked_window()
+        window._schedule_refresh = Mock()
+        window._can_edit_account_row = Mock(return_value=False)
+        window.values[7]["phone"].set("12025550008")
+        window._on_row_value_changed(7, "phone")
+        self.assertEqual(window.draft.account_count, 8)
+        self.assertEqual(window.count.get(), "8")
+        self.assertEqual(window.values[0]["phone"].get(), "")
+        window.values[7]["phone"].set("")
+        window._on_row_value_changed(7, "phone")
+        self.assertEqual(window.draft.account_count, 8)
+
     def test_cumulative_account_paste_skips_seven_matching_rows(self):
         window = self.unlocked_window()
         window._apply_bulk_text("account", self.account_rows(1, 8))
@@ -474,6 +506,7 @@ class BulkInputTests(unittest.TestCase):
                          [f"Pass{i}" for i in range(1, 13)])
         self.assertEqual([row["phone"].get() for row in window.values],
                          [f"1202555{i:04d}" for i in range(1, 13)])
+        self.assertEqual(window.draft.account_count, 12)
 
     def test_cumulative_multiline_column_skips_matching_first_seven(self):
         window = self.unlocked_window()

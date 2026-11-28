@@ -1037,6 +1037,7 @@ class Window:
             self.run_note.configure(text=str(exc), text_color=RED)
             return "break"
         slots = slots[:len(parsed)]
+        self.draft.replace("account", max(self.draft.account_count, slots[-1] + 1))
         for index, value in zip(slots, parsed):
             self.values[index][key].set(value)
         self.count.set(str(max(int(self.count.get()), slots[-1] + 1)))
@@ -1116,6 +1117,12 @@ class Window:
             self._refresh_after_id = self.root.after(40, self._delayed_refresh)
 
     def _on_row_value_changed(self, index: int, key: str) -> None:
+        if (not self.draft.locked and key in
+                {"phone", "amazon_password", "full_name", "card", "otp_url"} and
+                index >= self.draft.account_count and
+                self.values[index][key].get().strip()):
+            self.draft.replace("account", index + 1)
+            self.count.set(str(max(int(self.count.get()), index + 1)))
         can_edit = (self._can_edit_locked_row(index) if key in
                     {"host", "port", "username", "proxy_password"} else
                     self._can_edit_account_row(index))
